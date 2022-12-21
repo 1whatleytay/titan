@@ -1,8 +1,9 @@
 use std::io::Read;
-use anyhow::{anyhow, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
+use crate::elf::error::Error::{InvalidBinaryType, InvalidEndian, InvalidMagic, InvalidVersion, Requires32Bit};
+use crate::elf::error::Result;
 
 #[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
 pub enum BinaryType {
@@ -66,10 +67,8 @@ impl Header {
 
         let header = Header {
             magic: stream.read_u32::<Endian>()?,
-            binary_type: FromPrimitive::from_u8(stream.read_u8()?)
-                .ok_or_else(|| anyhow!("Invalid binary type."))?,
-            endian: FromPrimitive::from_u8(stream.read_u8()?)
-                .ok_or_else(|| anyhow!("Invalid endian value."))?,
+            binary_type: FromPrimitive::from_u8(stream.read_u8()?).ok_or(InvalidBinaryType)?,
+            endian: FromPrimitive::from_u8(stream.read_u8()?).ok_or(InvalidEndian)?,
             header_version: stream.read_u8()?,
             abi: stream.read_u8()?,
             padding: {
@@ -79,22 +78,15 @@ impl Header {
                 buffer
             },
             package: stream.read_u16::<Endian>()?,
-            cpu: FromPrimitive::from_u16(stream.read_u16::<Endian>()?)
-                .ok_or_else(|| anyhow!("Invalid version type."))?,
+            cpu: FromPrimitive::from_u16(stream.read_u16::<Endian>()?).ok_or(InvalidVersion)?,
             elf_version: stream.read_u32::<Endian>()?,
             program_entry: stream.read_u32::<Endian>()?,
         };
 
         if header.magic != MAGIC {
-            Err(anyhow!(
-                "ELF Magic is invalid, found 0x{:08x} but expected 0x{:08x}.",
-                header.magic, MAGIC
-            ))
+            Err(InvalidMagic(header.magic))
         } else if header.binary_type != BinaryType::Binary32 {
-            Err(anyhow!(
-                "32 Binary ELF is required, instead found {}",
-                header.binary_type.to_u16().unwrap()
-            ))
+            Err(Requires32Bit)
         } else {
             Ok((header, HeaderDetails::read(stream)?))
         }

@@ -1,6 +1,7 @@
-pub mod header;
 pub mod elf;
+pub mod error;
+pub mod header;
 pub mod program;
 
-pub use header::Header;
 pub use elf::Elf;
+pub use header::Header;

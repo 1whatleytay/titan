@@ -1,9 +1,9 @@
 use std::io::{Read, Seek};
 use std::io::SeekFrom::Start;
-use anyhow::Result;
 use num::range;
 use crate::elf::Header;
 use crate::elf::program::ProgramHeader;
+use crate::elf::error::Result;
 
 #[derive(Debug)]
 pub struct Elf {

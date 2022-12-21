@@ -1,5 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
+use crate::cpu::error::Error::{MemoryAlign, MemoryBoundary, MemoryUnmapped};
+use crate::cpu::error::Result;
+
 pub struct Region {
     pub start: u32,
     pub data: Vec<u8>
@@ -34,65 +37,63 @@ const INVALID_READ_16: u16 = extend_u16(INVALID_READ);
 const INVALID_READ_32: u32 = extend_u32(INVALID_READ);
 
 impl Memory {
-    pub fn get(&self, address: u32) -> u8 {
+    pub fn get(&self, address: u32) -> Result<u8> {
         for region in &self.regions {
             if region.contains(address) {
-                return region.data[(address - region.start) as usize]
+                return Ok(region.data[(address - region.start) as usize])
             }
         }
 
-        INVALID_READ
+        Err(MemoryUnmapped(address))
     }
 
-    pub fn get_u16(&self, address: u32) -> u16 {
+    pub fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
-            panic!("Address 0x{:08x} is not aligned for u16 read.", address);
+            return Err(MemoryAlign(address))
         }
 
         for region in &self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
+                let data = (&region.data[start .. start + 2]).read_u16::<Endian>();
 
-                return (&region.data[start .. start + 2])
-                    .read_u16::<Endian>()
-                    .unwrap_or(INVALID_READ_16)
+                return data.map_err(|_| MemoryBoundary(address))
             }
         }
 
-        INVALID_READ_16
+        Err(MemoryUnmapped(address))
     }
 
-    pub fn get_u32(&self, address: u32) -> u32 {
+    pub fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
-            panic!("Address 0x{:08x} is not aligned for u32 read.", address);
+            return Err(MemoryAlign(address))
         }
 
         for region in &self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
+                let data = (&region.data[start .. start + 4]).read_u32::<Endian>();
 
-                return (&region.data[start .. start + 4])
-                    .read_u32::<Endian>()
-                    .unwrap_or(INVALID_READ_32)
+                return data.map_err(|_| MemoryBoundary(address))
             }
         }
 
-        INVALID_READ_32
+        Err(MemoryBoundary(address))
     }
 
-    pub fn set(&mut self, address: u32, value: u8) {
+    pub fn set(&mut self, address: u32, value: u8) -> Result<()> {
         for region in &mut self.regions {
             if region.contains(address) {
                 region.data[(address - region.start) as usize] = value;
 
-                return
+                return Ok(())
             }
         }
 
-        panic!()
+        Err(MemoryUnmapped(address))
     }
 
-    pub fn set_u16(&mut self, address: u32, value: u16) {
+    pub fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         if address % 2 != 0 {
             panic!("Address 0x{:08x} is not aligned for u16 read.", address);
         }
@@ -105,14 +106,14 @@ impl Memory {
                     .write_u16::<Endian>(value)
                     .unwrap();
 
-                return
+                return Ok(())
             }
         }
 
-        panic!()
+        Err(MemoryUnmapped(address))
     }
 
-    pub fn set_u32(&mut self, address: u32, value: u32) {
+    pub fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         if address % 4 != 0 {
             panic!("Address 0x{:08x} is not aligned for u32 read.", address);
         }
@@ -125,11 +126,11 @@ impl Memory {
                     .write_u32::<Endian>(value)
                     .unwrap();
 
-                return
+                return Ok(())
             }
         }
 
-        panic!()
+        Err(MemoryUnmapped(address))
     }
 
     pub fn mount(&mut self, region: Region) {

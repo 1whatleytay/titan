@@ -1,10 +1,11 @@
 use std::io::{Read, Seek};
 use std::io::SeekFrom::Start;
-use anyhow::{anyhow, Result};
 use bitflags::bitflags;
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::{FromPrimitive};
 use byteorder::{LittleEndian, ReadBytesExt};
+use crate::elf::error::Error::InvalidHeaderType;
+use crate::elf::error::Result;
 
 #[derive(ToPrimitive, FromPrimitive, Debug)]
 pub enum ProgramHeaderType {
@@ -45,7 +46,7 @@ impl ProgramHeader {
 
         let raw_header_type = stream.read_u32::<Endian>()?;
         let header_type = FromPrimitive::from_u32(raw_header_type)
-            .ok_or_else(|| anyhow!("Invalid header type {}.", raw_header_type))?;
+            .ok_or(InvalidHeaderType)?;
 
         let file_offset = stream.read_u32::<Endian>()?;
         let virtual_address = stream.read_u32::<Endian>()?;

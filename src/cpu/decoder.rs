@@ -1,4 +1,4 @@
-//noinspection SpellCheckingInspection
+// noinspection SpellCheckingInspection
 pub trait Decoder<T> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> T;
     fn addu(&mut self, s: u8, t: u8, d: u8) -> T;
@@ -28,6 +28,7 @@ pub trait Decoder<T> {
     fn andi(&mut self, s: u8, t: u8, imm: u16) -> T;
     fn ori(&mut self, s: u8, t: u8, imm: u16) -> T;
     fn xori(&mut self, s: u8, t: u8, imm: u16) -> T;
+    fn lui(&mut self, s: u8, imm: u16) -> T;
     fn lhi(&mut self, t: u8, imm: u16) -> T;
     fn llo(&mut self, t: u8, imm: u16) -> T;
     fn slti(&mut self, s: u8, t: u8, imm: u16) -> T;
@@ -142,7 +143,7 @@ pub trait Decoder<T> {
             12 => self.andi(s, t, imm),
             13 => self.ori(s, t, imm),
             14 => self.xori(s, t, imm),
-            15 => self.lhi(t, imm), // # LUI
+            15 => self.lui(t, imm),
             24 => self.llo(t, imm),
             25 => self.lhi(t, imm),
             26 => self.trap(),

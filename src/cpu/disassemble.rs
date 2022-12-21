@@ -37,7 +37,7 @@ fn reg(value: u8) -> &'static str {
         30 => "$fp",
         31 => "$ra",
 
-        _ => "unk"
+        _ => "$unk"
     }
 }
 
@@ -160,6 +160,10 @@ impl Decoder<String> for Disassembler {
 
     fn xori(&mut self, s: u8, t: u8, imm: u16) -> String {
         format!("xori {}, {}, {}", reg(t), reg(s), hex(imm))
+    }
+
+    fn lui(&mut self, t: u8, imm: u16) -> String {
+        format!("lui {}, {}", reg(t), hex(imm))
     }
 
     fn lhi(&mut self, t: u8, imm: u16) -> String {
