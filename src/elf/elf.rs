@@ -1,6 +1,5 @@
 use std::io::{Read, Seek};
 use std::io::SeekFrom::Start;
-use num::range;
 use crate::elf::Header;
 use crate::elf::program::ProgramHeader;
 use crate::elf::error::Result;
@@ -18,7 +17,7 @@ impl Elf {
         let mut start_index = details.program_table_position as u64;
         let mut program_headers: Vec<ProgramHeader> = vec![];
 
-        for _ in range(0, details.program_entry_count) {
+        for _ in 0 .. details.program_entry_count {
             stream.seek(Start(start_index))?;
 
             if let Ok(header) = ProgramHeader::read(stream) {

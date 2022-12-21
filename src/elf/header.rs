@@ -1,7 +1,7 @@
 use std::io::Read;
 use byteorder::{LittleEndian, ReadBytesExt};
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive};
 use crate::elf::error::Error::{InvalidBinaryType, InvalidEndian, InvalidMagic, InvalidVersion, Requires32Bit};
 use crate::elf::error::Result;
 

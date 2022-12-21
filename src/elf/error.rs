@@ -7,7 +7,6 @@ pub enum Error {
     InvalidBinaryType,
     InvalidEndian,
     InvalidVersion,
-    InvalidHeaderType,
     Requires32Bit,
     IoError(std::io::Error)
 }
@@ -26,7 +25,6 @@ impl Display for Error {
             Error::InvalidBinaryType => "Invalid binary type found".into(),
             Error::InvalidEndian => "Invalid endian type found".into(),
             Error::InvalidVersion => "Invalid ELF version".into(),
-            Error::InvalidHeaderType => "Invalid program header type".into(),
             Error::Requires32Bit => "32-bit elf expected, but found other (64-bit ELF?)".into(),
             IoError(error) => format!("{}", error)
         })

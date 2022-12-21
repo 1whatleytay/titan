@@ -4,10 +4,9 @@ use bitflags::bitflags;
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::{FromPrimitive};
 use byteorder::{LittleEndian, ReadBytesExt};
-use crate::elf::error::Error::InvalidHeaderType;
 use crate::elf::error::Result;
 
-#[derive(ToPrimitive, FromPrimitive, Debug)]
+#[derive(ToPrimitive, FromPrimitive, Copy, Clone, Debug)]
 pub enum ProgramHeaderType {
     Null = 0,
     Load = 1,
@@ -31,7 +30,7 @@ impl ProgramHeaderFlags {
 
 #[derive(Debug)]
 pub struct ProgramHeader {
-    pub header_type: ProgramHeaderType,
+    pub header_type: Option<ProgramHeaderType>,
     pub virtual_address: u32,
     pub padding: u32,
     pub memory_size: u32,
@@ -45,8 +44,7 @@ impl ProgramHeader {
         type Endian = LittleEndian;
 
         let raw_header_type = stream.read_u32::<Endian>()?;
-        let header_type = FromPrimitive::from_u32(raw_header_type)
-            .ok_or(InvalidHeaderType)?;
+        let header_type = FromPrimitive::from_u32(raw_header_type);
 
         let file_offset = stream.read_u32::<Endian>()?;
         let virtual_address = stream.read_u32::<Endian>()?;
