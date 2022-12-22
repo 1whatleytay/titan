@@ -113,3 +113,9 @@ impl Debugger {
         }
     }
 }
+
+impl Drop for Debugger {
+    fn drop(&mut self) {
+        self.pause()
+    }
+}
