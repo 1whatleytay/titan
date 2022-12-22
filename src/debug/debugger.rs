@@ -4,7 +4,7 @@ use crate::cpu::{Memory, State};
 use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Running};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum DebuggerMode {
+pub enum DebuggerMode {
     Running,
     Invalid,
     Paused,
@@ -22,12 +22,12 @@ type Breakpoints = HashSet<u32>;
 
 #[derive(Debug)]
 pub struct DebugFrame {
-    mode: DebuggerMode,
+    pub mode: DebuggerMode,
 
-    pc: u32,
-    registers: [u32; 32],
-    lo: u32,
-    hi: u32
+    pub pc: u32,
+    pub registers: [u32; 32],
+    pub lo: u32,
+    pub hi: u32
 }
 
 impl DebugFrame {
