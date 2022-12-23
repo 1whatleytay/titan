@@ -48,14 +48,18 @@ impl Debugger {
         Debugger { mode: Paused, state }
     }
 
-    fn frame(&self) -> DebugFrame {
+    fn frame_with_pc(&self, pc: u32) -> DebugFrame {
         DebugFrame {
             mode: self.mode,
-            pc: self.state.pc,
+            pc,
             registers: self.state.registers,
             lo: self.state.lo,
             hi: self.state.hi,
         }
+    }
+
+    fn frame(&self) -> DebugFrame {
+        self.frame_with_pc(self.state.pc)
     }
 
     pub fn state(&mut self) -> &mut State {
@@ -77,12 +81,14 @@ impl Debugger {
             return Some(self.frame())
         }
 
+        let start_pc = self.state.pc;
+
         if let Err(err) = self.state.step() {
             println!("Invalid Instruction: {}", err);
 
             self.mode = Invalid;
 
-            Some(self.frame())
+            Some(self.frame_with_pc(start_pc))
         } else {
             None
         }
