@@ -18,23 +18,7 @@ impl Region {
     }
 }
 
-const fn extend_u16(byte: u8) -> u16 {
-    let byte = byte as u16;
-
-    byte << 8 | byte
-}
-
-const fn extend_u32(byte: u8) -> u32 {
-    let byte = byte as u32;
-
-    byte << 24 | byte << 16 | byte << 8 | byte
-}
-
 type Endian = LittleEndian;
-const INVALID_READ: u8 = 0xCC;
-
-const INVALID_READ_16: u16 = extend_u16(INVALID_READ);
-const INVALID_READ_32: u32 = extend_u32(INVALID_READ);
 
 impl Memory {
     pub fn get(&self, address: u32) -> Result<u8> {

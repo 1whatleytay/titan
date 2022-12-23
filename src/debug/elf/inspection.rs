@@ -86,15 +86,17 @@ impl Inspection {
     }
 
     // Assumption: Every instruction is the same size.
-    fn disassemble(data: &Vec<u8>) -> Vec<String> {
+    fn disassemble(address: u32, data: &Vec<u8>) -> Vec<String> {
         let mut instructions = Cursor::new(data);
-        let mut disassembler = Disassembler { };
+        let mut pc = address;
 
         let mut result = vec![];
 
         while let Ok(instruction) = instructions.read_u32::<LittleEndian>() {
-            let text = disassembler.dispatch(instruction)
+            let text = Disassembler { pc }.dispatch(instruction)
                 .unwrap_or_else(|| "INVALID".into());
+
+            pc += 4;
 
             result.push(text)
         }
@@ -123,7 +125,8 @@ impl Inspection {
             ]);
 
             let start = lines.len();
-            let mut instructions = Inspection::disassemble(&executable.data).iter()
+            let raw = Inspection::disassemble(executable.virtual_address, &executable.data);
+            let mut instructions = raw.iter()
                 .map(|line| format!("  {}", line))
                 .collect::<Vec<String>>();
 

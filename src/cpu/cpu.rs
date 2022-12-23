@@ -20,7 +20,7 @@ impl State {
     pub fn step(&mut self) -> Result<()> {
         let instruction = self.memory.get_u32(self.pc)?;
 
-        let text = Disassembler { }.dispatch(instruction)
+        let text = Disassembler { pc: self.pc }.dispatch(instruction)
             .ok_or(CpuInvalid(instruction))?;
 
         println!("0x{:08x}: {}", self.pc, text);

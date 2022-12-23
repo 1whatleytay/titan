@@ -1,6 +1,18 @@
 use crate::cpu::decoder::Decoder;
 
-pub struct Disassembler { }
+pub struct Disassembler {
+    pub pc: u32
+}
+
+impl Disassembler { }
+
+fn pc_jump_dest(pc: u32, imm: u32) -> u32 {
+    ((pc + 4) & 0xFC000000) | (imm << 2)
+}
+
+fn pc_relative_dest(pc: u32, imm: u16) -> u32 {
+    ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
+}
 
 fn reg(value: u8) -> &'static str {
     match value {
@@ -183,43 +195,43 @@ impl Decoder<String> for Disassembler {
     }
 
     fn beq(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("beq {}, {}, {}", reg(s), reg(t), sig(imm))
+        format!("beq {}, {}, {}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
     }
 
     fn bne(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("bne {}, {}, {}", reg(s), reg(t), sig(imm))
+        format!("bne {}, {}, {}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
     }
 
     fn bgtz(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("bgtz {}, {}, {}", reg(s), reg(t), sig(imm))
+        format!("bgtz {}, {}, {}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
     }
 
     fn blez(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("blez {}, {}, {}", reg(s), reg(t), sig(imm))
+        format!("blez {}, {}, {}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
     }
 
     fn bltz(&mut self, s: u8, imm: u16) -> String {
-        format!("bltz {}, {}", reg(s), sig(imm))
+        format!("bltz {}, {}", reg(s), pc_relative_dest(self.pc, imm))
     }
 
     fn bgez(&mut self, s: u8, imm: u16) -> String {
-        format!("bgez {}, {}", reg(s), sig(imm))
+        format!("bgez {}, {}", reg(s), pc_relative_dest(self.pc, imm))
     }
 
     fn bltzal(&mut self, s: u8, imm: u16) -> String {
-        format!("bltzal {}, {}", reg(s), sig(imm))
+        format!("bltzal {}, {}", reg(s), pc_relative_dest(self.pc, imm))
     }
 
     fn bgezal(&mut self, s: u8, imm: u16) -> String {
-        format!("bgezal {}, {}", reg(s), sig(imm))
+        format!("bgezal {}, {}", reg(s), pc_relative_dest(self.pc, imm))
     }
 
     fn j(&mut self, imm: u32) -> String {
-        format!("j {}", imm as i32)
+        format!("j {}", pc_jump_dest(self.pc, imm))
     }
 
     fn jal(&mut self, imm: u32) -> String {
-        format!("jal {}", imm as i32)
+        format!("jal {}", pc_jump_dest(self.pc, imm))
     }
 
     fn lb(&mut self, s: u8, t: u8, imm: u16) -> String {
