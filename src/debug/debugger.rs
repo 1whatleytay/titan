@@ -58,6 +58,10 @@ impl Debugger {
         }
     }
 
+    pub fn state(&mut self) -> &mut State {
+        &mut self.state
+    }
+
     pub fn memory(&mut self) -> &mut Memory {
         &mut self.state.memory
     }
