@@ -58,7 +58,7 @@ impl Debugger {
         }
     }
 
-    fn frame(&self) -> DebugFrame {
+    pub fn frame(&self) -> DebugFrame {
         self.frame_with_pc(self.state.pc)
     }
 
