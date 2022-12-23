@@ -30,19 +30,6 @@ pub struct DebugFrame {
     pub hi: u32
 }
 
-impl DebugFrame {
-    fn default(mode: DebuggerMode) -> DebugFrame {
-        DebugFrame {
-            mode,
-
-            pc: 0,
-            registers: [0; 32],
-            lo: 0,
-            hi: 0
-        }
-    }
-}
-
 impl Debugger {
     pub fn new(state: State) -> Debugger {
         Debugger { mode: Paused, state }
@@ -99,7 +86,7 @@ impl Debugger {
             let mut value = debugger.lock().unwrap();
 
             if value.mode == Running {
-                return DebugFrame::default(Running)
+                return value.frame()
             }
 
             let result = value.mode;
