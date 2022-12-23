@@ -70,11 +70,7 @@ impl Debugger {
         &mut self.state.memory
     }
 
-    fn cycle(&mut self, breakpoints: &Breakpoints, hit_breakpoint: bool) -> Option<DebugFrame> {
-        if self.mode != Running {
-            return Some(self.frame())
-        }
-
+    pub fn cycle(&mut self, breakpoints: &Breakpoints, hit_breakpoint: bool) -> Option<DebugFrame> {
         if !hit_breakpoint && breakpoints.contains(&self.state.pc) {
             self.mode = Breakpoint;
 
@@ -114,6 +110,10 @@ impl Debugger {
 
         loop {
             let mut value = debugger.lock().unwrap();
+
+            if value.mode != Running {
+                return value.frame()
+            }
 
             if let Some(frame) = value.cycle(breakpoints, hit_breakpoint) {
                 return frame
