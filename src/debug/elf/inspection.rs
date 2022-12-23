@@ -127,7 +127,7 @@ impl Inspection {
             let start = lines.len();
             let raw = Inspection::disassemble(executable.virtual_address, &executable.data);
             let mut instructions = raw.iter()
-                .map(|line| format!("  {}", line))
+                .map(|line| format!("    {}", line))
                 .collect::<Vec<String>>();
 
             for i in 0 .. instructions.len() {
