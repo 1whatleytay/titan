@@ -20,12 +20,6 @@ impl State {
     pub fn step(&mut self) -> Result<()> {
         let instruction = self.memory.get_u32(self.pc)?;
 
-        let mut disassembler = Disassembler { pc: self.pc, labels: HexLabelProvider { } };
-        let text = disassembler.dispatch(instruction)
-            .ok_or(CpuInvalid(instruction))?;
-
-        println!("0x{:08x}: {}", self.pc, text);
-
         self.pc += 4;
 
         self.dispatch(instruction)

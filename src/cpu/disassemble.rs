@@ -78,12 +78,14 @@ fn uns(imm: u16) -> String {
 }
 
 fn sig(imm: u16) -> String {
-    if imm < 10 {
-        format!("{}", imm as i16)
-    } else {
-        let sign = if (imm as i16) < 0 { "-" } else { "" };
+    let value = imm as i16;
 
-        format!("{}0x{:x}", sign, abs(imm as i16))
+    if abs(value) < 10 {
+        format!("{}", value)
+    } else {
+        let sign = if value < 0 { "-" } else { "" };
+
+        format!("{}0x{:x}", sign, abs(value))
     }
 }
 
