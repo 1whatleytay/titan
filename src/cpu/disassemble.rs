@@ -1,16 +1,31 @@
 use crate::cpu::decoder::Decoder;
 
-pub struct Disassembler {
-    pub pc: u32
+pub trait LabelProvider {
+    fn label_for(&mut self, address: u32) -> String;
 }
 
-impl Disassembler { }
+pub struct HexLabelProvider { }
 
-fn pc_jump_dest(pc: u32, imm: u32) -> u32 {
+impl Default for HexLabelProvider {
+    fn default() -> Self { HexLabelProvider { } }
+}
+
+impl LabelProvider for HexLabelProvider {
+    fn label_for(&mut self, address: u32) -> String {
+        return format!("0x{:08x}", address);
+    }
+}
+
+pub struct Disassembler<Provider: LabelProvider> {
+    pub pc: u32,
+    pub labels: Provider
+}
+
+fn jump_dest(pc: u32, imm: u32) -> u32 {
     ((pc + 4) & 0xFC000000) | (imm << 2)
 }
 
-fn pc_relative_dest(pc: u32, imm: u16) -> u32 {
+fn rel_dest(pc: u32, imm: u16) -> u32 {
     ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
 }
 
@@ -65,7 +80,7 @@ fn hex(imm: u16) -> String {
     format!("{:x}", imm)
 }
 
-impl Decoder<String> for Disassembler {
+impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> String {
         format!("add {}, {}, {}", reg(d), reg(s), reg(t))
     }
@@ -195,43 +210,59 @@ impl Decoder<String> for Disassembler {
     }
 
     fn beq(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("beq {}, {}, 0x{:08x}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("beq {}, {}, {}", reg(s), reg(t), label)
     }
 
     fn bne(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("bne {}, {}, 0x{:08x}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bne {}, {}, {}", reg(s), reg(t), label)
     }
 
     fn bgtz(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("bgtz {}, {}, 0x{:08x}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bgtz {}, {}, {}", reg(s), reg(t), label)
     }
 
     fn blez(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("blez {}, {}, 0x{:08x}", reg(s), reg(t), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("blez {}, {}, {}", reg(s), reg(t), label)
     }
 
     fn bltz(&mut self, s: u8, imm: u16) -> String {
-        format!("bltz {}, 0x{:08x}", reg(s), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bltz {}, {}", reg(s), label)
     }
 
     fn bgez(&mut self, s: u8, imm: u16) -> String {
-        format!("bgez {}, 0x{:08x}", reg(s), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bgez {}, {}", reg(s), label)
     }
 
     fn bltzal(&mut self, s: u8, imm: u16) -> String {
-        format!("bltzal {}, 0x{:08x}", reg(s), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bltzal {}, {}", reg(s), label)
     }
 
     fn bgezal(&mut self, s: u8, imm: u16) -> String {
-        format!("bgezal {}, 0x{:08x}", reg(s), pc_relative_dest(self.pc, imm))
+        let label = self.labels.label_for(rel_dest(self.pc, imm));
+
+        format!("bgezal {}, {}", reg(s), label)
     }
 
     fn j(&mut self, imm: u32) -> String {
-        format!("j 0x{:08x}", pc_jump_dest(self.pc, imm))
+        format!("j {}", self.labels.label_for(jump_dest(self.pc, imm)))
     }
 
     fn jal(&mut self, imm: u32) -> String {
-        format!("jal 0x{:08x}", pc_jump_dest(self.pc, imm))
+        format!("jal {}", self.labels.label_for(jump_dest(self.pc, imm)))
     }
 
     fn lb(&mut self, s: u8, t: u8, imm: u16) -> String {

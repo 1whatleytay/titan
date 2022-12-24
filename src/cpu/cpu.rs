@@ -1,5 +1,5 @@
 use crate::cpu::decoder::Decoder;
-use crate::cpu::disassemble::Disassembler;
+use crate::cpu::disassemble::{Disassembler, HexLabelProvider};
 use crate::cpu::error::Error::CpuInvalid;
 use crate::cpu::State;
 use crate::cpu::error::Result;
@@ -20,7 +20,8 @@ impl State {
     pub fn step(&mut self) -> Result<()> {
         let instruction = self.memory.get_u32(self.pc)?;
 
-        let text = Disassembler { pc: self.pc }.dispatch(instruction)
+        let mut disassembler = Disassembler { pc: self.pc, labels: HexLabelProvider { } };
+        let text = disassembler.dispatch(instruction)
             .ok_or(CpuInvalid(instruction))?;
 
         println!("0x{:08x}: {}", self.pc, text);

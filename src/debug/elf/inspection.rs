@@ -1,11 +1,44 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use crate::cpu::decoder::Decoder;
-use crate::cpu::disassemble::Disassembler;
+use crate::cpu::disassemble::{Disassembler, LabelProvider};
 use crate::elf::Elf;
 use crate::elf::header::{BinaryType, Endian};
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags, ProgramHeaderType};
+
+struct LabelManager {
+    entry: Option<u32>,
+    labels: HashSet<u32>
+}
+
+impl LabelManager {
+    fn label_string(&self, address: u32) -> String {
+        if Some(address) == self.entry {
+            format!("entry_{:x}", address)
+        } else {
+            format!("address_{:x}", address)
+        }
+    }
+
+    fn new(entry: Option<u32>) -> LabelManager {
+        LabelManager { entry, labels: HashSet::new() }
+    }
+}
+
+impl LabelProvider for LabelManager {
+    fn label_for(&mut self, address: u32) -> String {
+        self.labels.insert(address);
+
+        self.label_string(address)
+    }
+}
+
+impl LabelProvider for &mut LabelManager {
+    fn label_for(&mut self, address: u32) -> String {
+        (**self).label_for(address)
+    }
+}
 
 pub struct Inspection {
     pub breakpoints: HashMap<usize, u32>, // line to address
@@ -86,17 +119,18 @@ impl Inspection {
     }
 
     // Assumption: Every instruction is the same size.
-    fn disassemble(address: u32, data: &Vec<u8>) -> Vec<String> {
+    fn disassemble(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<String> {
         let mut instructions = Cursor::new(data);
-        let mut pc = address;
 
         let mut result = vec![];
 
+        let mut disassembler = Disassembler { pc: address, labels: manager };
+
         while let Ok(instruction) = instructions.read_u32::<LittleEndian>() {
-            let text = Disassembler { pc }.dispatch(instruction)
+            let text = disassembler.dispatch(instruction)
                 .unwrap_or_else(|| "INVALID".into());
 
-            pc += 4;
+            disassembler.pc += 4;
 
             result.push(text)
         }
@@ -111,30 +145,39 @@ impl Inspection {
 
         let mut breakpoints = HashMap::new();
 
-        let executables = elf.program_headers.iter()
-            .filter(|header| header.flags.contains(ProgramHeaderFlags::EXECUTABLE));
+        let mut manager = LabelManager::new(Some(elf.header.program_entry));
 
-        for executable in executables {
+        let executables: Vec<(&ProgramHeader, Vec<String>)> = elf.program_headers.iter()
+            .filter(|header| header.flags.contains(ProgramHeaderFlags::EXECUTABLE))
+            .map(|head| (
+                head,
+                Inspection::disassemble(head.virtual_address, &head.data, &mut manager))
+            )
+            .collect();
+
+        for (header, instructions) in executables {
             lines.append(&mut vec![
                 "".into(),
                 format!(
-                    "# Program (0x{:08x}, {})",
-                    executable.virtual_address,
-                    Inspection::program_header_type(&executable.header_type)
+                    "# Section (0x{:08x}, {})",
+                    header.virtual_address,
+                    Inspection::program_header_type(&header.header_type)
                 )
             ]);
 
-            let start = lines.len();
-            let raw = Inspection::disassemble(executable.virtual_address, &executable.data);
-            let mut instructions = raw.iter()
-                .map(|line| format!("    {}", line))
-                .collect::<Vec<String>>();
+            let mut pc = header.virtual_address;
 
-            for i in 0 .. instructions.len() {
-                breakpoints.insert(i + start, executable.virtual_address + (i as u32 * 4u32));
+            for instruction in instructions {
+                if manager.labels.contains(&pc) || manager.entry == Some(pc) {
+                    lines.push(format!("{}:", manager.label_string(pc)));
+                }
+
+                breakpoints.insert(lines.len(), pc);
+
+                lines.push(format!("    {}", instruction));
+
+                pc += 4;
             }
-
-            lines.append(&mut instructions)
         }
 
         Inspection { breakpoints, lines }
