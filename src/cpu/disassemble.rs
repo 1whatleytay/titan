@@ -69,11 +69,19 @@ fn reg(value: u8) -> &'static str {
 }
 
 fn uns(imm: u16) -> String {
-    format!("{}", imm)
+    if imm < 10 {
+        format!("{}", imm)
+    } else {
+        format!("0x{:x}", imm)
+    }
 }
 
 fn sig(imm: u16) -> String {
-    format!("{}", imm as i16)
+    if imm < 10 {
+        format!("{}", imm as i16)
+    } else {
+        format!("0x{:x}", imm as i16)
+    }
 }
 
 fn hex(imm: u16) -> String {
