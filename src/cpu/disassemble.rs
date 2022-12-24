@@ -1,3 +1,4 @@
+use num_traits::abs;
 use crate::cpu::decoder::Decoder;
 
 pub trait LabelProvider {
@@ -80,7 +81,9 @@ fn sig(imm: u16) -> String {
     if imm < 10 {
         format!("{}", imm as i16)
     } else {
-        format!("0x{:x}", imm as i16)
+        let sign = if (imm as i16) < 0 { "-" } else { "" };
+
+        format!("{}0x{:x}", sign, abs(imm as i16))
     }
 }
 
