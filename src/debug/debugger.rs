@@ -14,7 +14,8 @@ pub enum DebuggerMode {
 pub struct Debugger {
     mode: DebuggerMode,
 
-    state: State
+    state: State,
+    batch: usize
 }
 
 // Addresses
@@ -32,7 +33,7 @@ pub struct DebugFrame {
 
 impl Debugger {
     pub fn new(state: State) -> Debugger {
-        Debugger { mode: Paused, state }
+        Debugger { mode: Paused, state, batch: 140 }
     }
 
     fn frame_with_pc(&self, pc: u32) -> DebugFrame {
@@ -98,15 +99,17 @@ impl Debugger {
         loop {
             let mut value = debugger.lock().unwrap();
 
-            if value.mode != Running {
-                return value.frame()
-            }
+            for _ in 0 .. value.batch {
+                if value.mode != Running {
+                    return value.frame()
+                }
 
-            if let Some(frame) = value.cycle(breakpoints, hit_breakpoint) {
-                return frame
-            }
+                if let Some(frame) = value.cycle(breakpoints, hit_breakpoint) {
+                    return frame
+                }
 
-            hit_breakpoint = false
+                hit_breakpoint = false
+            }
         }
     }
 }
