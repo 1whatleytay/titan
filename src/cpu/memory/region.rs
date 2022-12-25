@@ -1,16 +1,8 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-
-use crate::cpu::error::Error::{MemoryAlign, MemoryBoundary, MemoryUnmapped};
 use crate::cpu::error::Result;
-
-pub struct Region {
-    pub start: u32,
-    pub data: Vec<u8>
-}
-
-pub struct Memory {
-    regions: Vec<Region>
-}
+use crate::cpu::error::Error::{MemoryAlign, MemoryBoundary, MemoryUnmapped};
+use crate::cpu::Memory;
+use crate::cpu::memory::{Mountable, Region};
 
 impl Region {
     pub fn contains(&self, address: u32) -> bool {
@@ -18,10 +10,26 @@ impl Region {
     }
 }
 
+pub struct RegionMemory {
+    regions: Vec<Region>
+}
+
 type Endian = LittleEndian;
 
-impl Memory {
-    pub fn get(&self, address: u32) -> Result<u8> {
+impl Mountable for RegionMemory {
+    fn mount(&mut self, region: Region) {
+        self.regions.push(region)
+    }
+}
+
+impl RegionMemory {
+    pub fn new() -> RegionMemory {
+        RegionMemory { regions: vec![] }
+    }
+}
+
+impl Memory for RegionMemory {
+    fn get(&self, address: u32) -> Result<u8> {
         for region in &self.regions {
             if region.contains(address) {
                 return Ok(region.data[(address - region.start) as usize])
@@ -31,7 +39,19 @@ impl Memory {
         Err(MemoryUnmapped(address))
     }
 
-    pub fn get_u16(&self, address: u32) -> Result<u16> {
+    fn set(&mut self, address: u32, value: u8) -> Result<()> {
+        for region in &mut self.regions {
+            if region.contains(address) {
+                region.data[(address - region.start) as usize] = value;
+
+                return Ok(())
+            }
+        }
+
+        Err(MemoryUnmapped(address))
+    }
+
+    fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
             return Err(MemoryAlign(address))
         }
@@ -48,7 +68,7 @@ impl Memory {
         Err(MemoryUnmapped(address))
     }
 
-    pub fn get_u32(&self, address: u32) -> Result<u32> {
+    fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
             return Err(MemoryAlign(address))
         }
@@ -65,19 +85,7 @@ impl Memory {
         Err(MemoryBoundary(address))
     }
 
-    pub fn set(&mut self, address: u32, value: u8) -> Result<()> {
-        for region in &mut self.regions {
-            if region.contains(address) {
-                region.data[(address - region.start) as usize] = value;
-
-                return Ok(())
-            }
-        }
-
-        Err(MemoryUnmapped(address))
-    }
-
-    pub fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
+    fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         if address % 2 != 0 {
             panic!("Address 0x{:08x} is not aligned for u16 read.", address);
         }
@@ -97,7 +105,7 @@ impl Memory {
         Err(MemoryUnmapped(address))
     }
 
-    pub fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
+    fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         if address % 4 != 0 {
             panic!("Address 0x{:08x} is not aligned for u32 read.", address);
         }
@@ -115,15 +123,5 @@ impl Memory {
         }
 
         Err(MemoryUnmapped(address))
-    }
-
-    pub fn mount(&mut self, region: Region) {
-        self.regions.push(region)
-    }
-
-    pub fn new() -> Memory {
-        return Memory {
-            regions: vec![]
-        }
     }
 }

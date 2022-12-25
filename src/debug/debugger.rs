@@ -11,10 +11,10 @@ pub enum DebuggerMode {
     Breakpoint,
 }
 
-pub struct Debugger {
+pub struct Debugger<Mem: Memory> {
     mode: DebuggerMode,
 
-    state: State,
+    state: State<Mem>,
     batch: usize
 }
 
@@ -31,8 +31,8 @@ pub struct DebugFrame {
     pub hi: u32
 }
 
-impl Debugger {
-    pub fn new(state: State) -> Debugger {
+impl<Mem: Memory> Debugger<Mem> {
+    pub fn new(state: State<Mem>) -> Debugger<Mem> {
         Debugger { mode: Paused, state, batch: 140 }
     }
 
@@ -50,11 +50,11 @@ impl Debugger {
         self.frame_with_pc(self.state.pc)
     }
 
-    pub fn state(&mut self) -> &mut State {
+    pub fn state(&mut self) -> &mut State<Mem> {
         &mut self.state
     }
 
-    pub fn memory(&mut self) -> &mut Memory {
+    pub fn memory(&mut self) -> &mut Mem {
         &mut self.state.memory
     }
 
@@ -82,7 +82,7 @@ impl Debugger {
         self.mode = Paused
     }
 
-    pub fn run(debugger: &Mutex<Debugger>, breakpoints: &Breakpoints) -> DebugFrame {
+    pub fn run(debugger: &Mutex<Debugger<Mem>>, breakpoints: &Breakpoints) -> DebugFrame {
         let mut hit_breakpoint = {
             let mut value = debugger.lock().unwrap();
 
@@ -114,8 +114,9 @@ impl Debugger {
     }
 }
 
-impl Drop for Debugger {
+impl<Mem: Memory> Drop for Debugger<Mem> {
     fn drop(&mut self) {
+        // Not enough, ARC will keep it alive!
         self.pause()
     }
 }

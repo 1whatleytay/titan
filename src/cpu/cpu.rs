@@ -1,10 +1,9 @@
 use crate::cpu::decoder::Decoder;
-use crate::cpu::disassemble::{Disassembler, HexLabelProvider};
-use crate::cpu::error::Error::CpuInvalid;
-use crate::cpu::State;
+use crate::cpu::error::Error::{CpuInvalid, CpuTrap};
+use crate::cpu::{Memory, State};
 use crate::cpu::error::Result;
 
-impl State {
+impl<Mem: Memory> State<Mem> {
     fn register(&mut self, index: u8) -> &mut u32 {
         &mut self.registers[index as usize]
     }
@@ -27,7 +26,7 @@ impl State {
     }
 }
 
-impl Decoder<Result<()>> for State {
+impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         if let Some(value) = self.register(s).checked_add(*self.register(t)) {
             *self.register(d) = value;
@@ -439,6 +438,6 @@ impl Decoder<Result<()>> for State {
     }
 
     fn trap(&mut self) -> Result<()> {
-        Ok(())
+        Err(CpuTrap)
     }
 }
