@@ -1,4 +1,6 @@
-mod entry;
+mod entries;
+mod tokens;
+mod labels;
 mod literals;
 mod directives;
 mod registers;
