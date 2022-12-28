@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::ptr;
 use std::str::FromStr;
-use nom::Offset;
+
 use crate::assembler::lexer::ItemKind::{
     Comment,
     Directive,
@@ -16,14 +17,15 @@ use crate::assembler::lexer::ItemKind::{
     LeftBrace,
     RightBrace,
 };
-use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck};
+use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
+use crate::assembler::registers::RegisterSlot;
 
 #[derive(Debug)]
 pub enum ItemKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
     Parameter(&'a str), // %*
-    Register(&'a str), // $*
+    Register(RegisterSlot), // $*
     IntegerLiteral(u64), // 123 -> also characters
     StringLiteral(String),
     Symbol(&'a str),
@@ -44,6 +46,7 @@ pub struct Item<'a> {
 pub enum LexerReason {
     Stuck,
     EndOfFile,
+    UnknownRegister,
     InvalidString,
     ImproperLiteral,
 }
@@ -114,6 +117,16 @@ fn wrap_item<'a, F>(pair: (&'a str, &'a str), f: F) -> (&'a str, Item<'a>)
     let (input, taken) = pair;
 
     (input, Item { start: taken, kind: f(taken) })
+}
+
+fn maybe_wrap_item<'a, F>(pair: (&'a str, &'a str), f: F) -> Result<(&'a str, Item<'a>), LexerError>
+    where F: Fn(&'a str) -> Result<ItemKind<'a>, LexerReason> {
+    let (input, taken) = pair;
+
+    match f(taken) {
+        Ok(kind) => Ok((input, Item { start: taken, kind })),
+        Err(reason) => Err(LexerError { start: taken, reason })
+    }
 }
 
 // MARS does not seem to support \x, \u or \U escapes (which require variable consumption).
@@ -232,10 +245,10 @@ fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
             take_name(after_leading),
             |i| Parameter(i)
         )),
-        '$' => Ok(wrap_item(
+        '$' => maybe_wrap_item(
             take_name(after_leading),
-            |i| Register(i)
-        )),
+            |i| Ok(Register(RegisterSlot::from_string(i).ok_or(UnknownRegister)?))
+        ),
         ',' => Ok((&input[1..], Item { start: input, kind: Comma })),
         '(' => Ok((&input[1..], Item { start: input, kind: LeftBrace })),
         ')' => Ok((&input[1..], Item { start: input, kind: RightBrace })),
@@ -264,7 +277,7 @@ pub fn lex(mut input: &str) -> Result<Vec<Item>, LexerError> {
 
         let (next, item) = lex_item(input)?;
 
-        if start.offset(next) == 0 {
+        if ptr::eq(start.as_ptr(), next.as_ptr()) {
             return Err(LexerError { start, reason: Stuck })
         }
 

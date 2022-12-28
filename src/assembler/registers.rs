@@ -1,13 +1,6 @@
-use std::str::FromStr;
-use nom::branch::alt;
-use nom::character::complete::{alpha1, char, digit1};
-use nom::combinator::map_opt;
-use nom::IResult;
-use nom::sequence::preceded;
-use num_traits::FromPrimitive;
 use num_derive::{FromPrimitive, ToPrimitive};
 
-#[derive(Clone, ToPrimitive, FromPrimitive)]
+#[derive(Debug, Clone, ToPrimitive, FromPrimitive)]
 pub enum RegisterSlot {
     Zero = 0,
     AssemblerTemporary = 1,
@@ -44,7 +37,7 @@ pub enum RegisterSlot {
 }
 
 impl RegisterSlot {
-    fn from_string(input: &str) -> Option<RegisterSlot> {
+    pub fn from_string(input: &str) -> Option<RegisterSlot> {
         Some(match input {
             "$zero" => RegisterSlot::Zero,
             "$at" => RegisterSlot::AssemblerTemporary,
@@ -82,22 +75,4 @@ impl RegisterSlot {
             _ => return None
         })
     }
-}
-
-fn register_named(input: &str) -> IResult<&str, RegisterSlot> {
-    map_opt(alpha1, |text: &str| RegisterSlot::from_string(text))(input)
-}
-
-fn register_numbered(input: &str) -> IResult<&str, RegisterSlot> {
-    map_opt(digit1, |text| {
-        u32::from_str(text).ok()
-            .map_or(None, |number| FromPrimitive::from_u32(number))
-    })(input)
-}
-
-pub fn register(input: &str) -> IResult<&str, RegisterSlot> {
-    preceded(char('$'), alt((
-        register_named,
-        register_numbered
-    )))(input)
 }
