@@ -287,3 +287,30 @@ pub fn lex(mut input: &str) -> Result<Vec<Item>, LexerError> {
 
     Ok(result)
 }
+
+pub trait LexerNextIterator<'a>: Iterator<Item=Item<'a>> {
+    fn next_any(&mut self) -> Option<Item<'a>> {
+        while let Some(value) = self.next() {
+            match value.kind {
+                Comment(_) => { },
+                NewLine => { },
+                Comma => { }, // Completely ignored by MARS.
+                _ => return Some(value)
+            }
+        }
+
+        None
+    }
+
+    fn next_adjacent(&mut self) -> Option<Item<'a>> {
+        while let Some(value) = self.next() {
+            match value.kind {
+                Comment(_) => { },
+                Comma => { }, // Completely ignored by MARS.
+                _ => return Some(value)
+            }
+        }
+
+        None
+    }
+}
