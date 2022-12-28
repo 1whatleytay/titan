@@ -1,7 +1,8 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, tag_no_case};
-use nom::character::complete::{alphanumeric0, char, multispace0, space0};
-use nom::combinator::{fail, flat_map, map, opt, value};
+use nom::bytes::complete::take_while;
+use nom::character::complete::{alphanumeric0, anychar, char, multispace0};
+use nom::character::is_space;
+use nom::combinator::{fail, map, opt, value};
 use nom::IResult;
 use nom::multi::many0;
 use nom::sequence::{delimited, pair, preceded};
@@ -9,14 +10,14 @@ use crate::assembler::labels::label_name;
 use crate::assembler::literals::{integer_literal, positive_literal, string_literal};
 use crate::assembler::tokens::{token, token_lookup, TokenCache, with_cache};
 
-#[derive(Clone)]
-enum AddressMarker {
+#[derive(Debug, Clone)]
+pub enum AddressMarker {
     Literal(u32),
     Label(String)
 }
 
-#[derive(Clone)]
-enum Directive {
+#[derive(Debug, Clone)]
+pub enum Directive {
     Ascii(String),
     AsciiZ(String),
 
@@ -34,6 +35,8 @@ enum Directive {
     KData(Option<AddressMarker>),
 
     Extern(String, u64),
+
+    Eqv(String, String),
 
     // Eqv,
     // Macro,
@@ -145,7 +148,14 @@ fn extern_directive<'a>(input: &'a str, cache: &'a TokenCache) -> IResult<&'a st
     )(input)
 }
 
-fn directive_body<'a>(input: &'a str, cache: &'a TokenCache) -> IResult<&'a str, Directive> {
+fn eqv_directive<'a>(input: &'a str, _: &'a TokenCache) -> IResult<&'a str, Directive> {
+    map(
+        pair(label_name, take_while(|c: char| !is_space(c as u8))),
+        |(name, value)| Directive::Eqv(name.to_string(), value.to_string())
+    )(input)
+}
+
+pub fn directive<'a>(input: &'a str, cache: &'a TokenCache) -> IResult<&'a str, Directive> {
     let (input, directive) = token(preceded(char('.'), alphanumeric0), cache)(input)?;
     let (input, _) = multispace0(input)?;
 
@@ -163,6 +173,7 @@ fn directive_body<'a>(input: &'a str, cache: &'a TokenCache) -> IResult<&'a str,
         "data" => data_directive(input, cache),
         "ktext" => ktext_directive(input, cache),
         "kdata" => kdata_directive(input, cache),
+        "eqv" => eqv_directive(input, cache),
 
         _ => fail(input)
     }

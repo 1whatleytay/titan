@@ -4,7 +4,7 @@ use nom::{IResult, Parser};
 use crate::assembler::labels::label_name;
 
 pub struct TokenCache {
-    tokens: HashMap<String, String>
+    pub tokens: HashMap<String, String>
 }
 
 impl TokenCache {
@@ -59,3 +59,4 @@ pub fn with_cache<'a, F, O>(mut f: F, cache: &'a TokenCache)
         f(input, cache)
     }
 }
+
