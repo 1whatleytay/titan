@@ -1,6 +1,6 @@
 use num_derive::{FromPrimitive, ToPrimitive};
 
-#[derive(Debug, Clone, ToPrimitive, FromPrimitive)]
+#[derive(Debug, Clone, PartialEq, ToPrimitive, FromPrimitive)]
 pub enum RegisterSlot {
     Zero = 0,
     AssemblerTemporary = 1,

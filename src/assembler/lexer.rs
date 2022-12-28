@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::ptr;
 use std::slice::Iter;
 use std::str::FromStr;
+use std::vec::IntoIter;
 
 use crate::assembler::lexer::ItemKind::{
     Comment,
@@ -21,7 +22,7 @@ use crate::assembler::lexer::ItemKind::{
 use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
 use crate::assembler::registers::RegisterSlot;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ItemKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
@@ -287,36 +288,4 @@ pub fn lex(mut input: &str) -> Result<Vec<Item>, LexerError> {
     }
 
     Ok(result)
-}
-
-pub trait LexerNextIterator<'a> {
-    fn next_any(&mut self) -> Option<&Item<'a>>;
-    fn next_adjacent(&mut self) -> Option<&Item<'a>>;
-}
-
-impl<'a> LexerNextIterator<'a> for Iter<'a, Item<'a>> {
-    fn next_any(&mut self) -> Option<&Item<'a>> {
-        while let Some(value) = self.next() {
-            match value.kind {
-                Comment(_) => { },
-                NewLine => { },
-                Comma => { }, // Completely ignored by MARS.
-                _ => return Some(value)
-            }
-        }
-
-        None
-    }
-
-    fn next_adjacent(&mut self) -> Option<&Item<'a>> {
-        while let Some(value) = self.next() {
-            match value.kind {
-                Comment(_) => { },
-                Comma => { }, // Completely ignored by MARS.
-                _ => return Some(value)
-            }
-        }
-
-        None
-    }
 }
