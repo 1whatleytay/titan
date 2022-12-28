@@ -1,9 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
-use std::slice::Iter;
+use num::FromPrimitive;
 use std::str::FromStr;
-use std::vec::IntoIter;
 
 use crate::assembler::lexer::ItemKind::{
     Comment,
@@ -22,7 +21,7 @@ use crate::assembler::lexer::ItemKind::{
 use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
 use crate::assembler::registers::RegisterSlot;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ItemKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
@@ -114,20 +113,21 @@ fn take_name(input: &str) -> (&str, &str) {
     take_split(input, |c| !is_hard(c))
 }
 
-fn wrap_item<'a, F>(pair: (&'a str, &'a str), f: F) -> (&'a str, Item<'a>)
+fn wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F) -> (&'a str, Item<'a>)
     where F: Fn(&'a str) -> ItemKind<'a> {
     let (input, taken) = pair;
 
-    (input, Item { start: taken, kind: f(taken) })
+    (input, Item { start, kind: f(taken) })
 }
 
-fn maybe_wrap_item<'a, F>(pair: (&'a str, &'a str), f: F) -> Result<(&'a str, Item<'a>), LexerError>
+fn maybe_wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F)
+    -> Result<(&'a str, Item<'a>), LexerError<'a>>
     where F: Fn(&'a str) -> Result<ItemKind<'a>, LexerReason> {
     let (input, taken) = pair;
 
     match f(taken) {
-        Ok(kind) => Ok((input, Item { start: taken, kind })),
-        Err(reason) => Err(LexerError { start: taken, reason })
+        Ok(kind) => Ok((input, Item { start, kind })),
+        Err(reason) => Err(LexerError { start, reason })
     }
 }
 
@@ -237,19 +237,25 @@ fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
     match leading {
         '#' => Ok(wrap_item(
             take_split(after_leading, |c| c != '\n'),
-            |i| Comment(i)
+            after_leading, |i| Comment(i)
         )),
         '.' => Ok(wrap_item(
             take_name(after_leading),
-            |i| Directive(i)
+            after_leading, |i| Directive(i)
         )),
         '%' => Ok(wrap_item(
             take_name(after_leading),
-            |i| Parameter(i)
+            after_leading, |i| Parameter(i)
         )),
         '$' => maybe_wrap_item(
             take_name(after_leading),
-            |i| Ok(Register(RegisterSlot::from_string(i).ok_or(UnknownRegister)?))
+            after_leading, |i| {
+                Ok(Register(
+                    RegisterSlot::from_string(i)
+                        .or_else(|| RegisterSlot::from_u64(u64::from_str(i).ok()?))
+                        .ok_or(UnknownRegister)?
+                ))
+            }
         ),
         ',' => Ok((&input[1..], Item { start: input, kind: Comma })),
         '(' => Ok((&input[1..], Item { start: input, kind: LeftBrace })),
@@ -267,7 +273,7 @@ fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
             }))
             .ok_or_else(|| LexerError { start: input, reason: InvalidString }),
 
-        _ => Ok(wrap_item(take_name(input), |i| Symbol(i)))
+        _ => Ok(wrap_item(take_name(input), input, |i| Symbol(i)))
     }
 }
 
