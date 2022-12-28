@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
+use std::slice::Iter;
 use std::str::FromStr;
 
 use crate::assembler::lexer::ItemKind::{
@@ -38,8 +39,8 @@ pub enum ItemKind<'a> {
 
 #[derive(Debug)]
 pub struct Item<'a> {
-    start: &'a str,
-    kind: ItemKind<'a>
+    pub start: &'a str,
+    pub kind: ItemKind<'a>
 }
 
 #[derive(Debug)]
@@ -53,8 +54,8 @@ pub enum LexerReason {
 
 #[derive(Debug)]
 pub struct LexerError<'a> {
-    start: &'a str,
-    reason: LexerReason
+    pub start: &'a str,
+    pub reason: LexerReason
 }
 
 impl<'a> Display for LexerError<'a> {
@@ -288,8 +289,13 @@ pub fn lex(mut input: &str) -> Result<Vec<Item>, LexerError> {
     Ok(result)
 }
 
-pub trait LexerNextIterator<'a>: Iterator<Item=Item<'a>> {
-    fn next_any(&mut self) -> Option<Item<'a>> {
+pub trait LexerNextIterator<'a> {
+    fn next_any(&mut self) -> Option<&Item<'a>>;
+    fn next_adjacent(&mut self) -> Option<&Item<'a>>;
+}
+
+impl<'a> LexerNextIterator<'a> for Iter<'a, Item<'a>> {
+    fn next_any(&mut self) -> Option<&Item<'a>> {
         while let Some(value) = self.next() {
             match value.kind {
                 Comment(_) => { },
@@ -302,7 +308,7 @@ pub trait LexerNextIterator<'a>: Iterator<Item=Item<'a>> {
         None
     }
 
-    fn next_adjacent(&mut self) -> Option<Item<'a>> {
+    fn next_adjacent(&mut self) -> Option<&Item<'a>> {
         while let Some(value) = self.next() {
             match value.kind {
                 Comment(_) => { },
