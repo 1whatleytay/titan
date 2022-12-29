@@ -96,6 +96,8 @@ fn consume_macro<'a, 'b, T>(iter: &'b mut T) -> Result<(&'a str, Macro<'a>), Pre
         _ => { }
     }
 
+    result.items.pop();
+
     Ok((name, result))
 }
 

@@ -21,7 +21,7 @@ use crate::assembler::lexer::ItemKind::{
 use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
 use crate::assembler::registers::RegisterSlot;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ItemKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
@@ -37,7 +37,7 @@ pub enum ItemKind<'a> {
     RightBrace,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Item<'a> {
     pub start: &'a str,
     pub kind: ItemKind<'a>
