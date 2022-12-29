@@ -1,4 +1,5 @@
 use std::vec::IntoIter;
+use std::iter::Peekable;
 use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{Comment, NewLine, Comma};
 
@@ -19,25 +20,7 @@ pub fn is_adjacent_kind(kind: &TokenKind) -> bool {
     }
 }
 
-pub trait LexerSeek<'a> {
-    fn collect_until<F>(&mut self, f: F) -> Vec<Token<'a>>
-        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool;
-
-    fn seek_until<F>(&mut self, f: F) -> Option<Token<'a>>
-        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool {
-        self.collect_until(f).into_iter().last()
-    }
-
-    fn next_any(&mut self) -> Option<Token<'a>> {
-        self.seek_until(is_solid_kind)
-    }
-
-    fn next_adjacent(&mut self) -> Option<Token<'a>> {
-        self.seek_until(is_adjacent_kind)
-    }
-}
-
-impl<'a> LexerSeek<'a> for IntoIter<Token<'a>> {
+pub trait LexerSeek<'a>: Iterator<Item=Token<'a>> {
     fn collect_until<F>(&mut self, mut f: F) -> Vec<Token<'a>>
         where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool {
         let mut result = vec![];
@@ -64,5 +47,34 @@ impl<'a> LexerSeek<'a> for IntoIter<Token<'a>> {
         }
 
         None
+    }
+
+    fn next_any(&mut self) -> Option<Token<'a>> {
+        self.seek_until(is_solid_kind)
+    }
+
+    fn next_adjacent(&mut self) -> Option<Token<'a>> {
+        self.seek_until(is_adjacent_kind)
+    }
+}
+
+impl<'a> LexerSeek<'a> for IntoIter<Token<'a>> { }
+impl<'a> LexerSeek<'a> for Peekable<IntoIter<Token<'a>>> { }
+
+pub trait LexerSeekPeekable<'a>: LexerSeek<'a> {
+    fn collect_without<F>(&mut self, f: F) -> Vec<Token<'a>>
+        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool;
+}
+
+impl<'a> LexerSeekPeekable<'a> for Peekable<IntoIter<Token<'a>>> {
+    fn collect_without<F>(&mut self, mut f: F) -> Vec<Token<'a>>
+        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool {
+        let mut result = vec![];
+
+        while let Some(value) = self.next_if(|value| !f(&value.kind)) {
+            result.push(value);
+        }
+
+        result
     }
 }
