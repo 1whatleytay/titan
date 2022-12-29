@@ -4,3 +4,4 @@ pub mod preprocessor;
 
 mod registers;
 pub mod assembler;
+pub mod source;
