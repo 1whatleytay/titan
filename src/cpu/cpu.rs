@@ -280,16 +280,16 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         Ok(())
     }
 
-    fn bgtz(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        if (*self.register(s) as i32) > (*self.register(t) as i32) {
+    fn bgtz(&mut self, s: u8, imm: u16) -> Result<()> {
+        if (*self.register(s) as i32) > 0 {
             self.skip(imm);
         }
 
         Ok(())
     }
 
-    fn blez(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        if (*self.register(s) as i32) <= (*self.register(t) as i32) {
+    fn blez(&mut self, s: u8, imm: u16) -> Result<()> {
+        if (*self.register(s) as i32) <= 0 {
             self.skip(imm);
         }
 

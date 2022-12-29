@@ -234,16 +234,16 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
         format!("bne {}, {}, {}", reg(s), reg(t), label)
     }
 
-    fn bgtz(&mut self, s: u8, t: u8, imm: u16) -> String {
+    fn bgtz(&mut self, s: u8, imm: u16) -> String {
         let label = self.labels.label_for(rel_dest(self.pc, imm));
 
-        format!("bgtz {}, {}, {}", reg(s), reg(t), label)
+        format!("bgtz {}, {}", reg(s), label)
     }
 
-    fn blez(&mut self, s: u8, t: u8, imm: u16) -> String {
+    fn blez(&mut self, s: u8, imm: u16) -> String {
         let label = self.labels.label_for(rel_dest(self.pc, imm));
 
-        format!("blez {}, {}, {}", reg(s), reg(t), label)
+        format!("blez {}, {}", reg(s), label)
     }
 
     fn bltz(&mut self, s: u8, imm: u16) -> String {

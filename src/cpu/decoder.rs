@@ -36,8 +36,8 @@ pub trait Decoder<T> {
 
     fn beq(&mut self, s: u8, t: u8, imm: u16) -> T;
     fn bne(&mut self, s: u8, t: u8, imm: u16) -> T;
-    fn bgtz(&mut self, s: u8, t: u8, imm: u16) -> T;
-    fn blez(&mut self, s: u8, t: u8, imm: u16) -> T;
+    fn bgtz(&mut self, s: u8, imm: u16) -> T;
+    fn blez(&mut self, s: u8, imm: u16) -> T;
 
     fn bltz(&mut self, s: u8, imm: u16) -> T;
     fn bgez(&mut self, s: u8, imm: u16) -> T;
@@ -134,8 +134,8 @@ pub trait Decoder<T> {
             3 => self.jal(address),
             4 => self.beq(s, t, imm),
             5 => self.bne(s, t, imm),
-            6 => self.blez(s, t, imm),
-            7 => self.bgtz(s, t, imm),
+            6 => self.blez(s, imm),
+            7 => self.bgtz(s, imm),
             8 => self.addi(s, t, imm),
             9 => self.addiu(s, t, imm),
             10 => self.slti(s, t, imm),
