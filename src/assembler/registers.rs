@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use num_derive::{FromPrimitive, ToPrimitive};
 
 #[derive(Debug, Clone, PartialEq, ToPrimitive, FromPrimitive)]
@@ -74,5 +75,48 @@ impl RegisterSlot {
 
             _ => return None
         })
+    }
+
+    pub fn to_string(&self) -> &str {
+        match self {
+            RegisterSlot::Zero => "zero",
+            RegisterSlot::AssemblerTemporary => "at",
+            RegisterSlot::Value0 => "v0",
+            RegisterSlot::Value1 => "v1",
+            RegisterSlot::Parameter0 => "a0",
+            RegisterSlot::Parameter1 => "a1",
+            RegisterSlot::Parameter2 => "a2",
+            RegisterSlot::Parameter3 => "a3",
+            RegisterSlot::Temporary0 => "t0",
+            RegisterSlot::Temporary1 => "t1",
+            RegisterSlot::Temporary2 => "t2",
+            RegisterSlot::Temporary3 => "t3",
+            RegisterSlot::Temporary4 => "t4",
+            RegisterSlot::Temporary5 => "t5",
+            RegisterSlot::Temporary6 => "t6",
+            RegisterSlot::Temporary7 => "t7",
+            RegisterSlot::Saved0 => "s0",
+            RegisterSlot::Saved1 => "s1",
+            RegisterSlot::Saved2 => "s2",
+            RegisterSlot::Saved3 => "s3",
+            RegisterSlot::Saved4 => "s4",
+            RegisterSlot::Saved5 => "s5",
+            RegisterSlot::Saved6 => "s6",
+            RegisterSlot::Saved7 => "s7",
+            RegisterSlot::Temporary8 => "t8",
+            RegisterSlot::Temporary9 => "t9",
+            RegisterSlot::Kernel0 => "k0",
+            RegisterSlot::Kernel1 => "k1",
+            RegisterSlot::GeneralPointer => "gp",
+            RegisterSlot::StackPointer => "sp",
+            RegisterSlot::FramePointer => "fp",
+            RegisterSlot::ReturnAddress => "ra",
+        }
+    }
+}
+
+impl Display for RegisterSlot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${}", self.to_string())
     }
 }

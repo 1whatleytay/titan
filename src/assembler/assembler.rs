@@ -1,10 +1,10 @@
-use crate::assembler::lexer::Item;
+use crate::assembler::lexer::Token;
 
 struct Assembler {
     
 }
 
-pub fn assemble(items: &Vec<Item>) {
+pub fn assemble(items: &Vec<Token>) {
 
 }
 

@@ -4,7 +4,7 @@ use std::ptr;
 use num::FromPrimitive;
 use std::str::FromStr;
 
-use crate::assembler::lexer::ItemKind::{
+use crate::assembler::lexer::TokenKind::{
     Comment,
     Directive,
     Parameter,
@@ -22,7 +22,7 @@ use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidSt
 use crate::assembler::registers::RegisterSlot;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ItemKind<'a> {
+pub enum TokenKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
     Parameter(&'a str), // %*
@@ -38,9 +38,9 @@ pub enum ItemKind<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Item<'a> {
+pub struct Token<'a> {
     pub start: &'a str,
-    pub kind: ItemKind<'a>
+    pub kind: TokenKind<'a>
 }
 
 #[derive(Debug)]
@@ -113,20 +113,20 @@ fn take_name(input: &str) -> (&str, &str) {
     take_split(input, |c| !is_hard(c))
 }
 
-fn wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F) -> (&'a str, Item<'a>)
-    where F: Fn(&'a str) -> ItemKind<'a> {
+fn wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F) -> (&'a str, Token<'a>)
+    where F: Fn(&'a str) -> TokenKind<'a> {
     let (input, taken) = pair;
 
-    (input, Item { start, kind: f(taken) })
+    (input, Token { start, kind: f(taken) })
 }
 
 fn maybe_wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F)
-    -> Result<(&'a str, Item<'a>), LexerError<'a>>
-    where F: Fn(&'a str) -> Result<ItemKind<'a>, LexerReason> {
+    -> Result<(&'a str, Token<'a>), LexerError<'a>>
+    where F: Fn(&'a str) -> Result<TokenKind<'a>, LexerReason> {
     let (input, taken) = pair;
 
     match f(taken) {
-        Ok(kind) => Ok((input, Item { start, kind })),
+        Ok(kind) => Ok((input, Token { start, kind })),
         Err(reason) => Err(LexerError { start, reason })
     }
 }
@@ -227,7 +227,7 @@ fn integer_literal(input: &str) -> Option<(&str, u64)> {
     ))
 }
 
-fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
+fn lex_item(input: &str) -> Result<(&str, Token), LexerError> {
     let input = take_space(input);
 
     let leading = input.chars().next()
@@ -257,18 +257,18 @@ fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
                 ))
             }
         ),
-        ',' => Ok((&input[1..], Item { start: input, kind: Comma })),
-        '(' => Ok((&input[1..], Item { start: input, kind: LeftBrace })),
-        ')' => Ok((&input[1..], Item { start: input, kind: RightBrace })),
-        ':' => Ok((&input[1..], Item { start: input, kind: Colon })),
-        '\n' => Ok((&input[1..], Item { start: input, kind: NewLine })),
+        ',' => Ok((&input[1..], Token { start: input, kind: Comma })),
+        '(' => Ok((&input[1..], Token { start: input, kind: LeftBrace })),
+        ')' => Ok((&input[1..], Token { start: input, kind: RightBrace })),
+        ':' => Ok((&input[1..], Token { start: input, kind: Colon })),
+        '\n' => Ok((&input[1..], Token { start: input, kind: NewLine })),
         '0'..='9' | '-' | '+' | '\'' => return integer_literal(input)
-            .map(|(out, value)| (out, Item {
+            .map(|(out, value)| (out, Token {
                 start: input, kind: IntegerLiteral(value)
             }))
             .ok_or_else(|| LexerError { start: input, reason: ImproperLiteral }),
         '\"' => string_body(after_leading, '\"')
-            .map(|(out, body)| (&out[1..], Item {
+            .map(|(out, body)| (&out[1..], Token {
                 start: input, kind: StringLiteral(body)
             }))
             .ok_or_else(|| LexerError { start: input, reason: InvalidString }),
@@ -277,7 +277,7 @@ fn lex_item(input: &str) -> Result<(&str, Item), LexerError> {
     }
 }
 
-pub fn lex(mut input: &str) -> Result<Vec<Item>, LexerError> {
+pub fn lex(mut input: &str) -> Result<Vec<Token>, LexerError> {
     let mut result = vec![];
 
     while !input.is_empty() {
