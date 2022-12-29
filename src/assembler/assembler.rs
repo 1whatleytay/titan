@@ -1,26 +1,36 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use crate::assembler::lexer::{Token};
-use crate::assembler::lexer_seek::LexerSeek;
+use crate::assembler::lexer::TokenKind::{Directive, Symbol};
+use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
+use crate::assembler::assembler::AssemblerReason::UnexpectedToken;
 
 #[derive(Debug)]
-pub enum AssemblerError {
-
+pub enum AssemblerReason {
+    UnexpectedToken
 }
 
-impl Display for AssemblerError {
+#[derive(Debug)]
+pub struct AssemblerError<'a> {
+    start: &'a str,
+    reason: AssemblerReason
+}
+
+impl<'a> Display for AssemblerError<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Assembler Error")
     }
 }
 
-impl Error for AssemblerError { }
+impl<'a> Error for AssemblerError<'a> { }
 
+#[derive(Debug)]
 struct BinaryRegion {
     address: u32,
     data: Vec<u8>
 }
 
+#[derive(Debug)]
 pub struct Binary {
     regions: Vec<BinaryRegion>
 }
@@ -41,6 +51,14 @@ impl Binary {
     }
 }
 
+pub fn do_directive<'a, T>(directive: &'a str, iter: &mut T, binary: &mut Binary) where T: LexerSeekPeekable<'a> {
+    panic!();
+}
+
+pub fn do_instruction<'a, T>(instruction: &'a str, iter: &mut T, binary: &mut Binary) where T: LexerSeekPeekable<'a> {
+    panic!();
+}
+
 pub fn assemble(items: Vec<Token>) -> Result<Binary, AssemblerError> {
     let mut iter = items.into_iter().peekable();
 
@@ -49,7 +67,9 @@ pub fn assemble(items: Vec<Token>) -> Result<Binary, AssemblerError> {
 
     while let Some(token) = iter.next_any() {
         match token.kind {
-            _ => panic!()
+            Directive(directive) => do_directive(directive, &mut iter, &mut binary),
+            Symbol(instruction) => do_instruction(instruction, &mut iter, &mut binary),
+            _ => return Err(AssemblerError { start: token.start, reason: UnexpectedToken })
         }
     }
 

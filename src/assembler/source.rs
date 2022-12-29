@@ -9,7 +9,7 @@ use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
 pub enum SourceError<'a> {
     Lexer(LexerError<'a>),
     Preprocessor(PreprocessorError<'a>),
-    Assembler(AssemblerError)
+    Assembler(AssemblerError<'a>)
 }
 
 impl<'a> From<LexerError<'a>> for SourceError<'a> {
@@ -24,8 +24,8 @@ impl<'a> From<PreprocessorError<'a>> for SourceError<'a> {
     }
 }
 
-impl<'a> From<AssemblerError> for SourceError<'a> {
-    fn from(value: AssemblerError) -> Self {
+impl<'a> From<AssemblerError<'a>> for SourceError<'a> {
+    fn from(value: AssemblerError<'a>) -> Self {
         Assembler(value)
     }
 }
