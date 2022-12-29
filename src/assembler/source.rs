@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use crate::assembler::assembler::{assemble, Binary, AssemblerError};
+use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
@@ -45,7 +46,7 @@ impl<'a> Error for SourceError<'a> { }
 pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
     let items = lex(source)?;
     let items = preprocess(items)?;
-    let binary = assemble(items)?;
+    let binary = assemble(items, &INSTRUCTIONS)?;
 
     Ok(binary)
 }

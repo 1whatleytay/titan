@@ -1,13 +1,28 @@
 use std::collections::HashMap;
-use crate::assembler::instructions::Encoding::{Register, Source, Destination, Inputs, Sham, SpecialBranch, Immediate, Jump, Branch, LoadImmediate, Parameterless, LoadOffset, StoreOffset};
+use crate::assembler::instructions::Encoding::{
+    Register,
+    Source,
+    Destination,
+    Inputs,
+    Sham,
+    SpecialBranch,
+    Immediate,
+    LoadImmediate,
+    Jump,
+    Branch,
+    Parameterless,
+    LoadOffset,
+    StoreOffset,
+};
+use crate::assembler::instructions::Opcode::{Func, Op, Special};
 
 pub enum Encoding {
-    Register(u8), // $, $, $
-    Source(u8), // $
-    Destination(u8), // $
-    Inputs(u8), // $, $
-    Sham(u8), // $, $, sham
-    SpecialBranch(u8),
+    Register, // $, $, $, opcode: 0
+    Source, // $, opcode: 0
+    Destination, // $, opcode: 0
+    Inputs, // $, $, opcode: 0
+    Sham, // $, $, sham, opcode: 0
+    SpecialBranch, // opcode: 1
     Immediate, // $, $, I
     LoadImmediate,
     Jump, // I or Label
@@ -17,69 +32,75 @@ pub enum Encoding {
     StoreOffset,
 }
 
+pub enum Opcode {
+    Op(u8),
+    Func(u8),
+    Special(u8)
+}
+
 pub struct Instruction<'a> {
-    name: &'a str,
-    opcode: u8,
-    encoding: Encoding,
+    pub name: &'a str,
+    pub opcode: Opcode,
+    pub encoding: Encoding,
 }
 
 pub const INSTRUCTIONS: [Instruction; 56] = [
-    Instruction { name: "sll", opcode: 0, encoding: Sham(0) },
-    Instruction { name: "srl", opcode: 0, encoding: Sham(2) },
-    Instruction { name: "sra", opcode: 0, encoding: Sham(3) },
-    Instruction { name: "sllv", opcode: 0, encoding: Register(4) },
-    Instruction { name: "srlv", opcode: 0, encoding: Register(6) },
-    Instruction { name: "srav", opcode: 0, encoding: Register(7) },
-    Instruction { name: "jr", opcode: 0, encoding: Source(8) },
-    Instruction { name: "jalr", opcode: 0, encoding: Source(9) },
-    Instruction { name: "mfhi", opcode: 0, encoding: Destination(16) },
-    Instruction { name: "mthi", opcode: 0, encoding: Source(17) },
-    Instruction { name: "mflo", opcode: 0, encoding: Destination(18) },
-    Instruction { name: "mtlo", opcode: 0, encoding: Source(19) },
-    Instruction { name: "mult", opcode: 0, encoding: Inputs(24) },
-    Instruction { name: "multu", opcode: 0, encoding: Inputs(25) },
-    Instruction { name: "div", opcode: 0, encoding: Inputs(26) },
-    Instruction { name: "divu", opcode: 0, encoding: Inputs(27) },
-    Instruction { name: "add", opcode: 0, encoding: Register(32) },
-    Instruction { name: "addu", opcode: 0, encoding: Register(33) },
-    Instruction { name: "sub", opcode: 0, encoding: Register(34) },
-    Instruction { name: "subu", opcode: 0, encoding: Register(35) },
-    Instruction { name: "and", opcode: 0, encoding: Register(36) },
-    Instruction { name: "or", opcode: 0, encoding: Register(37) },
-    Instruction { name: "xor", opcode: 0, encoding: Register(38) },
-    Instruction { name: "nor", opcode: 0, encoding: Register(39) },
-    Instruction { name: "sltu", opcode: 0, encoding: Register(41) },
-    Instruction { name: "slt", opcode: 0, encoding: Register(42) },
-    Instruction { name: "bltz", opcode: 1, encoding: SpecialBranch(0) },
-    Instruction { name: "bgez", opcode: 1, encoding: SpecialBranch(1) },
-    Instruction { name: "bltzal", opcode: 1, encoding: SpecialBranch(16) },
-    Instruction { name: "bgezal", opcode: 1, encoding: SpecialBranch(17) },
-    Instruction { name: "j", opcode: 2, encoding: Jump },
-    Instruction { name: "jal", opcode: 3, encoding: Jump },
-    Instruction { name: "beq", opcode: 4, encoding: Branch },
-    Instruction { name: "bne", opcode: 5, encoding: Branch },
-    Instruction { name: "blez", opcode: 6, encoding: Branch },
-    Instruction { name: "bgtz", opcode: 7, encoding: Branch },
-    Instruction { name: "addi", opcode: 8, encoding: Immediate },
-    Instruction { name: "addiu", opcode: 9, encoding: Immediate },
-    Instruction { name: "slti", opcode: 10, encoding: Immediate },
-    Instruction { name: "sltiu", opcode: 11, encoding: Immediate },
-    Instruction { name: "andi", opcode: 12, encoding: Immediate },
-    Instruction { name: "ori", opcode: 13, encoding: Immediate },
-    Instruction { name: "xori", opcode: 14, encoding: Immediate },
-    Instruction { name: "lui", opcode: 15, encoding: LoadImmediate },
-    Instruction { name: "llo", opcode: 24, encoding: LoadImmediate },
-    Instruction { name: "lhi", opcode: 25, encoding: LoadImmediate },
-    Instruction { name: "trap", opcode: 26, encoding: Parameterless },
-    Instruction { name: "syscall", opcode: 26, encoding: Parameterless },
-    Instruction { name: "lb", opcode: 32, encoding: LoadOffset },
-    Instruction { name: "lh", opcode: 33, encoding: LoadOffset },
-    Instruction { name: "lw", opcode: 35, encoding: LoadOffset },
-    Instruction { name: "lbu", opcode: 36, encoding: LoadOffset },
-    Instruction { name: "lhu", opcode: 37, encoding: LoadOffset },
-    Instruction { name: "sb", opcode: 40, encoding: StoreOffset },
-    Instruction { name: "sh", opcode: 41, encoding: StoreOffset },
-    Instruction { name: "sw", opcode: 43, encoding: StoreOffset },
+    Instruction { name: "sll", opcode: Func(0), encoding: Sham },
+    Instruction { name: "srl", opcode: Func(2), encoding: Sham },
+    Instruction { name: "sra", opcode: Func(3), encoding: Sham },
+    Instruction { name: "sllv", opcode: Func(4), encoding: Register },
+    Instruction { name: "srlv", opcode: Func(6), encoding: Register },
+    Instruction { name: "srav", opcode: Func(7), encoding: Register },
+    Instruction { name: "jr", opcode: Func(8), encoding: Source },
+    Instruction { name: "jalr", opcode: Func(9), encoding: Source },
+    Instruction { name: "mfhi", opcode: Func(16), encoding: Destination },
+    Instruction { name: "mthi", opcode: Func(17), encoding: Source },
+    Instruction { name: "mflo", opcode: Func(18), encoding: Destination },
+    Instruction { name: "mtlo", opcode: Func(19), encoding: Source },
+    Instruction { name: "mult", opcode: Func(24), encoding: Inputs },
+    Instruction { name: "multu", opcode: Func(25), encoding: Inputs },
+    Instruction { name: "div", opcode: Func(26), encoding: Inputs },
+    Instruction { name: "divu", opcode: Func(27), encoding: Inputs },
+    Instruction { name: "add", opcode: Func(32), encoding: Register },
+    Instruction { name: "addu", opcode: Func(33), encoding: Register },
+    Instruction { name: "sub", opcode: Func(34), encoding: Register },
+    Instruction { name: "subu", opcode: Func(35), encoding: Register },
+    Instruction { name: "and", opcode: Func(36), encoding: Register },
+    Instruction { name: "or", opcode: Func(37), encoding: Register },
+    Instruction { name: "xor", opcode: Func(38), encoding: Register },
+    Instruction { name: "nor", opcode: Func(39), encoding: Register },
+    Instruction { name: "sltu", opcode: Func(41), encoding: Register },
+    Instruction { name: "slt", opcode: Func(42), encoding: Register },
+    Instruction { name: "bltz", opcode: Special(0), encoding: SpecialBranch },
+    Instruction { name: "bgez", opcode: Special(1), encoding: SpecialBranch },
+    Instruction { name: "bltzal", opcode: Special(6), encoding: SpecialBranch },
+    Instruction { name: "bgezal", opcode: Special(7), encoding: SpecialBranch },
+    Instruction { name: "j", opcode: Op(2), encoding: Jump },
+    Instruction { name: "jal", opcode: Op(3), encoding: Jump },
+    Instruction { name: "beq", opcode: Op(4), encoding: Branch },
+    Instruction { name: "bne", opcode: Op(5), encoding: Branch },
+    Instruction { name: "blez", opcode: Op(6), encoding: Branch },
+    Instruction { name: "bgtz", opcode: Op(7), encoding: Branch },
+    Instruction { name: "addi", opcode: Op(8), encoding: Immediate },
+    Instruction { name: "addiu", opcode: Op(9), encoding: Immediate },
+    Instruction { name: "slti", opcode: Op(10), encoding: Immediate },
+    Instruction { name: "sltiu", opcode: Op(11), encoding: Immediate },
+    Instruction { name: "andi", opcode: Op(12), encoding: Immediate },
+    Instruction { name: "ori", opcode: Op(13), encoding: Immediate },
+    Instruction { name: "xori", opcode: Op(14), encoding: Immediate },
+    Instruction { name: "lui", opcode: Op(15), encoding: LoadImmediate },
+    Instruction { name: "llo", opcode: Op(24), encoding: LoadImmediate },
+    Instruction { name: "lhi", opcode: Op(25), encoding: LoadImmediate },
+    Instruction { name: "trap", opcode: Op(26), encoding: Parameterless },
+    Instruction { name: "syscall", opcode: Op(26), encoding: Parameterless },
+    Instruction { name: "lb", opcode: Op(32), encoding: LoadOffset },
+    Instruction { name: "lh", opcode: Op(33), encoding: LoadOffset },
+    Instruction { name: "lw", opcode: Op(35), encoding: LoadOffset },
+    Instruction { name: "lbu", opcode: Op(36), encoding: LoadOffset },
+    Instruction { name: "lhu", opcode: Op(37), encoding: LoadOffset },
+    Instruction { name: "sb", opcode: Op(40), encoding: StoreOffset },
+    Instruction { name: "sh", opcode: Op(41), encoding: StoreOffset },
+    Instruction { name: "sw", opcode: Op(43), encoding: StoreOffset },
 ];
 
 pub fn instructions_map<'a, 'b>(instructions: &'b [Instruction<'a>]) -> HashMap<&'a str, &'b Instruction<'a>> {
