@@ -3,21 +3,15 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
+use TokenKind::{LeftBrace, RightBrace};
 use crate::assembler::assembler::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{Token};
+use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, NewLine, Register, Symbol};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
-use crate::assembler::assembler::AssemblerReason::{
-    UnexpectedToken,
-    EndOfFile,
-    ExpectedRegister,
-    ExpectedConstant,
-    ExpectedLabel,
-    ExpectedNewline,
-    UnknownInstruction
-};
+use crate::assembler::assembler::InstructionLabel::{BranchLabel, JumpLabel};
 use crate::assembler::instructions::{Encoding, Instruction, instructions_map, Opcode};
 use crate::assembler::registers::RegisterSlot;
+use crate::assembler::assembler::AssemblerReason::{UnexpectedToken, EndOfFile, ExpectedRegister, ExpectedConstant, ExpectedLabel, ExpectedNewline, UnknownInstruction, ExpectedLeftBrace, ExpectedRightBrace};
 
 #[derive(Debug)]
 pub enum AssemblerReason<'a> {
@@ -27,6 +21,8 @@ pub enum AssemblerReason<'a> {
     ExpectedConstant,
     ExpectedLabel,
     ExpectedNewline,
+    ExpectedLeftBrace,
+    ExpectedRightBrace,
     UnknownInstruction(&'a str)
 }
 
@@ -44,29 +40,39 @@ impl<'a> Display for AssemblerError<'a> {
 
 impl<'a> Error for AssemblerError<'a> { }
 
-#[derive(Debug)]
-struct BinaryRegion {
+pub struct BinaryRegion {
     address: u32,
-    data: Vec<u8>
+    data: Vec<u8>,
+}
+
+pub type Binary = Vec<BinaryRegion>;
+
+#[derive(Debug)]
+struct BinaryBuilderRegion {
+    address: u32,
+    data: Vec<u8>,
+    labels: HashMap<usize, InstructionLabel>
 }
 
 #[derive(Debug)]
-pub struct Binary {
-    regions: Vec<BinaryRegion>
+pub struct BinaryBuilder {
+    regions: Vec<BinaryBuilderRegion>
 }
 
 const TEXT_DEFAULT: u32 = 0x40000;
 
-impl Binary {
-    fn new() -> Binary {
-        Binary { regions: vec![] }
+impl BinaryBuilder {
+    fn new() -> BinaryBuilder {
+        BinaryBuilder { regions: vec![] }
     }
 
     fn seek(&mut self, address: u32) {
-        self.regions.push(BinaryRegion { address, data: vec![] })
+        self.regions.push(BinaryBuilderRegion {
+            address, data: vec![], labels: HashMap::new()
+        })
     }
 
-    fn region(&mut self) -> Option<&mut BinaryRegion> {
+    fn region(&mut self) -> Option<&mut BinaryBuilderRegion> {
         self.regions.last_mut()
     }
 
@@ -96,15 +102,16 @@ fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerReas
     }
 }
 
-enum AddressLabel<'a> {
+#[derive(Debug)]
+enum AddressLabel {
     Constant(u64),
-    Label(&'a str)
+    Label(String)
 }
 
-fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel<'a>, AssemblerReason<'a>> {
+fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerReason<'a>> {
     match get_token(iter)?.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
-        Symbol(value) => Ok(Label(value)),
+        Symbol(value) => Ok(Label(value.to_string())),
         _ => Err(ExpectedLabel)
     }
 }
@@ -116,7 +123,21 @@ fn expect_newline<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerRea
     }
 }
 
-fn do_directive<'a, T: LexerSeek<'a>>(directive: &'a str, iter: &mut T, binary: &mut Binary) {
+fn expect_left_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason<'a>> {
+    match get_token(iter)?.kind {
+        LeftBrace => Ok(()),
+        _ => Err(ExpectedLeftBrace)
+    }
+}
+
+fn expect_right_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason<'a>> {
+    match get_token(iter)?.kind {
+        RightBrace => Ok(()),
+        _ => Err(ExpectedRightBrace)
+    }
+}
+
+fn do_directive<'a, T: LexerSeek<'a>>(directive: &'a str, iter: &mut T, builder: &mut BinaryBuilder) {
     panic!();
 }
 
@@ -173,13 +194,26 @@ impl InstructionBuilder {
     }
 }
 
-struct EmitInstruction {
-    instructions: Vec<u32>
+#[derive(Debug)]
+enum InstructionLabel {
+    BranchLabel(AddressLabel),
+    JumpLabel(AddressLabel)
 }
 
-fn do_register_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T
-) -> Result<EmitInstruction, AssemblerReason<'a>> {
+struct EmitInstruction {
+    instructions: Vec<(u32, Option<InstructionLabel>)>,
+}
+
+impl EmitInstruction {
+    fn with(instruction: u32) -> EmitInstruction {
+        EmitInstruction {
+            instructions: vec![(instruction, None)],
+        }
+    }
+}
+
+fn do_register_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -190,107 +224,160 @@ fn do_register_instruction<'a, T: LexerSeek<'a>>(
         .with_temp(temp)
         .0;
 
-    Ok(EmitInstruction { instructions: vec![inst] })
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_source_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(&op);
+fn do_source_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let source = get_register(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_destination_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_destination_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let dest = get_register(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_dest(dest)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_inputs_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_inputs_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_sham_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_sham_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let dest = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let sham = get_constant(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_dest(dest)
+        .with_temp(temp)
+        .with_sham(sham as u8)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_special_branch_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_special_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let source = get_register(iter)?;
+    let label = get_label(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .0;
+
+    Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_immediate_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let temp = get_register(iter)?;
+    let source = get_register(iter)?;
+    let constant = get_constant(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .with_temp(temp)
+        .with_immediate(constant as u16)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_load_immediate_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_load_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let temp = get_register(iter)?;
+    let constant = get_constant(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_temp(temp)
+        .with_immediate(constant as u16)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_jump_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_jump_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let label = get_label(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op).0;
+
+    Ok(EmitInstruction { instructions: vec![(inst, Some(JumpLabel(label)))] })
 }
 
-fn do_branch_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let label = get_label(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_parameterless_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_branch_zero_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let source = get_register(iter)?;
+    let label = get_label(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .0;
+
+    Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_load_offset_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_parameterless_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, _: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let inst = InstructionBuilder::from_op(op).0;
 
-    Ok(())
+    Ok(EmitInstruction::with(inst))
 }
 
-fn do_store_offset_instruction<'a, T: LexerSeek<'a>>(
-    op: &Opcode, iter: &mut T, binary: &mut Binary
-) -> Result<(), AssemblerReason<'a>> {
-    let base = instruction_base(op);
+fn do_offset_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
+    -> Result<EmitInstruction, AssemblerReason<'a>> {
+    let temp = get_register(iter)?;
+    let constant = get_constant(iter)?;
+    expect_left_brace(iter)?;
+    let source = get_register(iter)?;
+    expect_right_brace(iter)?;
 
-    Ok(())
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(source)
+        .with_temp(temp)
+        .with_immediate(constant as u16)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
 }
 
 pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
-    instruction: &'a str, iter: &mut T, binary: &mut Binary, map: &HashMap<&str, &Instruction>
+    instruction: &'a str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason<'a>> {
     let lowercase = instruction.to_lowercase();
     let lowercase_ref: &str = &lowercase;
@@ -301,23 +388,23 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
 
     let op = &instruction.opcode;
 
-    Ok(())
+    let emit = match instruction.encoding {
+        Encoding::Register => do_register_instruction(op, iter),
+        Encoding::Source => do_source_instruction(op, iter),
+        Encoding::Destination => do_destination_instruction(op, iter),
+        Encoding::Inputs => do_inputs_instruction(op, iter),
+        Encoding::Sham => do_sham_instruction(op, iter),
+        Encoding::SpecialBranch => do_special_branch_instruction(op, iter),
+        Encoding::Immediate => do_immediate_instruction(op, iter),
+        Encoding::LoadImmediate => do_load_immediate_instruction(op, iter),
+        Encoding::Jump => do_jump_instruction(op, iter),
+        Encoding::Branch => do_branch_instruction(op, iter),
+        Encoding::BranchZero => do_branch_zero_instruction(op, iter),
+        Encoding::Parameterless => do_parameterless_instruction(op, iter),
+        Encoding::Offset => do_offset_instruction(op, iter),
+    }?;
 
-    // match instruction.encoding {
-    //     Encoding::Register => do_register_instruction(op, iter, binary),
-    //     Encoding::Source => do_source_instruction(op, iter, binary),
-    //     Encoding::Destination => do_destination_instruction(op, iter, binary),
-    //     Encoding::Inputs => do_inputs_instruction(op, iter, binary),
-    //     Encoding::Sham => do_sham_instruction(op, iter, binary),
-    //     Encoding::SpecialBranch => do_special_branch_instruction(op, iter, binary),
-    //     Encoding::Immediate => do_immediate_instruction(op, iter, binary),
-    //     Encoding::LoadImmediate => do_load_immediate_instruction(op, iter, binary),
-    //     Encoding::Jump => do_jump_instruction(op, iter, binary),
-    //     Encoding::Branch => do_branch_instruction(op, iter, binary),
-    //     Encoding::Parameterless => do_parameterless_instruction(op, iter, binary),
-    //     Encoding::LoadOffset => do_load_offset_instruction(op, iter, binary),
-    //     Encoding::StoreOffset => do_store_offset_instruction(op, iter, binary),
-    // }
+    Ok(())
 }
 
 pub fn assemble<'a>(items: Vec<Token<'a>>, instructions: &[Instruction]) -> Result<Binary, AssemblerError<'a>> {
@@ -325,17 +412,17 @@ pub fn assemble<'a>(items: Vec<Token<'a>>, instructions: &[Instruction]) -> Resu
 
     let map = instructions_map(instructions);
 
-    let mut binary = Binary::new();
-    binary.seek(TEXT_DEFAULT);
+    let mut builder = BinaryBuilder::new();
+    builder.seek(TEXT_DEFAULT);
 
     while let Some(token) = iter.next_any() {
         match token.kind {
-            Directive(directive) => do_directive(directive, &mut iter, &mut binary),
-            Symbol(instruction) => do_instruction(instruction, &mut iter, &mut binary, &map)
+            Directive(directive) => do_directive(directive, &mut iter, &mut builder),
+            Symbol(instruction) => do_instruction(instruction, &mut iter, &mut builder, &map)
                 .map_err(|reason| AssemblerError { start: token.start, reason })?,
             _ => return Err(AssemblerError { start: token.start, reason: UnexpectedToken })
         }
     }
 
-    Ok(binary)
+    Ok(Binary::new())
 }

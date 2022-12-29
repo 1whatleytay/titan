@@ -10,9 +10,9 @@ use crate::assembler::instructions::Encoding::{
     LoadImmediate,
     Jump,
     Branch,
+    BranchZero,
     Parameterless,
-    LoadOffset,
-    StoreOffset,
+    Offset,
 };
 use crate::assembler::instructions::Opcode::{Func, Op, Special};
 
@@ -27,9 +27,9 @@ pub enum Encoding {
     LoadImmediate,
     Jump, // I or Label
     Branch, // I or Label
+    BranchZero,
     Parameterless,
-    LoadOffset,
-    StoreOffset,
+    Offset,
 }
 
 pub enum Opcode {
@@ -79,8 +79,8 @@ pub const INSTRUCTIONS: [Instruction; 56] = [
     Instruction { name: "jal", opcode: Op(3), encoding: Jump },
     Instruction { name: "beq", opcode: Op(4), encoding: Branch },
     Instruction { name: "bne", opcode: Op(5), encoding: Branch },
-    Instruction { name: "blez", opcode: Op(6), encoding: Branch },
-    Instruction { name: "bgtz", opcode: Op(7), encoding: Branch },
+    Instruction { name: "blez", opcode: Op(6), encoding: BranchZero },
+    Instruction { name: "bgtz", opcode: Op(7), encoding: BranchZero },
     Instruction { name: "addi", opcode: Op(8), encoding: Immediate },
     Instruction { name: "addiu", opcode: Op(9), encoding: Immediate },
     Instruction { name: "slti", opcode: Op(10), encoding: Immediate },
@@ -93,14 +93,14 @@ pub const INSTRUCTIONS: [Instruction; 56] = [
     Instruction { name: "lhi", opcode: Op(25), encoding: LoadImmediate },
     Instruction { name: "trap", opcode: Op(26), encoding: Parameterless },
     Instruction { name: "syscall", opcode: Op(26), encoding: Parameterless },
-    Instruction { name: "lb", opcode: Op(32), encoding: LoadOffset },
-    Instruction { name: "lh", opcode: Op(33), encoding: LoadOffset },
-    Instruction { name: "lw", opcode: Op(35), encoding: LoadOffset },
-    Instruction { name: "lbu", opcode: Op(36), encoding: LoadOffset },
-    Instruction { name: "lhu", opcode: Op(37), encoding: LoadOffset },
-    Instruction { name: "sb", opcode: Op(40), encoding: StoreOffset },
-    Instruction { name: "sh", opcode: Op(41), encoding: StoreOffset },
-    Instruction { name: "sw", opcode: Op(43), encoding: StoreOffset },
+    Instruction { name: "lb", opcode: Op(32), encoding: Offset },
+    Instruction { name: "lh", opcode: Op(33), encoding: Offset },
+    Instruction { name: "lw", opcode: Op(35), encoding: Offset },
+    Instruction { name: "lbu", opcode: Op(36), encoding: Offset },
+    Instruction { name: "lhu", opcode: Op(37), encoding: Offset },
+    Instruction { name: "sb", opcode: Op(40), encoding: Offset },
+    Instruction { name: "sh", opcode: Op(41), encoding: Offset },
+    Instruction { name: "sw", opcode: Op(43), encoding: Offset },
 ];
 
 pub fn instructions_map<'a, 'b>(instructions: &'b [Instruction<'a>]) -> HashMap<&'a str, &'b Instruction<'a>> {
