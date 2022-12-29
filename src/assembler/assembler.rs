@@ -7,7 +7,7 @@ use TokenKind::{LeftBrace, RightBrace};
 use crate::assembler::assembler::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, NewLine, Register, Symbol};
-use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
+use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::assembler::InstructionLabel::{BranchLabel, JumpLabel};
 use crate::assembler::instructions::{Encoding, Instruction, instructions_map, Opcode};
 use crate::assembler::registers::RegisterSlot;
@@ -56,14 +56,15 @@ struct BinaryBuilderRegion {
 
 #[derive(Debug)]
 pub struct BinaryBuilder {
-    regions: Vec<BinaryBuilderRegion>
+    regions: Vec<BinaryBuilderRegion>,
+    labels: HashMap<String, u32>
 }
 
 const TEXT_DEFAULT: u32 = 0x40000;
 
 impl BinaryBuilder {
     fn new() -> BinaryBuilder {
-        BinaryBuilder { regions: vec![] }
+        BinaryBuilder { regions: vec![], labels: HashMap::new() }
     }
 
     fn seek(&mut self, address: u32) {
@@ -376,7 +377,7 @@ fn do_offset_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
+fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
     instruction: &'a str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason<'a>> {
     let lowercase = instruction.to_lowercase();
@@ -404,7 +405,26 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
         Encoding::Offset => do_offset_instruction(op, iter),
     }?;
 
+    expect_newline(iter)?;
+
     Ok(())
+}
+
+fn do_label<'a, T: LexerSeekPeekable<'a>>(
+    name: &'a str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
+) -> Result<(), AssemblerReason<'a>> {
+    // We need this region!
+    let region = builder.region().unwrap();
+
+    match iter.seek_without(is_adjacent_kind) {
+        Some(token) if token.kind == TokenKind::Colon => {
+            let pc = region.address + region.data.len() as u32;
+            builder.labels.insert(name.to_string(), pc);
+
+            Ok(())
+        },
+        _ => do_instruction(name, iter, builder, map)
+    }
 }
 
 pub fn assemble<'a>(items: Vec<Token<'a>>, instructions: &[Instruction]) -> Result<Binary, AssemblerError<'a>> {

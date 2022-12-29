@@ -64,6 +64,9 @@ impl<'a> LexerSeek<'a> for Peekable<IntoIter<Token<'a>>> { }
 pub trait LexerSeekPeekable<'a>: LexerSeek<'a> {
     fn collect_without<F>(&mut self, f: F) -> Vec<Token<'a>>
         where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool;
+
+    fn seek_without<F>(&mut self, f: F) -> Option<&Token<'a>>
+        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool;
 }
 
 impl<'a> LexerSeekPeekable<'a> for Peekable<IntoIter<Token<'a>>> {
@@ -76,5 +79,12 @@ impl<'a> LexerSeekPeekable<'a> for Peekable<IntoIter<Token<'a>>> {
         }
 
         result
+    }
+
+    fn seek_without<F>(&mut self, mut f: F) -> Option<&Token<'a>>
+        where for<'b> F: FnMut(&'b TokenKind<'a>) -> bool {
+        while self.next_if(|token| !f(&token.kind)).is_some() { }
+
+        self.peek()
     }
 }
