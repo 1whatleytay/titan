@@ -28,7 +28,7 @@ use crate::assembler::assembler::AssemblerReason::{
     MissingRegion,
     MissingInstruction
 };
-use crate::assembler::assembler::BinaryBuilderMode::Text;
+use crate::assembler::assembler::BinaryBuilderMode::{Data, KernelData, KernelText, Text};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -87,8 +87,20 @@ struct BinaryBuilderRegion {
     labels: HashMap<usize, InstructionLabel>
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum BinaryBuilderMode {
     Text, Data, KernelText, KernelData
+}
+
+impl BinaryBuilderMode {
+    fn default_address(&self) -> u32 {
+        match self {
+            Text => 0x00400000,
+            Data => 0x10010000,
+            KernelText => 0x80000000,
+            KernelData => 0x90000000
+        }
+    }
 }
 
 struct BinaryBuilderState {
@@ -105,6 +117,10 @@ struct BinaryBuilder {
 const TEXT_DEFAULT: u32 = 0x40000;
 
 impl BinaryBuilderState {
+    fn index(&self) -> Option<usize> {
+        self.indices.get(&self.mode).cloned()
+    }
+
     fn new() -> BinaryBuilderState {
         BinaryBuilderState {
             mode: Text,
@@ -122,14 +138,37 @@ impl BinaryBuilder {
         }
     }
 
-    fn seek(&mut self, address: u32) {
+    fn seek(&mut self, address: u32) -> usize {
+        let index = self.regions.len();
+
         self.regions.push(BinaryBuilderRegion {
             raw: RawRegion { address, data: vec![] }, labels: HashMap::new()
-        })
+        });
+
+        index
+    }
+
+    fn seek_mode(&mut self, mode: BinaryBuilderMode) {
+        self.state.mode = mode;
+
+        let index = self.state.index()
+            .unwrap_or_else(|| self.seek(mode.default_address()));
+
+        self.state.indices.insert(mode, index);
+    }
+
+
+    fn seek_mode_address(&mut self, mode: BinaryBuilderMode, address: u32) {
+        self.state.mode = mode;
+
+        let index = self.seek(address);
+        self.state.indices.insert(mode, index);
     }
 
     fn region(&mut self) -> Option<&mut BinaryBuilderRegion> {
-        self.regions.last_mut()
+        let Some(index) = self.state.index() else { return None };
+
+        Some(&mut self.regions[index])
     }
 
     fn build(self) -> Result<Binary, AssemblerReason> {
@@ -221,26 +260,108 @@ fn expect_right_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), Assemble
     }
 }
 
-fn do_directive<'a, T: LexerSeek<'a>>(
+fn get_optional_constant<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Option<u64> {
+    let next = iter.seek_without(is_adjacent_kind);
+
+    if let Some(next) = next {
+        match next.kind {
+            IntegerLiteral(literal) => {
+                iter.next();
+
+                Some(literal)
+            },
+            _ => None
+        }
+    } else {
+        None
+    }
+}
+
+fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
+    mode: BinaryBuilderMode, iter: &mut T, builder: &mut BinaryBuilder
+) -> Result<(), AssemblerReason> {
+    let address = get_optional_constant(iter);
+
+    match address {
+        Some(address) => builder.seek_mode_address(mode, address as u32),
+        None => builder.seek_mode(mode)
+    };
+
+    Ok(())
+}
+
+fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_space_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_float_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_double_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_extern_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
+    -> Result<(), AssemblerReason> {
+    Ok(())
+}
+
+fn do_directive<'a, T: LexerSeekPeekable<'a>>(
     directive: &'a str, iter: &mut T, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerReason> {
     let lowercase = directive.to_lowercase();
 
     match &lowercase as &str {
-        "ascii" => Ok(()),
-        "asciiz" => Ok(()),
-        "align" => Ok(()),
-        "space" => Ok(()),
-        "byte" => Ok(()),
-        "half" => Ok(()),
-        "word" => Ok(()),
-        "float" => Ok(()),
-        "double" => Ok(()),
-        "text" => Ok(()),
-        "data" => Ok(()),
-        "ktext" => Ok(()),
-        "kdata" => Ok(()),
-        "extern" => Ok(()),
+        "ascii" => do_ascii_directive(iter, builder),
+        "asciiz" => do_asciiz_directive(iter, builder),
+        "align" => do_align_directive(iter, builder),
+        "space" => do_space_directive(iter, builder),
+        "byte" => do_byte_directive(iter, builder),
+        "half" => do_half_directive(iter, builder),
+        "word" => do_word_directive(iter, builder),
+        "float" => do_float_directive(iter, builder),
+        "double" => do_double_directive(iter, builder),
+
+        "text" => do_seek_directive(Text, iter, builder),
+        "data" => do_seek_directive(Data, iter, builder),
+        "ktext" => do_seek_directive(KernelText, iter, builder),
+        "kdata" => do_seek_directive(KernelData, iter, builder),
+
+        "extern" => do_extern_directive(iter, builder),
         _ => Err(UnknownDirective(directive.to_string()))
     }
 }
@@ -569,6 +690,8 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
 
     match iter.seek_without(is_adjacent_kind) {
         Some(token) if token.kind == TokenKind::Colon => {
+            iter.next(); // consume
+
             let pc = region.raw.address + region.raw.data.len() as u32;
             builder.labels.insert(name.to_string(), pc);
 
