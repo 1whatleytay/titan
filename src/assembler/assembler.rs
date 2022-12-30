@@ -324,9 +324,7 @@ fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut 
     }
 
     let mut bytes = get_string(iter)?.into_bytes();
-    let Some(region) = builder.region() else {
-        return Err(MissingRegion)
-    };
+    let region = builder.region().ok_or(MissingRegion)?;
 
     region.raw.data.append(&mut bytes);
 
@@ -342,9 +340,7 @@ fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut
     let mut bytes = get_string(iter)?.into_bytes();
     bytes.push(0);
 
-    let Some(region) = builder.region() else {
-        return Err(MissingRegion)
-    };
+    let region = builder.region().ok_or(MissingRegion)?;
 
     region.raw.data.append(&mut bytes);
 
@@ -353,6 +349,26 @@ fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut
 
 fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    let shift = get_constant(iter)?;
+    let align = 1 << shift;
+
+    let region = builder.region().ok_or(MissingRegion)?;
+    let pc = region.raw.address + region.raw.data.len() as u32;
+
+    let (select, remainder) = (pc / align, pc % align);
+    let correction = if remainder > 0 { 1 } else { 0 };
+
+    let target = (select + correction) * align;
+    let align_count = pc as usize - target as usize;
+
+    if shift > 16 {
+        builder.seek_mode_address(builder.state.mode, target)
+    } else {
+        let mut align_bytes = vec![0; align_count];
+
+        region.raw.data.append(&mut align_bytes);
+    }
+
     Ok(())
 }
 
@@ -718,7 +734,7 @@ fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
 
     expect_newline(iter)?;
 
-    let Some(region) = builder.region() else { return Err(MissingRegion) };
+    let region = builder.region().ok_or(MissingRegion)?;
 
     for (word, branch) in emit.instructions {
         let offset = region.raw.data.len();
@@ -737,7 +753,8 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
     name: &'a str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason> {
     // We need this region!
-    let Some(region) = builder.region() else { return Err(MissingRegion) };
+
+    let region = builder.region().ok_or(MissingRegion)?;
 
     match iter.seek_without(is_adjacent_kind) {
         Some(token) if token.kind == TokenKind::Colon => {
