@@ -609,7 +609,7 @@ fn dispatch_instruction<'a, T: LexerSeekPeekable<'a>>(
 }
 
 pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
-    instruction: &'a str, iter: &mut T,
+    instruction: &str, iter: &mut T,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason> {
     let lowercase = instruction.to_lowercase();

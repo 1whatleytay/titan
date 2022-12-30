@@ -65,7 +65,7 @@ fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<S
         LowerLabel(label) => {
             let destination = get_address(label, map)?;
             let bottom = destination & 0x0000FFFF;
-            
+
             instruction & 0xFFFF0000 | bottom
         }
         UpperLabel(label) => {
@@ -92,7 +92,7 @@ pub struct Binary {
 impl Binary {
     fn new() -> Binary {
         Binary {
-            entry: TEXT_DEFAULT,
+            entry: Text.default_address(),
             regions: vec![]
         }
     }
@@ -132,8 +132,6 @@ pub struct BinaryBuilder {
     pub regions: Vec<BinaryBuilderRegion>,
     pub labels: HashMap<String, u32>
 }
-
-const TEXT_DEFAULT: u32 = 0x40000;
 
 impl BinaryBuilderState {
     fn index(&self) -> Option<usize> {

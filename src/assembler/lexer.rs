@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::ptr;
 use num::FromPrimitive;
 use std::str::FromStr;
+use SymbolName::Owned;
 
 use crate::assembler::lexer::TokenKind::{
     Comment,
@@ -19,7 +20,23 @@ use crate::assembler::lexer::TokenKind::{
     RightBrace,
 };
 use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
+use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::registers::RegisterSlot;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SymbolName<'a> {
+    Slice(&'a str),
+    Owned(String)
+}
+
+impl<'a> SymbolName<'a> {
+    pub fn get<'b: 'a>(&'b self) -> &'b str {
+        match self {
+            Slice(text) => text,
+            Owned(text) => text
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
@@ -29,7 +46,7 @@ pub enum TokenKind<'a> {
     Register(RegisterSlot), // $*
     IntegerLiteral(u64), // 123 -> also characters
     StringLiteral(String),
-    Symbol(&'a str),
+    Symbol(SymbolName<'a>),
     Comma,
     Colon,
     NewLine,
@@ -237,19 +254,19 @@ fn lex_item(input: &str) -> Result<(&str, Token), LexerError> {
     match leading {
         '#' => Ok(wrap_item(
             take_split(after_leading, |c| c != '\n'),
-            after_leading, |i| Comment(i)
+            input, |i| Comment(i)
         )),
         '.' => Ok(wrap_item(
             take_name(after_leading),
-            after_leading, |i| Directive(i)
+            input, |i| Directive(i)
         )),
         '%' => Ok(wrap_item(
             take_name(after_leading),
-            after_leading, |i| Parameter(i)
+            input, |i| Parameter(i)
         )),
         '$' => maybe_wrap_item(
             take_name(after_leading),
-            after_leading, |i| {
+            input, |i| {
                 Ok(Register(
                     RegisterSlot::from_string(i)
                         .or_else(|| RegisterSlot::from_u64(u64::from_str(i).ok()?))
@@ -273,7 +290,7 @@ fn lex_item(input: &str) -> Result<(&str, Token), LexerError> {
             }))
             .ok_or_else(|| LexerError { start: input, reason: InvalidString }),
 
-        _ => Ok(wrap_item(take_name(input), input, |i| Symbol(i)))
+        _ => Ok(wrap_item(take_name(input), input, |i| Symbol(Slice(i))))
     }
 }
 

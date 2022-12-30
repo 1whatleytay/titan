@@ -70,7 +70,7 @@ pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, Assemble
 pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerReason> {
     match get_token(iter)?.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
-        Symbol(value) => Ok(Label(value.to_string())),
+        Symbol(value) => Ok(Label(value.get().to_string())),
         _ => Err(ExpectedLabel)
     }
 }
