@@ -23,6 +23,12 @@ pub trait Decoder<T> {
     fn jr(&mut self, s: u8) -> T;
     fn jalr(&mut self, s: u8) -> T;
 
+    fn madd(&mut self, s: u8, t: u8) -> T;
+    fn maddu(&mut self, s: u8, t: u8) -> T;
+    fn mul(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn msub(&mut self, s: u8, t: u8) -> T;
+    fn msubu(&mut self, s: u8, t: u8) -> T;
+
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> T;
     fn addiu(&mut self, s: u8, t: u8, imm: u16) -> T;
     fn andi(&mut self, s: u8, t: u8, imm: u16) -> T;
@@ -119,6 +125,24 @@ pub trait Decoder<T> {
         })
     }
 
+    fn dispatch_algebra(&mut self, instruction: u32) -> Option<T> {
+        let func = instruction & 0x3F;
+
+        let s = ((instruction >> 21) & 0x1F) as u8;
+        let t = ((instruction >> 16) & 0x1F) as u8;
+        let d = ((instruction >> 11) & 0x1F) as u8;
+
+        Some(match func {
+            0 => self.madd(s, t),
+            1 => self.maddu(s, t),
+            2 => self.mul(s, t, d),
+            4 => self.msub(s, t),
+            5 => self.msubu(s, t),
+
+            _ => return None
+        })
+    }
+
     fn dispatch(&mut self, instruction: u32) -> Option<T> {
         let opcode = instruction >> 26;
 
@@ -147,6 +171,7 @@ pub trait Decoder<T> {
             24 => self.llo(t, imm),
             25 => self.lhi(t, imm),
             26 => self.trap(),
+            28 => return self.dispatch_algebra(instruction),
             32 => self.lb(s, t, imm),
             33 => self.lh(s, t, imm),
             35 => self.lw(s, t, imm),

@@ -188,6 +188,62 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         Ok(())
     }
 
+    fn madd(&mut self, s: u8, t: u8) -> Result<()> {
+        let a = *self.register(s) as i32 as i64;
+        let b = *self.register(t) as i32 as i64;
+        let hilo = ((self.hi as u64) << 32 | (self.lo as u64)) as i64;
+        let result = (a * b + hilo) as u64;
+
+        self.hi = (result >> 32) as u32;
+        self.lo = result as u32;
+
+        Ok(())
+    }
+
+    fn maddu(&mut self, s: u8, t: u8) -> Result<()> {
+        let a = *self.register(s) as u64;
+        let b = *self.register(t) as u64;
+        let hilo = (self.hi as u64) << 32 | (self.lo as u64);
+        let result = a * b + hilo;
+
+        self.hi = (result >> 32) as u32;
+        self.lo = result as u32;
+
+        Ok(())
+    }
+
+    fn mul(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        let value = *self.register(s) * *self.register(t);
+
+        *self.register(d) = value;
+
+        Ok(())
+    }
+
+    fn msub(&mut self, s: u8, t: u8) -> Result<()> {
+        let a = *self.register(s) as i32 as i64;
+        let b = *self.register(t) as i32 as i64;
+        let hilo = ((self.hi as u64) << 32 | (self.lo as u64)) as i64;
+        let result = (hilo - a * b) as u64;
+
+        self.hi = (result >> 32) as u32;
+        self.lo = result as u32;
+
+        Ok(())
+    }
+
+    fn msubu(&mut self, s: u8, t: u8) -> Result<()> {
+        let a = *self.register(s) as u64;
+        let b = *self.register(t) as u64;
+        let hilo = (self.hi as u64) << 32 | (self.lo as u64);
+        let result = hilo - a * b;
+
+        self.hi = (result >> 32) as u32;
+        self.lo = result as u32;
+
+        Ok(())
+    }
+
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
         let imm = imm as i16 as i32;
 

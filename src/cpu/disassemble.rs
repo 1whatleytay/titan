@@ -182,6 +182,26 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
         format!("jalr {}", reg(s))
     }
 
+    fn madd(&mut self, s: u8, t: u8) -> String {
+        format!("madd {}, {}", reg(s), reg(t))
+    }
+
+    fn maddu(&mut self, s: u8, t: u8) -> String {
+        format!("maddu {}, {}", reg(s), reg(t))
+    }
+
+    fn mul(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("mul {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+
+    fn msub(&mut self, s: u8, t: u8) -> String {
+        format!("msub {}, {}", reg(s), reg(t))
+    }
+
+    fn msubu(&mut self, s: u8, t: u8) -> String {
+        format!("msubu {}, {}", reg(s), reg(t))
+    }
+
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> String {
         format!("addi {}, {}, {}", reg(t), reg(s), sig(imm))
     }
