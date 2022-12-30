@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use crate::assembler::binary::{BinaryBuilder, InstructionLabel};
-use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel};
+use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
+use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
 use crate::assembler::util::{
     AssemblerReason,
     expect_left_brace,
@@ -83,8 +84,9 @@ impl EmitInstruction {
     }
 }
 
-fn do_register_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                 -> Result<EmitInstruction, AssemblerReason> {
+fn do_register_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -98,7 +100,9 @@ fn do_register_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_source_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T) -> Result<EmitInstruction, AssemblerReason> {
+fn do_source_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let source = get_register(iter)?;
 
     let inst = InstructionBuilder::from_op(op)
@@ -108,8 +112,9 @@ fn do_source_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T) -> Res
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_destination_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                    -> Result<EmitInstruction, AssemblerReason> {
+fn do_destination_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let dest = get_register(iter)?;
 
     let inst = InstructionBuilder::from_op(op)
@@ -119,8 +124,9 @@ fn do_destination_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_inputs_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                               -> Result<EmitInstruction, AssemblerReason> {
+fn do_inputs_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let source = get_register(iter)?;
     let temp = get_register(iter)?;
 
@@ -132,8 +138,9 @@ fn do_inputs_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_sham_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                             -> Result<EmitInstruction, AssemblerReason> {
+fn do_sham_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
     let sham = get_constant(iter)?;
@@ -147,8 +154,9 @@ fn do_sham_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_special_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                       -> Result<EmitInstruction, AssemblerReason> {
+fn do_special_branch_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
 
@@ -159,8 +167,9 @@ fn do_special_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T
     Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                  -> Result<EmitInstruction, AssemblerReason> {
+fn do_immediate_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let temp = get_register(iter)?;
     let source = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -174,8 +183,9 @@ fn do_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_load_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                       -> Result<EmitInstruction, AssemblerReason> {
+fn do_load_immediate_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
@@ -187,8 +197,9 @@ fn do_load_immediate_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_jump_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                             -> Result<EmitInstruction, AssemblerReason> {
+fn do_jump_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let label = get_label(iter)?;
 
     let inst = InstructionBuilder::from_op(op).0;
@@ -196,8 +207,9 @@ fn do_jump_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction { instructions: vec![(inst, Some(JumpLabel(label)))] })
 }
 
-fn do_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                               -> Result<EmitInstruction, AssemblerReason> {
+fn do_branch_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let source = get_register(iter)?;
     let temp = get_register(iter)?;
     let label = get_label(iter)?;
@@ -210,8 +222,9 @@ fn do_branch_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_branch_zero_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                                    -> Result<EmitInstruction, AssemblerReason> {
+fn do_branch_zero_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
 
@@ -222,15 +235,17 @@ fn do_branch_zero_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_parameterless_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, _: &mut T)
-                                                      -> Result<EmitInstruction, AssemblerReason> {
+fn do_parameterless_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, _: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let inst = InstructionBuilder::from_op(op).0;
 
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_offset_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
-                                               -> Result<EmitInstruction, AssemblerReason> {
+fn do_offset_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
     expect_left_brace(iter)?;
@@ -246,14 +261,328 @@ fn do_offset_instruction<'a, T: LexerSeek<'a>>(op: &Opcode, iter: &mut T)
     Ok(EmitInstruction::with(inst))
 }
 
-pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
-    instruction: &'a str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
-) -> Result<(), AssemblerReason> {
-    let lowercase = instruction.to_lowercase();
-    let lowercase_ref: &str = &lowercase;
+fn do_abs_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
 
-    let Some(instruction) = map.get(&lowercase_ref) else {
-        return Err(UnknownInstruction(instruction.to_string()))
+    // Instruction Pattern from MARS (e.g. branchless)
+    let shift = InstructionBuilder::from_op(&Func(3)) // sra
+        .with_dest(AssemblerTemporary)
+        .with_temp(source)
+        .with_immediate(31)
+        .0;
+
+    let xor = InstructionBuilder::from_op(&Func(38)) // xor
+        .with_dest(dest)
+        .with_temp(AssemblerTemporary)
+        .with_source(source)
+        .0;
+
+    let sub = InstructionBuilder::from_op(&Func(35)) // subu
+        .with_dest(dest)
+        .with_temp(AssemblerTemporary)
+        .with_source(dest)
+        .0;
+
+    let instructions = vec![(shift, None), (xor, None), (sub, None)];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_blt_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let label = get_label(iter)?;
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_source(source)
+        .with_temp(temp)
+        .with_dest(AssemblerTemporary)
+        .0;
+
+    let bne = InstructionBuilder::from_op(&Op(5)) // bne
+        .with_source(AssemblerTemporary)
+        .with_temp(Zero)
+        .0;
+
+    let instructions = vec![(slt, None), (bne, Some(BranchLabel(label)))];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_bgt_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let label = get_label(iter)?;
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_source(temp)
+        .with_temp(source)
+        .with_dest(AssemblerTemporary)
+        .0;
+
+    let bne = InstructionBuilder::from_op(&Op(5)) // bne
+        .with_source(AssemblerTemporary)
+        .with_temp(Zero)
+        .0;
+
+    let instructions = vec![(slt, None), (bne, Some(BranchLabel(label)))];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_ble_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let label = get_label(iter)?;
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_source(temp)
+        .with_temp(source)
+        .with_dest(AssemblerTemporary)
+        .0;
+
+    let beq = InstructionBuilder::from_op(&Op(4)) // slt
+        .with_source(AssemblerTemporary)
+        .with_temp(Zero)
+        .0;
+
+    let instructions = vec![(slt, None), (beq, Some(BranchLabel(label)))];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_bge_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let label = get_label(iter)?;
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_source(source)
+        .with_temp(temp)
+        .with_dest(AssemblerTemporary)
+        .0;
+
+    let beq = InstructionBuilder::from_op(&Op(4)) // slt
+        .with_source(AssemblerTemporary)
+        .with_temp(Zero)
+        .0;
+
+    let instructions = vec![(slt, None), (beq, Some(BranchLabel(label)))];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_neg_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let sub = InstructionBuilder::from_op(&Func(34)) // sub
+        .with_dest(dest)
+        .with_source(Zero)
+        .with_temp(source)
+        .0;
+
+    Ok(EmitInstruction::with(sub))
+}
+
+fn do_negu_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let subu = InstructionBuilder::from_op(&Func(35)) // subu
+        .with_dest(dest)
+        .with_source(Zero)
+        .with_temp(source)
+        .0;
+
+    Ok(EmitInstruction::with(subu))
+}
+
+fn do_not_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let nor = InstructionBuilder::from_op(&Func(39))
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(Zero)
+        .0;
+
+    Ok(EmitInstruction::with(nor))
+}
+
+fn do_li_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let constant = get_constant(iter)? as u32;
+
+    let signed = constant as i32;
+
+    if signed < 0x8000 && signed >= -0x8000 {
+        let add = InstructionBuilder::from_op(&Op(9)) // addu
+            .with_dest(dest)
+            .with_source(Zero)
+            .with_immediate(constant as u16)
+            .0;
+
+        Ok(EmitInstruction::with(add))
+    } else {
+        // This branch does NOT handle zero.
+        let top = (constant & 0xFFFF0000) >> 16;
+        let bottom = constant & 0x0000FFFF;
+        assert_ne!(top, 0);
+
+        let lui = InstructionBuilder::from_op(&Op(15))
+            .with_temp(dest)
+            .with_immediate(top as u16)
+            .0;
+
+        let mut instructions = vec![(lui, None)];
+
+        if bottom != 0 {
+            let xori = InstructionBuilder::from_op(&Op(14))
+                .with_temp(dest)
+                .with_source(dest)
+                .with_immediate(bottom as u16)
+                .0;
+
+            instructions.push((xori, None));
+        }
+
+        Ok(EmitInstruction { instructions })
+    }
+}
+
+fn do_la_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    // Load Address may not know the label location yet.
+    // So we will never optimize away the size of this instruction,
+    // as this might change the label location.
+
+    let dest = get_register(iter)?;
+    let label_upper = get_label(iter)?;
+    let label_lower = label_upper.clone();
+
+    let lui = InstructionBuilder::from_op(&Op(15))
+        .with_temp(dest)
+        .0;
+
+    let xori = InstructionBuilder::from_op(&Op(14))
+        .with_temp(dest)
+        .with_source(dest)
+        .0;
+
+    let instructions = vec![
+        (lui, Some(UpperLabel(label_upper))),
+        (xori, Some(LowerLabel(label_lower)))
+    ];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_move_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let addu = InstructionBuilder::from_op(&Func(33)) // addu
+        .with_dest(dest)
+        .with_temp(Zero)
+        .with_source(source)
+        .0;
+
+    Ok(EmitInstruction::with(addu))
+}
+
+fn do_sge_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    // s >= t -> !(s < t)
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    let xori = InstructionBuilder::from_op(&Op(14)) // xori
+        .with_temp(dest)
+        .with_source(dest)
+        .with_immediate(1)
+        .0;
+
+    let instructions = vec![(slt, None), (xori, None)];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_sgt_instruction<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    let slt = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_dest(dest)
+        .with_source(temp)
+        .with_temp(source)
+        .0;
+
+    Ok(EmitInstruction::with(slt))
+}
+
+fn dispatch_pseudo<'a, T: LexerSeekPeekable<'a>>(
+    instruction: &str, iter: &mut T
+) -> Result<Option<EmitInstruction>, AssemblerReason> {
+    Ok(Some(match instruction {
+        "abs" => do_abs_instruction(iter)?,
+        "blt" => do_blt_instruction(iter)?,
+        "bgt" => do_bgt_instruction(iter)?,
+        "ble" => do_ble_instruction(iter)?,
+        "bge" => do_bge_instruction(iter)?,
+        "neg" => do_neg_instruction(iter)?,
+        "negu" => do_negu_instruction(iter)?,
+        "not" => do_not_instruction(iter)?,
+        "li" => do_li_instruction(iter)?,
+        "la" => do_la_instruction(iter)?,
+        "move" => do_move_instruction(iter)?,
+        "sge" => do_sge_instruction(iter)?,
+        "sgt" => do_sgt_instruction(iter)?,
+        _ => return Ok(None)
+    }))
+}
+
+fn dispatch_instruction<'a, T: LexerSeekPeekable<'a>>(
+    instruction: &str, iter: &mut T, map: &HashMap<&str, &Instruction>
+) -> Result<EmitInstruction, AssemblerReason> {
+    let Some(instruction) = map.get(&instruction) else {
+        return dispatch_pseudo(instruction, iter)?
+            .ok_or_else(|| UnknownInstruction(instruction.to_string()));
     };
 
     let op = &instruction.opcode;
@@ -275,6 +604,17 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
     }?;
 
     expect_newline(iter)?;
+
+    Ok(emit)
+}
+
+pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
+    instruction: &'a str, iter: &mut T,
+    builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
+) -> Result<(), AssemblerReason> {
+    let lowercase = instruction.to_lowercase();
+
+    let emit = dispatch_instruction(&lowercase, iter, map)?;
 
     let region = builder.region().ok_or(MissingRegion)?;
 

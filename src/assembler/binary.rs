@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::io::Cursor;
+use std::ops::Add;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use InstructionLabel::{LowerLabel, UpperLabel};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 
 use crate::assembler::binary::BinaryBuilderMode::{
@@ -13,7 +15,7 @@ use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel};
 use crate::assembler::util::AssemblerReason;
 use crate::assembler::util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AddressLabel {
     Constant(u64),
     Label(String)
@@ -22,7 +24,9 @@ pub enum AddressLabel {
 #[derive(Debug)]
 pub enum InstructionLabel {
     BranchLabel(AddressLabel),
-    JumpLabel(AddressLabel)
+    JumpLabel(AddressLabel),
+    LowerLabel(AddressLabel),
+    UpperLabel(AddressLabel)
 }
 
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerReason> {
@@ -57,6 +61,18 @@ fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<S
             let constant = (destination >> 2) & (!0u32 >> 6);
 
             instruction & mask | constant
+        }
+        LowerLabel(label) => {
+            let destination = get_address(label, map)?;
+            let bottom = destination & 0x0000FFFF;
+            
+            instruction & 0xFFFF0000 | bottom
+        }
+        UpperLabel(label) => {
+            let destination = get_address(label, map)?;
+            let top = (destination & 0xFFFF0000) >> 16;
+
+            instruction & 0xFFFF0000 | top
         }
     })
 }
