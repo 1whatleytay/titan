@@ -7,7 +7,7 @@ use num_traits::ToPrimitive;
 use TokenKind::{LeftBrace, RightBrace};
 use crate::assembler::assembler::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{Token, TokenKind};
-use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, NewLine, Register, Symbol};
+use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, NewLine, Register, StringLiteral, Symbol};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::assembler::InstructionLabel::{BranchLabel, JumpLabel};
 use crate::assembler::instructions::{Encoding, Instruction, instructions_map, Opcode};
@@ -17,16 +17,18 @@ use crate::assembler::assembler::AssemblerReason::{
     EndOfFile,
     ExpectedRegister,
     ExpectedConstant,
+    ExpectedString,
     ExpectedLabel,
     ExpectedNewline,
     ExpectedLeftBrace,
     ExpectedRightBrace,
+    IncorrectSegment,
     UnknownLabel,
     UnknownDirective,
     UnknownInstruction,
     JumpOutOfRange,
     MissingRegion,
-    MissingInstruction
+    MissingInstruction,
 };
 use crate::assembler::assembler::BinaryBuilderMode::{Data, KernelData, KernelText, Text};
 
@@ -36,10 +38,12 @@ pub enum AssemblerReason {
     EndOfFile,
     ExpectedRegister,
     ExpectedConstant,
+    ExpectedString,
     ExpectedLabel,
     ExpectedNewline,
     ExpectedLeftBrace,
     ExpectedRightBrace,
+    IncorrectSegment,
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
@@ -93,6 +97,22 @@ enum BinaryBuilderMode {
 }
 
 impl BinaryBuilderMode {
+    fn is_text(&self) -> bool {
+        match self {
+            Text => true,
+            KernelText => true,
+            _ => false
+        }
+    }
+
+    fn is_data(&self) -> bool {
+        match self {
+            Data => true,
+            KernelData => true,
+            _ => false
+        }
+    }
+
     fn default_address(&self) -> u32 {
         match self {
             Text => 0x00400000,
@@ -225,6 +245,13 @@ fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerReas
     }
 }
 
+fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, AssemblerReason> {
+    match get_token(iter)?.kind {
+        StringLiteral(value) => Ok(value),
+        _ => Err(ExpectedString)
+    }
+}
+
 #[derive(Debug)]
 enum AddressLabel {
     Constant(u64),
@@ -292,11 +319,35 @@ fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    if !builder.state.mode.is_data() {
+        return Err(IncorrectSegment)
+    }
+
+    let mut bytes = get_string(iter)?.into_bytes();
+    let Some(region) = builder.region() else {
+        return Err(MissingRegion)
+    };
+
+    region.raw.data.append(&mut bytes);
+
     Ok(())
 }
 
 fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    if !builder.state.mode.is_data() {
+        return Err(IncorrectSegment)
+    }
+
+    let mut bytes = get_string(iter)?.into_bytes();
+    bytes.push(0);
+
+    let Some(region) = builder.region() else {
+        return Err(MissingRegion)
+    };
+
+    region.raw.data.append(&mut bytes);
+
     Ok(())
 }
 
