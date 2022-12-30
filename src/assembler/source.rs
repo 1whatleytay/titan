@@ -1,10 +1,12 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use crate::assembler::assembler::{assemble, Binary, AssemblerError};
+use crate::assembler::assembler::assemble;
+use crate::assembler::binary::{Binary};
 use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
+use crate::assembler::util::AssemblerError;
 
 #[derive(Debug)]
 pub enum SourceError<'a> {

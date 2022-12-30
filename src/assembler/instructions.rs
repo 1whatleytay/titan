@@ -103,7 +103,8 @@ pub const INSTRUCTIONS: [Instruction; 56] = [
     Instruction { name: "sw", opcode: Op(43), encoding: Offset },
 ];
 
-pub fn instructions_map<'a, 'b>(instructions: &'b [Instruction<'a>]) -> HashMap<&'a str, &'b Instruction<'a>> {
+pub fn instructions_map<'a, 'b>(instructions: &'b [Instruction<'a>])
+    -> HashMap<&'a str, &'b Instruction<'a>> {
     instructions.iter()
         .map(|instruction| (instruction.name, instruction))
         .collect()
