@@ -7,6 +7,7 @@ use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::util::AssemblerReason::{EndOfFile, ExpectedConstant, ExpectedLabel, ExpectedLeftBrace, ExpectedNewline, ExpectedRegister, ExpectedRightBrace, ExpectedString};
+use crate::assembler::util::InstructionValue::{Literal, Slot};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -47,8 +48,23 @@ pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T)
 }
 
 pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, AssemblerReason> {
-    match get_token(iter)?.kind {
+    let t = get_token(iter)?;
+    match t.kind {
         Register(slot) => Ok(slot),
+        _ => Err(ExpectedRegister)
+    }
+}
+
+pub enum InstructionValue {
+    Slot(RegisterSlot),
+    Literal(u64)
+}
+
+pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue, AssemblerReason> {
+    let t = get_token(iter)?;
+    match t.kind {
+        Register(slot) => Ok(Slot(slot)),
+        IntegerLiteral(value) => Ok(Literal(value)),
         _ => Err(ExpectedRegister)
     }
 }
