@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_traits::ToPrimitive;
 use TokenKind::{LeftBrace, RightBrace};
 use crate::assembler::assembler::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, NewLine, Register, StringLiteral, Symbol};
-use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
+use crate::assembler::lexer_seek::{is_adjacent_kind, is_solid_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::assembler::InstructionLabel::{BranchLabel, JumpLabel};
 use crate::assembler::instructions::{Encoding, Instruction, instructions_map, Opcode};
 use crate::assembler::registers::RegisterSlot;
@@ -30,6 +30,7 @@ use crate::assembler::assembler::AssemblerReason::{
     MissingInstruction,
 };
 use crate::assembler::assembler::BinaryBuilderMode::{Data, KernelData, KernelText, Text};
+use crate::elf::header::Endian::Little;
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -368,33 +369,83 @@ fn do_space_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut 
     Ok(())
 }
 
+fn get_constants<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Vec<u64> {
+    let mut result = vec![];
+
+    while let Some(value) = iter.seek_without(is_solid_kind) {
+        match value.kind {
+            IntegerLiteral(value) => result.push(value),
+            _ => break
+        }
+
+        iter.next();
+    }
+
+    result
+}
+
 fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    let mut values: Vec<u8> = get_constants(iter).into_iter()
+        .map(|value| value as u8).collect();
+
+    let region = builder.region().ok_or(MissingRegion)?;
+
+    region.raw.data.append(&mut values);
+
     Ok(())
 }
 
 fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    let mut values: Vec<u8> = get_constants(iter).into_iter()
+        .flat_map(|value| {
+            let mut array = [0u8; 2];
+            LittleEndian::write_u16(&mut array, value as u16);
+
+            array
+        }).collect();
+
+    let region = builder.region().ok_or(MissingRegion)?;
+
+    region.raw.data.append(&mut values);
+
     Ok(())
 }
 
 fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    let mut values: Vec<u8> = get_constants(iter).into_iter()
+        .flat_map(|value| {
+            let mut array = [0u8; 4];
+            LittleEndian::write_u32(&mut array, value as u32);
+
+            array
+        }).collect();
+
+    let region = builder.region().ok_or(MissingRegion)?;
+
+    region.raw.data.append(&mut values);
+
     Ok(())
 }
 
+// Don't want to deal with this until coprocessor
 fn do_float_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
-    Ok(())
+    Err(UnknownDirective("float".to_string()))
 }
 
 fn do_double_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
-    Ok(())
+    Err(UnknownDirective("double".to_string()))
 }
 
 fn do_extern_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    get_string(iter)?;
+    get_constant(iter)?;
+
     Ok(())
 }
 
