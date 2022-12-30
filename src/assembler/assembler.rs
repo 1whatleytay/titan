@@ -22,7 +22,6 @@ use crate::assembler::assembler::AssemblerReason::{
     ExpectedNewline,
     ExpectedLeftBrace,
     ExpectedRightBrace,
-    IncorrectSegment,
     UnknownLabel,
     UnknownDirective,
     UnknownInstruction,
@@ -43,7 +42,6 @@ pub enum AssemblerReason {
     ExpectedNewline,
     ExpectedLeftBrace,
     ExpectedRightBrace,
-    IncorrectSegment,
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
@@ -97,22 +95,6 @@ enum BinaryBuilderMode {
 }
 
 impl BinaryBuilderMode {
-    fn is_text(&self) -> bool {
-        match self {
-            Text => true,
-            KernelText => true,
-            _ => false
-        }
-    }
-
-    fn is_data(&self) -> bool {
-        match self {
-            Data => true,
-            KernelData => true,
-            _ => false
-        }
-    }
-
     fn default_address(&self) -> u32 {
         match self {
             Text => 0x00400000,
@@ -319,10 +301,6 @@ fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
-    if !builder.state.mode.is_data() {
-        return Err(IncorrectSegment)
-    }
-
     let mut bytes = get_string(iter)?.into_bytes();
     let region = builder.region().ok_or(MissingRegion)?;
 
@@ -333,10 +311,6 @@ fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut 
 
 fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
-    if !builder.state.mode.is_data() {
-        return Err(IncorrectSegment)
-    }
-
     let mut bytes = get_string(iter)?.into_bytes();
     bytes.push(0);
 
@@ -346,6 +320,8 @@ fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut
 
     Ok(())
 }
+
+const MAX_ZERO: usize = 0x1000000;
 
 fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
@@ -361,7 +337,7 @@ fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut 
     let target = (select + correction) * align;
     let align_count = pc as usize - target as usize;
 
-    if shift > 16 {
+    if align_count > MAX_ZERO {
         builder.seek_mode_address(builder.state.mode, target)
     } else {
         let mut align_bytes = vec![0; align_count];
@@ -374,6 +350,21 @@ fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut 
 
 fn do_space_directive<'a, T: LexerSeekPeekable<'a>>(iter: &mut T, builder: &mut BinaryBuilder)
     -> Result<(), AssemblerReason> {
+    let region = builder.region().ok_or(MissingRegion)?;
+    let pc = region.raw.address + region.raw.data.len() as u32;
+
+    let byte_count = get_constant(iter)? as usize;
+
+    if byte_count > MAX_ZERO {
+        let target = pc + byte_count as u32;
+
+        builder.seek_mode_address(builder.state.mode, target)
+    } else {
+        let mut space_bytes = vec![0; byte_count];
+
+        region.raw.data.append(&mut space_bytes);
+    }
+
     Ok(())
 }
 
