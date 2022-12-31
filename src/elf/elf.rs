@@ -1,9 +1,11 @@
-use std::fmt::Write;
-use std::io::{Read, Seek};
+use std::io::{Read, Write, Seek};
 use std::io::SeekFrom::Start;
 use crate::elf::Header;
 use crate::elf::program::ProgramHeader;
 use crate::elf::error::Result;
+use crate::elf::header::HeaderDetails;
+use crate::elf::landmark::Landmark::{ProgramHeaderCount, ProgramHeaderData, ProgramHeaderStart};
+use crate::elf::landmark::Landmarks;
 
 #[derive(Debug)]
 pub struct Elf {
@@ -29,5 +31,29 @@ impl Elf {
         }
 
         Ok(Elf { header, program_headers })
+    }
+
+    pub fn write<T: Write + Seek>(&self, stream: &mut T) -> Result<()> {
+        let mut landmarks = Landmarks::new();
+
+        landmarks.set(ProgramHeaderCount, self.program_headers.len() as u64);
+
+        self.header.write(stream)?;
+        landmarks.merge(HeaderDetails::write_landmarks(stream)?);
+
+        landmarks.mark(ProgramHeaderStart, stream)?;
+        for (index, header) in self.program_headers.iter().enumerate() {
+            landmarks.merge(header.write(stream, index)?);
+        }
+
+        for (index, header) in self.program_headers.iter().enumerate() {
+            landmarks.mark(ProgramHeaderData(index), stream)?;
+
+            stream.write(&header.data[..])?;
+        }
+
+        landmarks.fill_requests(stream)?;
+
+        Ok(())
     }
 }

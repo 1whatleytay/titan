@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{Token, TokenKind};
+use crate::assembler::lexer::{Token};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, NewLine, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;

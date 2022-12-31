@@ -6,7 +6,8 @@ pub enum Error {
     InvalidMagic(u32),
     InvalidBinaryType,
     InvalidEndian,
-    InvalidVersion,
+    InvalidCPU,
+    InvalidHeaderType,
     Requires32Bit,
     IoError(std::io::Error)
 }
@@ -24,8 +25,9 @@ impl Display for Error {
                 format!("Invalid ELF file (magic is 0x{:08x})", magic),
             Error::InvalidBinaryType => "Invalid binary type found".into(),
             Error::InvalidEndian => "Invalid endian type found".into(),
-            Error::InvalidVersion => "Invalid ELF version".into(),
+            Error::InvalidCPU => "Invalid CPU type found".into(),
             Error::Requires32Bit => "32-bit elf expected, but found other (64-bit ELF?)".into(),
+            Error::InvalidHeaderType => "Invaid program header type found".into(),
             IoError(error) => format!("{}", error)
         })
     }

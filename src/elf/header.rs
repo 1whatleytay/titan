@@ -1,9 +1,14 @@
-use std::io::Read;
-use byteorder::{LittleEndian, ReadBytesExt};
+use std::io::{Read, Seek, Write};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive};
-use crate::elf::error::Error::{InvalidBinaryType, InvalidEndian, InvalidMagic, InvalidVersion, Requires32Bit};
+use num_traits::{FromPrimitive, ToPrimitive};
+use crate::elf::error::Error::{
+    InvalidBinaryType, InvalidEndian, InvalidMagic, InvalidCPU, Requires32Bit
+};
 use crate::elf::error::Result;
+use crate::elf::landmark::Landmark::{ProgramHeaderStart, ProgramHeaderCount};
+use crate::elf::landmark::Landmarks;
+use crate::elf::landmark::PointerSize::{Bit16, Bit32};
 
 #[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
 pub enum BinaryType {
@@ -62,7 +67,7 @@ pub struct HeaderDetails {
 pub const MAGIC: u32 = 0x464c457f;
 
 impl Header {
-    pub fn read<T>(stream: &mut T) -> Result<(Header, HeaderDetails)> where T: Read {
+    pub fn read<T: Read>(stream: &mut T) -> Result<(Header, HeaderDetails)> {
         type Endian = LittleEndian;
 
         let header = Header {
@@ -78,7 +83,7 @@ impl Header {
                 buffer
             },
             package: stream.read_u16::<Endian>()?,
-            cpu: FromPrimitive::from_u16(stream.read_u16::<Endian>()?).ok_or(InvalidVersion)?,
+            cpu: FromPrimitive::from_u16(stream.read_u16::<Endian>()?).ok_or(InvalidCPU)?,
             elf_version: stream.read_u32::<Endian>()?,
             program_entry: stream.read_u32::<Endian>()?,
         };
@@ -91,10 +96,30 @@ impl Header {
             Ok((header, HeaderDetails::read(stream)?))
         }
     }
+
+    pub fn write<T: Write + Seek>(&self, stream: &mut T) -> Result<()> {
+        type Endian = LittleEndian;
+
+        stream.write_u32::<Endian>(MAGIC)?;
+        stream.write_u8(self.binary_type.to_u8().ok_or(InvalidBinaryType)?)?;
+        stream.write_u8(self.endian.to_u8().ok_or(InvalidBinaryType)?)?;
+        stream.write_u8(self.header_version)?;
+        stream.write_u8(self.abi)?;
+        stream.write(&self.padding)?;
+        stream.write_u16::<Endian>(self.package)?;
+        stream.write_u16::<Endian>(self.cpu.to_u16().ok_or(InvalidCPU)?)?;
+        stream.write_u32::<Endian>(self.elf_version)?;
+        stream.write_u32::<Endian>(self.program_entry)?;
+
+        Ok(())
+    }
 }
 
+const HEADER_SIZE: u16 = 52;
+const PROGRAM_HEADER_SIZE: u16 = 32;
+
 impl HeaderDetails {
-    pub fn read<T>(stream: &mut T) -> Result<HeaderDetails> where T: Read {
+    pub fn read<T: Read>(stream: &mut T) -> Result<HeaderDetails> {
         type Endian = LittleEndian;
 
         let details = HeaderDetails {
@@ -110,5 +135,25 @@ impl HeaderDetails {
         };
 
         Ok(details)
+    }
+
+    pub fn write_landmarks<T: Write + Seek>(stream: &mut T) -> Result<Landmarks> {
+        type Endian = LittleEndian;
+
+        let mut landmarks = Landmarks::new();
+
+        landmarks.request(Bit32, ProgramHeaderStart, stream)?;
+        stream.write_u32::<Endian>(0)?; // program_table_position:
+        stream.write_u32::<Endian>(0)?; // section_table_point:
+        stream.write_u32::<Endian>(0)?; // flags:
+        stream.write_u16::<Endian>(HEADER_SIZE)?; // header_size:
+        stream.write_u16::<Endian>(PROGRAM_HEADER_SIZE)?; // program_entry_size:
+        landmarks.request(Bit16, ProgramHeaderCount, stream)?;
+        stream.write_u16::<Endian>(0)?; // program_entry_count:
+        stream.write_u16::<Endian>(0)?; // section_entry_size:
+        stream.write_u16::<Endian>(0)?; // section_entry_count:
+        stream.write_u16::<Endian>(0)?; // names_point:
+
+        Ok(landmarks)
     }
 }
