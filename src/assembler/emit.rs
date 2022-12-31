@@ -111,8 +111,8 @@ fn load_immediate(constant: u64, into: RegisterSlot) -> Vec<u32> {
 
         if bottom != 0 {
             let xori = InstructionBuilder::from_op(&Op(13))
-                .with_temp(layer)
-                .with_source(into)
+                .with_temp(into)
+                .with_source(layer)
                 .with_immediate(bottom as u16)
                 .0;
 

@@ -90,7 +90,7 @@ fn sig(imm: u16) -> String {
 }
 
 fn hex(imm: u16) -> String {
-    format!("{:x}", imm)
+    format!("0x{:x}", imm)
 }
 
 impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
