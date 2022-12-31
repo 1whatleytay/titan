@@ -24,14 +24,21 @@ impl Binary {
         let mut result = vec![];
 
         for region in &self.regions {
+            let default_flags = ProgramHeaderFlags::READABLE
+                | ProgramHeaderFlags::WRITABLE;
+
+            let flags = if region.address == self.entry {
+                default_flags | ProgramHeaderFlags::EXECUTABLE
+            } else {
+                default_flags
+            };
+
             let header = ProgramHeader {
                 header_type: Some(Load),
                 virtual_address: region.address,
                 padding: 0,
                 memory_size: region.data.len() as u32,
-                flags: ProgramHeaderFlags::READABLE
-                    | ProgramHeaderFlags::WRITABLE
-                    | ProgramHeaderFlags::EXECUTABLE,
+                flags,
                 alignment: 1,
                 data: region.data.clone(),
             };

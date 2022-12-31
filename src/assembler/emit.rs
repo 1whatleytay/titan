@@ -639,8 +639,8 @@ fn do_subi_instruction<'a, T: LexerSeekPeekable<'a>>(
     let constant = get_constant(iter)?;
 
     let addi = InstructionBuilder::from_op(&Op(8)) // addi
-        .with_dest(dest)
-        .with_temp(temp)
+        .with_source(temp)
+        .with_temp(dest)
         .with_immediate((-(constant as i16)) as u16)
         .0;
 
@@ -655,8 +655,8 @@ fn do_subiu_instruction<'a, T: LexerSeekPeekable<'a>>(
     let constant = get_constant(iter)?;
 
     let addiu = InstructionBuilder::from_op(&Op(9)) // addiu
-        .with_dest(dest)
-        .with_temp(temp)
+        .with_source(temp)
+        .with_temp(dest)
         .with_immediate((-(constant as i16)) as u16)
         .0;
 

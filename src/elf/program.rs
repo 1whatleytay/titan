@@ -102,30 +102,3 @@ impl ProgramHeader {
         Ok(landmarks)
     }
 }
-
-
-#[cfg(test)]
-mod tests {
-    use std::fs;
-    use std::fs::File;
-    use crate::assembler::source::assemble_from;
-    use crate::debug::elf::inspection::Inspection;
-    use crate::elf::Elf;
-
-    #[test]
-    fn my_test() {
-        let path = "/Users/desgroup/Projects/breakout/breakout.asm";
-        let text = fs::read_to_string(path).unwrap();
-
-        let binary = assemble_from(&text).unwrap();
-
-        let elf: Elf = binary.into();
-
-        let mut file = File::create("/Users/desgroup/Desktop/test.elf").unwrap();
-        elf.write(&mut file).unwrap();
-
-        // let inspection = Inspection::new(Some("breakout.asm"), &elf);
-
-        // println!("{}", inspection.lines.join("\n"));
-    }
-}
