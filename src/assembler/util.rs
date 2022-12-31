@@ -110,13 +110,6 @@ pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, Ass
     }
 }
 
-pub fn expect_newline<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason> {
-    match get_token(iter)?.kind {
-        NewLine => Ok(()),
-        _ => Err(ExpectedNewline)
-    }
-}
-
 pub fn expect_left_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason> {
     match get_token(iter)?.kind {
         LeftBrace => Ok(()),
