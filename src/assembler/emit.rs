@@ -9,7 +9,7 @@ use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
-use crate::assembler::util::{AssemblerReason, expect_left_brace, expect_right_brace, expect_newline, get_constant, get_label, get_register, InstructionValue, get_value};
+use crate::assembler::util::{expect_left_brace, expect_right_brace, expect_newline, get_constant, get_label, get_register, get_value, AssemblerReason, InstructionValue, maybe_get_value};
 use crate::assembler::util::AssemblerReason::{MissingRegion, UnknownInstruction};
 
 fn instruction_base(op: &Opcode) -> u32 {
@@ -183,18 +183,36 @@ fn do_destination_instruction<'a, T: LexerSeek<'a>>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_inputs_instruction<'a, T: LexerSeek<'a>>(
+fn do_inputs_instruction<'a, T: LexerSeekPeekable<'a>>(
     op: &Opcode, iter: &mut T
 ) -> Result<EmitInstruction, AssemblerReason> {
-    let source = get_register(iter)?;
-    let temp = get_register(iter)?;
+    let first = get_register(iter)?;
+    let second = get_register(iter)?;
+    let div = maybe_get_value(iter);
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
-        .with_temp(temp)
-        .0;
+    if let Some(value) = div {
+        let (slot, mut instructions) = emit_unpack_value(value);
 
-    Ok(EmitInstruction::with(inst))
+        let inst = InstructionBuilder::from_op(op)
+            .with_source(second)
+            .with_temp(slot)
+            .0;
+
+        let mflo = InstructionBuilder::from_op(&Func(18)) // mflo
+            .with_dest(first)
+            .0;
+
+        instructions.append(&mut vec![(inst, None), (mflo, None)]);
+
+        Ok(EmitInstruction { instructions })
+    } else {
+        let inst = InstructionBuilder::from_op(op)
+            .with_source(first)
+            .with_temp(second)
+            .0;
+
+        Ok(EmitInstruction::with(inst))
+    }
 }
 
 fn do_sham_instruction<'a, T: LexerSeek<'a>>(

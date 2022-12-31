@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::Token;
+use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, NewLine, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
@@ -42,8 +42,7 @@ impl<'a> Display for AssemblerError<'a> {
 
 impl<'a> Error for AssemblerError<'a> { }
 
-pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T)
-                                   -> Result<Token<'a>, AssemblerReason> {
+pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, AssemblerReason> {
     iter.next_adjacent().ok_or(EndOfFile)
 }
 
@@ -66,6 +65,26 @@ pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue,
         Register(slot) => Ok(Slot(slot)),
         IntegerLiteral(value) => Ok(Literal(value)),
         _ => Err(ExpectedRegister)
+    }
+}
+
+pub fn maybe_get_value<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T
+) -> Option<InstructionValue> {
+    let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
+
+    match value.kind {
+        Register(slot) => {
+            iter.next();
+
+            Some(Slot(slot))
+        },
+        IntegerLiteral(value) => {
+            iter.next();
+
+            Some(Literal(value))
+        },
+        _ => None
     }
 }
 

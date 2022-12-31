@@ -286,24 +286,3 @@ pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
 
     preprocess_cached(items, &mut cache)
 }
-
-#[cfg(test)]
-mod tests {
-    use std::fs;
-    use crate::assembler::assembler::assemble;
-    use crate::assembler::instructions::INSTRUCTIONS;
-    use crate::assembler::lexer::lex;
-    use crate::assembler::preprocessor::preprocess;
-
-    #[test]
-    fn my_test() {
-        let path = "/Users/desgroup/Projects/breakout/breakout.asm";
-        let text = fs::read_to_string(path).unwrap();
-
-        let items = lex(&text).unwrap();
-        let items = preprocess(items).unwrap();
-        assemble(items, &INSTRUCTIONS).unwrap();
-
-        println!("OK!");
-    }
-}
