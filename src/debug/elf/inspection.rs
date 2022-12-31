@@ -128,7 +128,7 @@ impl Inspection {
 
         while let Ok(instruction) = instructions.read_u32::<LittleEndian>() {
             let text = disassembler.dispatch(instruction)
-                .unwrap_or_else(|| "INVALID".into());
+                .unwrap_or_else(|| format!("INVALID # 0x{:08x}", instruction));
 
             disassembler.pc += 4;
 

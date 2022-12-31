@@ -59,7 +59,7 @@ pub struct HeaderDetails {
     pub names_point: u16,
 }
 
-const MAGIC: u32 = 0x464c457f;
+pub const MAGIC: u32 = 0x464c457f;
 
 impl Header {
     pub fn read<T>(stream: &mut T) -> Result<(Header, HeaderDetails)> where T: Read {

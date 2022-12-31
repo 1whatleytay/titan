@@ -7,7 +7,10 @@ use crate::assembler::lexer::TokenKind::{
     Colon, LeftBrace, Parameter, RightBrace, NewLine, Symbol, Directive
 };
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek};
-use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedSymbol, ExpectedParameter, ExpectedLeftBrace, ExpectedRightBrace, MacroUnknown, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion};
+use crate::assembler::preprocessor::PreprocessorReason::{
+    EndOfFile, ExpectedSymbol, ExpectedParameter, ExpectedLeftBrace, ExpectedRightBrace,
+    MacroUnknown, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion
+};
 
 #[derive(Debug)]
 pub enum PreprocessorReason {

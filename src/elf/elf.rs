@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::io::{Read, Seek};
 use std::io::SeekFrom::Start;
 use crate::elf::Header;
@@ -11,7 +12,7 @@ pub struct Elf {
 }
 
 impl Elf {
-    pub fn read<T>(stream: &mut T) -> Result<Elf> where T: Read + Seek {
+    pub fn read<T: Read + Seek>(stream: &mut T) -> Result<Elf> {
         let (header, details) = Header::read(stream)?;
 
         let mut start_index = details.program_table_position as u64;

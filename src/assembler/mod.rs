@@ -4,9 +4,9 @@ pub mod preprocessor;
 
 mod emit;
 mod util;
-mod binary;
 mod directive;
 mod registers;
-mod instructions;
-pub mod assembler;
 pub mod source;
+pub mod binary;
+pub mod assembler;
+pub mod instructions;
