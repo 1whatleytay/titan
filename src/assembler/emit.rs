@@ -33,7 +33,7 @@ impl InstructionBuilder {
     }
 
     fn with_slot_offset<const OFFSET: u32>(mut self, slot: RegisterSlot) -> InstructionBuilder {
-        self.0 &= 0b11111 << OFFSET;
+        self.0 &= !(0b11111 << OFFSET);
         self.0 |= register_source(slot) << OFFSET;
 
         self
@@ -52,14 +52,14 @@ impl InstructionBuilder {
     }
 
     fn with_immediate(mut self, imm: u16) -> InstructionBuilder {
-        self.0 &= 0xFF;
+        self.0 &= 0xFFFF0000;
         self.0 |= imm as u32;
 
         self
     }
 
     fn with_sham(mut self, sham: u8) -> InstructionBuilder {
-        self.0 &= 0b11111 << 6;
+        self.0 &= !(0b11111 << 6);
         self.0 |= (sham as u32) << 6;
 
         self
@@ -545,14 +545,14 @@ fn do_la_instruction<'a, T: LexerSeekPeekable<'a>>(
         .with_temp(dest)
         .0;
 
-    let xori = InstructionBuilder::from_op(&Op(14))
+    let ori = InstructionBuilder::from_op(&Op(13))
         .with_temp(dest)
         .with_source(dest)
         .0;
 
     let instructions = vec![
         (lui, Some(UpperLabel(label_upper))),
-        (xori, Some(LowerLabel(label_lower)))
+        (ori, Some(LowerLabel(label_lower)))
     ];
 
     Ok(EmitInstruction { instructions })

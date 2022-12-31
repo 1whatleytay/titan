@@ -46,7 +46,7 @@ fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<S
                 return Err(JumpOutOfRange(destination, pc))
             }
 
-            instruction & 0xFFFF | (immediate as u32 & 0xFFFF)
+            instruction & 0xFFFF0000 | (immediate as u32 & 0xFFFF)
         }
         JumpLabel(label) => {
             let destination = get_address(label, map)?;
