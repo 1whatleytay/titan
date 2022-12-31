@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::ops::Add;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use InstructionLabel::{LowerLabel, UpperLabel};
 use crate::assembler::binary::AddressLabel::{Constant, Label};

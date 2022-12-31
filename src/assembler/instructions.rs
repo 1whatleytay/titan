@@ -14,7 +14,7 @@ use crate::assembler::instructions::Encoding::{
     Parameterless,
     Offset,
 };
-use crate::assembler::instructions::Opcode::{Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special};
 
 pub enum Encoding {
     Register, // $, $, $, opcode: 0
@@ -35,7 +35,8 @@ pub enum Encoding {
 pub enum Opcode {
     Op(u8),
     Func(u8),
-    Special(u8)
+    Special(u8),
+    Algebra(u8)
 }
 
 pub struct Instruction<'a> {
@@ -44,7 +45,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 56] = [
+pub const INSTRUCTIONS: [Instruction; 61] = [
     Instruction { name: "sll", opcode: Func(0), encoding: Sham },
     Instruction { name: "srl", opcode: Func(2), encoding: Sham },
     Instruction { name: "sra", opcode: Func(3), encoding: Sham },
@@ -101,6 +102,11 @@ pub const INSTRUCTIONS: [Instruction; 56] = [
     Instruction { name: "sb", opcode: Op(40), encoding: Offset },
     Instruction { name: "sh", opcode: Op(41), encoding: Offset },
     Instruction { name: "sw", opcode: Op(43), encoding: Offset },
+    Instruction { name: "madd", opcode: Algebra(0), encoding: Inputs },
+    Instruction { name: "maddu", opcode: Algebra(1), encoding: Inputs },
+    Instruction { name: "mul", opcode: Algebra(2), encoding: Register },
+    Instruction { name: "msub", opcode: Algebra(4), encoding: Inputs },
+    Instruction { name: "msubu", opcode: Algebra(5), encoding: Inputs },
 ];
 
 pub fn instructions_map<'a, 'b>(instructions: &'b [Instruction<'a>])

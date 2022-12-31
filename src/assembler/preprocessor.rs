@@ -7,26 +7,16 @@ use crate::assembler::lexer::TokenKind::{
     Colon, LeftBrace, Parameter, RightBrace, NewLine, Symbol, Directive
 };
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek};
-use crate::assembler::preprocessor::PreprocessorReason::{
-    LoneParameter,
-    EndOfFile,
-    ExpectedSymbol,
-    ExpectedParameter,
-    ExpectedLeftBrace,
-    ExpectedRightBrace,
-    MacroUnknown,
-    MacroParameterCount,
-    MacroUnknownParameter,
-};
+use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedSymbol, ExpectedParameter, ExpectedLeftBrace, ExpectedRightBrace, MacroUnknown, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion};
 
 #[derive(Debug)]
 pub enum PreprocessorReason {
-    LoneParameter,
     EndOfFile,
     ExpectedSymbol,
     ExpectedParameter,
     ExpectedLeftBrace,
     ExpectedRightBrace,
+    RecursiveExpansion,
     MacroUnknown(String),
     MacroParameterCount(usize, usize), // expected, actual
     MacroUnknownParameter(String),
@@ -38,26 +28,35 @@ pub struct PreprocessorError<'a> {
     reason: PreprocessorReason
 }
 
+#[derive(Clone)]
 struct Macro<'a> {
+    name: String,
     parameters: Vec<&'a str>,
     labels: HashSet<String>,
     items: Vec<TokenKind<'a>>
 }
 
 impl<'a> Macro<'a> {
-    fn new() -> Macro<'a> {
-        Macro { parameters: vec![], labels: HashSet::new(), items: vec![] }
+    fn new(name: String) -> Macro<'a> {
+        Macro { name, parameters: vec![], labels: HashSet::new(), items: vec![] }
     }
 }
 
 struct Cache<'a> {
+    seed: usize,
     tokens: HashMap<String, TokenKind<'a>>,
-    macros: HashMap<String, Macro<'a>>
+    macros: HashMap<String, Macro<'a>>,
+    expanding: HashSet<String>
 }
 
 impl<'a> Cache<'a> {
     fn new() -> Cache<'a> {
-        Cache { tokens: HashMap::new(), macros: HashMap::new() }
+        Cache {
+            seed: 0,
+            tokens: HashMap::new(),
+            macros: HashMap::new(),
+            expanding: HashSet::new()
+        }
     }
 }
 
@@ -69,8 +68,9 @@ impl<'a> Display for PreprocessorError<'a> {
 
 impl<'a> Error for PreprocessorError<'a> { }
 
-fn consume_eqv<'a, 'b, T>(iter: &'b mut T) -> Result<(String, TokenKind<'a>), PreprocessorReason>
-    where T: LexerSeek<'a> {
+fn consume_eqv<'a, T: LexerSeek<'a>>(
+    iter: &mut T
+) -> Result<(String, TokenKind<'a>), PreprocessorReason> {
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
     let Some(value) = iter.next_adjacent() else { return Err(EndOfFile) };
 
@@ -79,12 +79,13 @@ fn consume_eqv<'a, 'b, T>(iter: &'b mut T) -> Result<(String, TokenKind<'a>), Pr
     Ok((key.get().to_string(), value.kind))
 }
 
-fn consume_macro<'a, 'b, T>(iter: &'b mut T) -> Result<(String, Macro<'a>), PreprocessorReason>
-    where T: LexerSeek<'a> {
-    let mut result = Macro::new();
-
+fn consume_macro<'a, T: LexerSeek<'a>>(
+    iter: &mut T
+) -> Result<Macro<'a>, PreprocessorReason> {
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
     let Symbol(name) = symbol.kind else { return Err(ExpectedSymbol) };
+
+    let mut result = Macro::new(name.get().to_string());
 
     let Some(left_brace) = iter.next_adjacent() else { return Err(EndOfFile) };
     if left_brace.kind != LeftBrace { return Err(ExpectedLeftBrace) };
@@ -100,22 +101,19 @@ fn consume_macro<'a, 'b, T>(iter: &'b mut T) -> Result<(String, Macro<'a>), Prep
         }
     }
 
-    fn collect_tokens<'a, T: LexerSeek<'a>>(iter: &mut T) -> Vec<TokenKind<'a>> {
-        iter.collect_until(is_adjacent_kind)
-            .into_iter().map(|item| item.kind).collect()
-    }
+    let mut body: Vec<Token> = vec![];
 
     let mut stop = false;
     while !stop {
-        let mut items: Vec<TokenKind> = collect_tokens(iter);
+        let mut items = iter.collect_until(is_adjacent_kind);
 
         let last = items.last().ok_or_else(|| EndOfFile)?;
 
-        stop = match last {
+        stop = match &last.kind {
             Symbol(name) => {
-                let mut post_items = collect_tokens(iter);
+                let mut post_items = iter.collect_until(is_adjacent_kind);
 
-                if post_items.last().map(|last| last == &Colon).unwrap_or(false) {
+                if post_items.last().map(|last| last.kind == Colon).unwrap_or(false) {
                     result.labels.insert(name.get().to_string());
                 }
 
@@ -127,17 +125,71 @@ fn consume_macro<'a, 'b, T>(iter: &'b mut T) -> Result<(String, Macro<'a>), Prep
             _ => false
         };
 
-        result.items.append(&mut items);
+        body.append(&mut items);
     }
 
-    result.items.pop();
+    body.pop();
 
-    Ok((name.get().to_string(), result))
+    result.items = body.into_iter().map(|item| item.kind).collect();
+
+    Ok(result)
 }
 
-fn handle_symbol<'a, 'b, 'c, T>(
-    name: SymbolName<'a>, start: &'a str, iter: &'b mut T, cache: &'c Cache<'a>, seed: &mut usize
-) -> Result<Vec<Token<'a>>, PreprocessorReason> where T: LexerSeek<'a> {
+fn expand_macro<'a>(
+    macro_info: &Macro<'a>, start: &'a str, parameters: Vec<Token<'a>>, cache: &mut Cache<'a>
+) -> Result<Vec<Token<'a>>, PreprocessorReason> {
+    if cache.expanding.contains(&macro_info.name) {
+        return Err(RecursiveExpansion)
+    }
+
+    cache.expanding.insert(macro_info.name.clone());
+
+    if macro_info.parameters.len() != parameters.len() {
+        return Err(MacroParameterCount(macro_info.parameters.len(), parameters.len()))
+    }
+
+    let label_names: HashMap<&str, String> = macro_info.labels.iter()
+        .map(|name| (&name[..], format!("_M{}_{}", name, { cache.seed += 1; cache.seed })))
+        .collect();
+
+    let mut parameter_map: HashMap<&'a str, TokenKind> = HashMap::new();
+
+    for (index, value) in parameters.into_iter().enumerate() {
+        let name = macro_info.parameters[index];
+
+        parameter_map.insert(name, value.kind);
+    }
+
+    let mut result = vec![];
+
+    for kind in &macro_info.items {
+        let mapped_kind = match kind {
+            Parameter(name) => parameter_map.get(name).cloned()
+                .ok_or_else(|| MacroUnknownParameter(name.to_string()))?,
+            Symbol(name) => {
+                if let Some(new_name) = label_names.get(name.get()) {
+                    Symbol(Owned(new_name.clone()))
+                } else {
+                    kind.clone()
+                }
+            }
+            _ => kind.clone()
+        };
+
+        result.push(Token { start, kind: mapped_kind.clone() });
+    }
+
+    let result = preprocess_cached(result, cache)
+        .map_err(|err| err.reason)?;
+
+    cache.expanding.remove(&macro_info.name);
+
+    Ok(result)
+}
+
+fn handle_symbol<'a, T: LexerSeek<'a>>(
+    name: SymbolName<'a>, start: &'a str, iter: &mut T, cache: &mut Cache<'a>
+) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if let Some(token) = cache.tokens.get(name.get()) {
         return Ok(vec![Token { start, kind: token.clone() }])
     }
@@ -177,53 +229,20 @@ fn handle_symbol<'a, 'b, 'c, T>(
         }
     };
 
-    if macro_info.parameters.len() != parameters.len() {
-        return Err(MacroParameterCount(macro_info.parameters.len(), parameters.len()))
-    }
-
-    let label_names: HashMap<&str, String> = macro_info.labels.iter()
-        .map(|name| (&name[..], format!("_M{}_{}", name, { *seed += 1; *seed })))
-        .collect();
-
-    let mut parameter_map: HashMap<&'a str, TokenKind> = HashMap::new();
-
-    for (index, value) in parameters.into_iter().enumerate() {
-        let name = macro_info.parameters[index];
-
-        parameter_map.insert(name, value.kind);
-    }
-
-    let mut result = vec![];
-
-    for kind in &macro_info.items {
-        let mapped_kind = match kind {
-            Parameter(name) => parameter_map.get(name).cloned()
-                .ok_or_else(|| MacroUnknownParameter(name.to_string()))?,
-            Symbol(name) => {
-                if let Some(new_name) = label_names.get(name.get()) {
-                    Symbol(Owned(new_name.clone()))
-                } else {
-                    kind.clone()
-                }
-            }
-            _ => kind.clone()
-        };
-
-        result.push(Token { start, kind: mapped_kind.clone() });
-    }
-
-    Ok(result)
+    // I'm too lazy to think of a clever solution.
+    // Macro Expansion -> Clone My Vec! Maybe Cow might help?
+    let macro_info_clone = macro_info.clone();
+    expand_macro(&macro_info_clone, start, parameters, cache)
 }
 
-pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
+fn preprocess_cached<'a, 'b>(
+    items: Vec<Token<'a>>, cache: &'b mut Cache<'a>
+) -> Result<Vec<Token<'a>>, PreprocessorError<'a>> {
     let mut iter = items.into_iter().peekable();
     let mut result: Vec<Token> = vec![];
 
-    let mut cache = Cache::new();
-
     let watched_directives = HashSet::from(["eqv", "macro"]);
 
-    let mut seed = 0;
     while let Some(element) = iter.next() {
         let fail = |reason: PreprocessorReason| PreprocessorError {
             start: element.start, reason
@@ -239,25 +258,21 @@ pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
                         cache.tokens.insert(key, value);
                     },
                     "macro" => {
-                        let (key, value) = consume_macro(&mut iter)
+                        let value = consume_macro(&mut iter)
                             .map_err(|err| fail(err))?;
 
-                        cache.macros.insert(key, value);
+                        cache.macros.insert(value.name.clone(), value);
                     },
                     _ => panic!()
                 }
             }
             Symbol(name) => {
                 let mut elements = handle_symbol(
-                    name, element.start, &mut iter, &cache, &mut seed
+                    name, element.start, &mut iter, cache
                 ).map_err(|err| fail(err))?;
 
                 result.append(&mut elements)
             },
-            Parameter(_) => return Err(PreprocessorError {
-                start: element.start,
-                reason: LoneParameter
-            }),
 
             _ => result.push(element)
         }
@@ -266,18 +281,29 @@ pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
     Ok(result)
 }
 
+pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
+    let mut cache = Cache::new();
+
+    preprocess_cached(items, &mut cache)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use crate::assembler::source::assemble_from;
+    use crate::assembler::assembler::assemble;
+    use crate::assembler::instructions::INSTRUCTIONS;
+    use crate::assembler::lexer::lex;
+    use crate::assembler::preprocessor::preprocess;
 
     #[test]
     fn my_test() {
         let path = "/Users/desgroup/Projects/breakout/breakout.asm";
         let text = fs::read_to_string(path).unwrap();
 
-        let binary = assemble_from(&text).unwrap();
+        let items = lex(&text).unwrap();
+        let items = preprocess(items).unwrap();
+        assemble(items, &INSTRUCTIONS).unwrap();
 
-        println!("{:?}", binary);
+        println!("OK!");
     }
 }

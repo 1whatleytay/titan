@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
+use Opcode::Algebra;
 use crate::assembler::binary::{BinaryBuilder, InstructionLabel};
 use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
@@ -15,7 +16,8 @@ fn instruction_base(op: &Opcode) -> u32 {
     match op {
         Op(key) => (*key as u32 & 0b111111) << 26,
         Func(key) => *key as u32 & 0b111111, // opcode: 0
-        Special(key) => (*key as u32 & 0b111111) << 16 | (0b000001) << 26 // opcode: 1
+        Special(key) => (*key as u32 & 0b111111) << 16 | (1 << 26), // opcode: 1
+        Algebra(key) => *key as u32 & 0b111111 | (28 << 26)
     }
 }
 
@@ -92,18 +94,24 @@ fn load_immediate(constant: u64, into: RegisterSlot) -> Vec<u32> {
         // This branch does NOT handle zero.
         let top = (constant & 0xFFFF0000) >> 16;
         let bottom = constant & 0x0000FFFF;
-        assert_ne!(top, 0);
 
-        let lui = InstructionBuilder::from_op(&Op(15))
-            .with_temp(into)
-            .with_immediate(top as u16)
-            .0;
+        let mut layer = Zero;
+        let mut instructions = vec![];
 
-        let mut instructions = vec![lui];
+        if top != 0 {
+            let lui = InstructionBuilder::from_op(&Op(15))
+                .with_temp(into)
+                .with_immediate(top as u16)
+                .0;
+
+            layer = into;
+
+            instructions.push(lui);
+        }
 
         if bottom != 0 {
-            let xori = InstructionBuilder::from_op(&Op(14))
-                .with_temp(into)
+            let xori = InstructionBuilder::from_op(&Op(13))
+                .with_temp(layer)
                 .with_source(into)
                 .with_immediate(bottom as u16)
                 .0;
