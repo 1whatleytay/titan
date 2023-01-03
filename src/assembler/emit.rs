@@ -9,8 +9,8 @@ use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
-use crate::assembler::util::{expect_left_brace, expect_right_brace, get_constant, get_label, get_register, get_value, maybe_get_value, AssemblerReason, InstructionValue};
-use crate::assembler::util::AssemblerReason::{MissingRegion, UnknownInstruction};
+use crate::assembler::assembler_util::{expect_left_brace, expect_right_brace, get_constant, get_label, get_register, get_value, maybe_get_value, AssemblerReason, InstructionValue};
+use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownInstruction};
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {

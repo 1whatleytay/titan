@@ -3,7 +3,7 @@ mod lexer_seek;
 pub mod preprocessor;
 
 mod emit;
-mod util;
+mod assembler_util;
 mod directive;
 mod registers;
 pub mod source;

@@ -3,11 +3,11 @@ use std::fmt::{Display, Formatter};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{Token};
-use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, NewLine, LeftBrace, RightBrace};
+use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
-use crate::assembler::util::AssemblerReason::{EndOfFile, ExpectedConstant, ExpectedLabel, ExpectedLeftBrace, ExpectedNewline, ExpectedRegister, ExpectedRightBrace, ExpectedString};
-use crate::assembler::util::InstructionValue::{Literal, Slot};
+use crate::assembler::assembler_util::AssemblerReason::{EndOfFile, ExpectedConstant, ExpectedLabel, ExpectedLeftBrace, ExpectedRegister, ExpectedRightBrace, ExpectedString};
+use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -29,18 +29,18 @@ pub enum AssemblerReason {
 }
 
 #[derive(Debug)]
-pub struct AssemblerError<'a> {
-    pub start: Option<&'a str>,
+pub struct AssemblerError {
+    pub start: Option<usize>,
     pub reason: AssemblerReason
 }
 
-impl<'a> Display for AssemblerError<'a> {
+impl Display for AssemblerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.reason)
     }
 }
 
-impl<'a> Error for AssemblerError<'a> { }
+impl Error for AssemblerError { }
 
 pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, AssemblerReason> {
     iter.next_adjacent().ok_or(EndOfFile)

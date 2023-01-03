@@ -38,6 +38,10 @@ impl<'a> SymbolName<'a> {
     }
 }
 
+fn offset_from_start(start: &str, other: &str) -> usize {
+    other.as_ptr() as usize - start.as_ptr() as usize
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
     Comment(&'a str), // #*\n
@@ -56,7 +60,7 @@ pub enum TokenKind<'a> {
 
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
-    pub start: &'a str,
+    pub start: usize,
     pub kind: TokenKind<'a>
 }
 
@@ -70,18 +74,18 @@ pub enum LexerReason {
 }
 
 #[derive(Debug)]
-pub struct LexerError<'a> {
-    pub start: &'a str,
+pub struct LexerError {
+    pub start: usize,
     pub reason: LexerReason
 }
 
-impl<'a> Display for LexerError<'a> {
+impl Display for LexerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.reason)
     }
 }
 
-impl<'a> Error for LexerError<'a> { }
+impl Error for LexerError { }
 
 fn take_count<F>(input: &str, f: F) -> usize where F: Fn(char) -> bool {
     let mut size = 0;
@@ -128,24 +132,6 @@ fn take_space(input: &str) -> &str {
 
 fn take_name(input: &str) -> (&str, &str) {
     take_split(input, |c| !is_hard(c))
-}
-
-fn wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F) -> (&'a str, Token<'a>)
-    where F: Fn(&'a str) -> TokenKind<'a> {
-    let (input, taken) = pair;
-
-    (input, Token { start, kind: f(taken) })
-}
-
-fn maybe_wrap_item<'a, F>(pair: (&'a str, &'a str), start: &'a str, f: F)
-    -> Result<(&'a str, Token<'a>), LexerError<'a>>
-    where F: Fn(&'a str) -> Result<TokenKind<'a>, LexerReason> {
-    let (input, taken) = pair;
-
-    match f(taken) {
-        Ok(kind) => Ok((input, Token { start, kind })),
-        Err(reason) => Err(LexerError { start, reason })
-    }
 }
 
 // MARS does not seem to support \x, \u or \U escapes (which require variable consumption).
@@ -244,69 +230,72 @@ fn integer_literal(input: &str) -> Option<(&str, u64)> {
     ))
 }
 
-fn lex_item(input: &str) -> Result<(&str, Token), LexerError> {
+fn lex_item(input: &str) -> Result<(&str, TokenKind), LexerReason> {
     let input = take_space(input);
 
-    let leading = input.chars().next()
-        .ok_or_else(|| LexerError { start: input, reason: EndOfFile })?;
+    let leading = input.chars().next().ok_or(EndOfFile)?;
     let after_leading = &input[1..];
 
     match leading {
-        '#' => Ok(wrap_item(
-            take_split(after_leading, |c| c != '\n'),
-            input, |i| Comment(i)
-        )),
-        '.' => Ok(wrap_item(
-            take_name(after_leading),
-            input, |i| Directive(i)
-        )),
-        '%' => Ok(wrap_item(
-            take_name(after_leading),
-            input, |i| Parameter(i)
-        )),
-        '$' => maybe_wrap_item(
-            take_name(after_leading),
-            input, |i| {
-                Ok(Register(
-                    RegisterSlot::from_string(i)
-                        .or_else(|| RegisterSlot::from_u64(u64::from_str(i).ok()?))
-                        .ok_or(UnknownRegister)?
-                ))
-            }
-        ),
-        ',' => Ok((&input[1..], Token { start: input, kind: Comma })),
-        '(' => Ok((&input[1..], Token { start: input, kind: LeftBrace })),
-        ')' => Ok((&input[1..], Token { start: input, kind: RightBrace })),
-        ':' => Ok((&input[1..], Token { start: input, kind: Colon })),
-        '\n' => Ok((&input[1..], Token { start: input, kind: NewLine })),
-        '0'..='9' | '-' | '+' | '\'' => return integer_literal(input)
-            .map(|(out, value)| (out, Token {
-                start: input, kind: IntegerLiteral(value)
-            }))
-            .ok_or_else(|| LexerError { start: input, reason: ImproperLiteral }),
-        '\"' => string_body(after_leading, '\"')
-            .map(|(out, body)| (&out[1..], Token {
-                start: input, kind: StringLiteral(body)
-            }))
-            .ok_or_else(|| LexerError { start: input, reason: InvalidString }),
+        '#' => Ok({
+            let (rest, value) = take_split(after_leading, |c| c != '\n');
 
-        _ => Ok(wrap_item(take_name(input), input, |i| Symbol(Slice(i))))
+            (rest, Comment(value))
+        }),
+        '.' => Ok({
+            let (rest, value) = take_name(after_leading);
+
+            (rest, Directive(value))
+        }),
+        '%' => Ok({
+            let (rest, value) = take_name(after_leading);
+
+            (rest, Parameter(value))
+        }),
+        '$' => {
+            let (rest, value) = take_name(after_leading);
+
+            RegisterSlot::from_string(value)
+                .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
+                .map(|slot| (rest, Register(slot)))
+                .ok_or(UnknownRegister)
+        },
+        ',' => Ok((&input[1..], Comma)),
+        '(' => Ok((&input[1..], LeftBrace)),
+        ')' => Ok((&input[1..], RightBrace)),
+        ':' => Ok((&input[1..], Colon)),
+        '\n' => Ok((&input[1..], NewLine)),
+        '0'..='9' | '-' | '+' | '\'' => integer_literal(input)
+            .map(|(out, value)| (out, IntegerLiteral(value)))
+            .ok_or(ImproperLiteral),
+        '\"' => string_body(after_leading, '\"')
+            .map(|(out, body)| (&out[1..], StringLiteral(body)))
+            .ok_or(InvalidString),
+
+        _ => Ok({
+            let (rest, value) = take_name(input);
+
+            (rest, Symbol(Slice(value)))
+        })
     }
 }
 
 pub fn lex(mut input: &str) -> Result<Vec<Token>, LexerError> {
+    let begin = input;
     let mut result = vec![];
 
     while !input.is_empty() {
-        let start = input;
+        let trail = input;
+        let start = offset_from_start(begin, trail);
 
-        let (next, item) = lex_item(input)?;
+        let (next, kind) = lex_item(input)
+            .map_err(|reason| LexerError { start, reason })?;
 
-        if ptr::eq(start.as_ptr(), next.as_ptr()) {
+        if ptr::eq(trail.as_ptr(), next.as_ptr()) {
             return Err(LexerError { start, reason: Stuck })
         }
 
-        result.push(item);
+        result.push(Token { start, kind });
         input = next;
     }
 

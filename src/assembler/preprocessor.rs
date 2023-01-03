@@ -26,9 +26,9 @@ pub enum PreprocessorReason {
 }
 
 #[derive(Debug)]
-pub struct PreprocessorError<'a> {
-    start: &'a str,
-    reason: PreprocessorReason
+pub struct PreprocessorError {
+    pub start: usize,
+    pub reason: PreprocessorReason
 }
 
 #[derive(Clone)]
@@ -63,13 +63,13 @@ impl<'a> Cache<'a> {
     }
 }
 
-impl<'a> Display for PreprocessorError<'a> {
+impl Display for PreprocessorError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.reason)
     }
 }
 
-impl<'a> Error for PreprocessorError<'a> { }
+impl Error for PreprocessorError { }
 
 fn consume_eqv<'a, T: LexerSeek<'a>>(
     iter: &mut T
@@ -139,7 +139,7 @@ fn consume_macro<'a, T: LexerSeek<'a>>(
 }
 
 fn expand_macro<'a>(
-    macro_info: &Macro<'a>, start: &'a str, parameters: Vec<Token<'a>>, cache: &mut Cache<'a>
+    macro_info: &Macro<'a>, start: usize, parameters: Vec<Token<'a>>, cache: &mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if cache.expanding.contains(&macro_info.name) {
         return Err(RecursiveExpansion)
@@ -191,7 +191,7 @@ fn expand_macro<'a>(
 }
 
 fn handle_symbol<'a, T: LexerSeek<'a>>(
-    name: SymbolName<'a>, start: &'a str, iter: &mut T, cache: &mut Cache<'a>
+    name: SymbolName<'a>, start: usize, iter: &mut T, cache: &mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if let Some(token) = cache.tokens.get(name.get()) {
         return Ok(vec![Token { start, kind: token.clone() }])
@@ -240,7 +240,7 @@ fn handle_symbol<'a, T: LexerSeek<'a>>(
 
 fn preprocess_cached<'a, 'b>(
     items: Vec<Token<'a>>, cache: &'b mut Cache<'a>
-) -> Result<Vec<Token<'a>>, PreprocessorError<'a>> {
+) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut iter = items.into_iter().peekable();
     let mut result: Vec<Token> = vec![];
 

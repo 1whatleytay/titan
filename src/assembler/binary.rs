@@ -11,8 +11,8 @@ use crate::assembler::binary::BinaryBuilderMode::{
     KernelData
 };
 use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel};
-use crate::assembler::util::AssemblerReason;
-use crate::assembler::util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
+use crate::assembler::assembler_util::AssemblerReason;
+use crate::assembler::assembler_util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
 
 #[derive(Clone, Debug)]
 pub enum AddressLabel {

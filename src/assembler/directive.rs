@@ -3,8 +3,8 @@ use crate::assembler::binary::{BinaryBuilder, BinaryBuilderMode};
 use crate::assembler::binary::BinaryBuilderMode::{Data, KernelData, KernelText, Text};
 use crate::assembler::lexer::TokenKind::IntegerLiteral;
 use crate::assembler::lexer_seek::{is_solid_kind, LexerSeekPeekable};
-use crate::assembler::util::{AssemblerReason, get_constant, get_optional_constant, get_string};
-use crate::assembler::util::AssemblerReason::{MissingRegion, UnknownDirective};
+use crate::assembler::assembler_util::{AssemblerReason, get_constant, get_optional_constant, get_string};
+use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownDirective};
 
 fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
     mode: BinaryBuilderMode, iter: &mut T, builder: &mut BinaryBuilder

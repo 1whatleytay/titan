@@ -8,8 +8,8 @@ use crate::assembler::lexer::TokenKind::{Symbol, Directive};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::instructions::Instruction;
 use crate::assembler::instructions::instructions_map;
-use crate::assembler::util::AssemblerReason::{UnexpectedToken, MissingRegion};
-use crate::assembler::util::{AssemblerError, AssemblerReason};
+use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
+use crate::assembler::assembler_util::{AssemblerError, AssemblerReason};
 
 fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
     name: &str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
@@ -33,7 +33,7 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
 
 pub fn assemble<'a>(
     items: Vec<Token<'a>>, instructions: &[Instruction]
-) -> Result<Binary, AssemblerError<'a>> {
+) -> Result<Binary, AssemblerError> {
     let mut iter = items.into_iter().peekable();
 
     let map = instructions_map(instructions);

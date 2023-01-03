@@ -6,34 +6,34 @@ use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
-use crate::assembler::util::AssemblerError;
+use crate::assembler::assembler_util::AssemblerError;
 
 #[derive(Debug)]
-pub enum SourceError<'a> {
-    Lexer(LexerError<'a>),
-    Preprocessor(PreprocessorError<'a>),
-    Assembler(AssemblerError<'a>)
+pub enum SourceError {
+    Lexer(LexerError),
+    Preprocessor(PreprocessorError),
+    Assembler(AssemblerError)
 }
 
-impl<'a> From<LexerError<'a>> for SourceError<'a> {
-    fn from(value: LexerError<'a>) -> Self {
+impl From<LexerError> for SourceError {
+    fn from(value: LexerError) -> Self {
         Lexer(value)
     }
 }
 
-impl<'a> From<PreprocessorError<'a>> for SourceError<'a> {
-    fn from(value: PreprocessorError<'a>) -> Self {
+impl From<PreprocessorError> for SourceError {
+    fn from(value: PreprocessorError) -> Self {
         Preprocessor(value)
     }
 }
 
-impl<'a> From<AssemblerError<'a>> for SourceError<'a> {
-    fn from(value: AssemblerError<'a>) -> Self {
+impl From<AssemblerError> for SourceError {
+    fn from(value: AssemblerError) -> Self {
         Assembler(value)
     }
 }
 
-impl<'a> Display for SourceError<'a> {
+impl Display for SourceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Lexer(error) => Display::fmt(error, f),
@@ -43,7 +43,7 @@ impl<'a> Display for SourceError<'a> {
     }
 }
 
-impl<'a> Error for SourceError<'a> { }
+impl Error for SourceError { }
 
 pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
     let items = lex(source)?;
