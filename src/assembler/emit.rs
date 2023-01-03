@@ -83,8 +83,8 @@ fn load_immediate(constant: u64, into: RegisterSlot) -> Vec<u32> {
     let signed = constant as i32;
 
     if signed < 0x8000 && signed >= -0x8000 {
-        let add = InstructionBuilder::from_op(&Op(9)) // addu
-            .with_dest(into)
+        let add = InstructionBuilder::from_op(&Op(9)) // addiu
+            .with_temp(into)
             .with_source(Zero)
             .with_immediate(constant as u16)
             .0;
