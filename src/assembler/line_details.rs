@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 pub struct LineDetails<'a> {
     pub line_number: usize,
     pub line_offset: usize,
@@ -30,10 +32,8 @@ impl<'a> LineDetails<'a> {
         result
     }
 
-    pub fn from_offset(source: &'a str, offset: usize) -> Option<LineDetails<'a>> {
-        if offset > source.len() {
-            return None
-        }
+    pub fn from_offset(source: &'a str, offset: usize) -> LineDetails<'a> {
+        let offset = min(source.len(), offset);
 
         let source_offset = source.as_ptr() as usize;
 
@@ -78,12 +78,12 @@ impl<'a> LineDetails<'a> {
             input = &input[1..];
         }
 
-        Some(LineDetails {
+        LineDetails {
             line_number,
             line_offset,
             line_start: last_line,
             line_end: count,
             line_text: &last_line_start[..count - last_line],
-        })
+        }
     }
 }
