@@ -75,13 +75,10 @@ pub enum LexerReason {
 impl Display for LexerReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Stuck => write!(f, "Lexer got stuck on this token. \
-                Please file an issue at https://github.com/1whatleytay/titan/issues"),
+            Stuck => write!(f, "Lexer got stuck on this token. Please file an issue at https://github.com/1whatleytay/titan/issues"),
             UnknownRegister(register) => write!(f, "Unknown register \"{}\"", register),
-            InvalidString => write!(f, "String literal is incorrectly formatted.\
-                Check that you have added closing quotes and your escapes are correct"),
-            ImproperLiteral => write!(f, "Integer literal is incorrectly formatted.\
-                Try using another format (decimal/hexadecimal)."),
+            InvalidString => write!(f, "String literal is incorrectly formatted. Check that you have closing quotes"),
+            ImproperLiteral => write!(f, "Integer literal is incorrectly formatted or too big"),
         }
     }
 }
