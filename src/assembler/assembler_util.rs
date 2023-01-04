@@ -6,8 +6,24 @@ use crate::assembler::lexer::{Token};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
-use crate::assembler::assembler_util::AssemblerReason::{EndOfFile, ExpectedConstant, ExpectedLabel, ExpectedLeftBrace, ExpectedRegister, ExpectedRightBrace, ExpectedString};
 use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
+use crate::assembler::assembler_util::AssemblerReason::{
+    UnexpectedToken,
+    EndOfFile,
+    ExpectedRegister,
+    ExpectedConstant,
+    ExpectedString,
+    ExpectedLabel,
+    ExpectedNewline,
+    ExpectedLeftBrace,
+    ExpectedRightBrace,
+    UnknownLabel,
+    UnknownDirective,
+    UnknownInstruction,
+    JumpOutOfRange,
+    MissingRegion,
+    MissingInstruction,
+};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -28,6 +44,28 @@ pub enum AssemblerReason {
     MissingInstruction
 }
 
+impl Display for AssemblerReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnexpectedToken => write!(f, "Expected instruction or directive, but encountered some unexpected token"),
+            EndOfFile => write!(f, "Assembler reached the end of the file, but requires an additional token here"),
+            ExpectedRegister => write!(f, "Expected a register, but found something else"),
+            ExpectedConstant => write!(f, "Expected an integer, but found something else"),
+            ExpectedString => write!(f, "Expected a string literal, but found something else"),
+            ExpectedLabel => write!(f, "Expected a label, but found something else"),
+            ExpectedNewline => write!(f, "Expected a newline, but found something else"),
+            ExpectedLeftBrace => write!(f, "Expected a left brace, but found something else"),
+            ExpectedRightBrace => write!(f, "Expected a right brace, but found something else"),
+            UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),
+            UnknownDirective(name) => write!(f, "There's no current support for any {} directive", name),
+            UnknownInstruction(name) => write!(f, "Unknown instruction named \"{}\", check for typos", name),
+            JumpOutOfRange(to, from) => write!(f, "Trying to jump to 0x{:08x} from 0x{:08x}, but this jump is too distant for this instruction", to, from),
+            MissingRegion => write!(f, "Assembler did not mount a binary region. Please file an issue at https://github.com/1whatleytay/titan/issues"),
+            MissingInstruction => write!(f, "Assembler marked an instruction that does not exist. Please file an issue at https://github.com/1whatleytay/titan/issues"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct AssemblerError {
     pub start: Option<usize>,
@@ -36,7 +74,7 @@ pub struct AssemblerError {
 
 impl Display for AssemblerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.reason)
+        self.reason.fmt(f)
     }
 }
 
