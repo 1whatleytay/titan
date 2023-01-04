@@ -19,7 +19,7 @@ use crate::assembler::lexer::TokenKind::{
     LeftBrace,
     RightBrace,
 };
-use crate::assembler::lexer::LexerReason::{EndOfFile, ImproperLiteral, InvalidString, Stuck, UnknownRegister};
+use crate::assembler::lexer::LexerReason::{ImproperLiteral, InvalidString, Stuck, UnknownRegister};
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::registers::RegisterSlot;
 
@@ -67,10 +67,23 @@ pub struct Token<'a> {
 #[derive(Debug)]
 pub enum LexerReason {
     Stuck,
-    EndOfFile,
-    UnknownRegister,
+    UnknownRegister(String),
     InvalidString,
     ImproperLiteral,
+}
+
+impl Display for LexerReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stuck => write!(f, "Lexer got stuck on this token. \
+                Please file an issue at https://github.com/1whatleytay/titan/issues"),
+            UnknownRegister(register) => write!(f, "Unknown register \"{}\"", register),
+            InvalidString => write!(f, "String literal is incorrectly formatted.\
+                Check that you have added closing quotes and your escapes are correct"),
+            ImproperLiteral => write!(f, "Integer literal is incorrectly formatted.\
+                Try using another format (decimal/hexadecimal)."),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -81,7 +94,7 @@ pub struct LexerError {
 
 impl Display for LexerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.reason)
+        self.reason.fmt(f)
     }
 }
 
@@ -230,52 +243,52 @@ fn integer_literal(input: &str) -> Option<(&str, u64)> {
     ))
 }
 
-fn lex_item(input: &str) -> Result<(&str, TokenKind), LexerReason> {
+fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);
 
-    let leading = input.chars().next().ok_or(EndOfFile)?;
+    let Some(leading) = input.chars().next() else { return Ok(None) };
     let after_leading = &input[1..];
 
     match leading {
         '#' => Ok({
             let (rest, value) = take_split(after_leading, |c| c != '\n');
 
-            (rest, Comment(value))
+            Some((rest, Comment(value)))
         }),
         '.' => Ok({
             let (rest, value) = take_name(after_leading);
 
-            (rest, Directive(value))
+            Some((rest, Directive(value)))
         }),
         '%' => Ok({
             let (rest, value) = take_name(after_leading);
 
-            (rest, Parameter(value))
+            Some((rest, Parameter(value)))
         }),
         '$' => {
             let (rest, value) = take_name(after_leading);
 
             RegisterSlot::from_string(value)
                 .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
-                .map(|slot| (rest, Register(slot)))
-                .ok_or(UnknownRegister)
+                .map(|slot| Some((rest, Register(slot))))
+                .ok_or_else(|| UnknownRegister(value.to_string()))
         },
-        ',' => Ok((&input[1..], Comma)),
-        '(' => Ok((&input[1..], LeftBrace)),
-        ')' => Ok((&input[1..], RightBrace)),
-        ':' => Ok((&input[1..], Colon)),
-        '\n' => Ok((&input[1..], NewLine)),
+        ',' => Ok(Some((&input[1..], Comma))),
+        '(' => Ok(Some((&input[1..], LeftBrace))),
+        ')' => Ok(Some((&input[1..], RightBrace))),
+        ':' => Ok(Some((&input[1..], Colon))),
+        '\n' => Ok(Some((&input[1..], NewLine))),
         '0'..='9' | '-' | '+' | '\'' => integer_literal(input)
-            .map(|(out, value)| (out, IntegerLiteral(value)))
+            .map(|(out, value)| Some((out, IntegerLiteral(value))))
             .ok_or(ImproperLiteral),
         '\"' => string_body(after_leading, '\"')
-            .map(|(out, body)| (&out[1..], StringLiteral(body)))
+            .map(|(out, body)| Some((&out[1..], StringLiteral(body))))
             .ok_or(InvalidString),
 
         _ => Ok({
             let (rest, value) = take_name(input);
 
-            (rest, Symbol(Slice(value)))
+            Some((rest, Symbol(Slice(value))))
         })
     }
 }
@@ -288,8 +301,10 @@ pub fn lex(mut input: &str) -> Result<Vec<Token>, LexerError> {
         let trail = input;
         let start = offset_from_start(begin, trail);
 
-        let (next, kind) = lex_item(input)
-            .map_err(|reason| LexerError { start, reason })?;
+        let Some((next, kind)) = lex_item(input)
+            .map_err(|reason| LexerError { start, reason })? else {
+            break
+        };
 
         if ptr::eq(trail.as_ptr(), next.as_ptr()) {
             return Err(LexerError { start, reason: Stuck })
