@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 pub struct LineDetails<'a> {
     pub line_number: usize,
     pub line_offset: usize,

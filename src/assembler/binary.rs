@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::assembler::binary::BinarySection::{
     Text,
     Data,
@@ -39,14 +40,16 @@ pub struct RawRegion {
 #[derive(Debug)]
 pub struct Binary {
     pub entry: u32,
-    pub regions: Vec<RawRegion>
+    pub regions: Vec<RawRegion>,
+    pub breakpoints: HashMap<usize, u32> // line_number -> pc
 }
 
 impl Binary {
     pub fn new() -> Binary {
         Binary {
             entry: Text.default_address(),
-            regions: vec![]
+            regions: vec![],
+            breakpoints: HashMap::new()
         }
     }
 }

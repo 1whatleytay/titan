@@ -78,7 +78,8 @@ pub struct BinaryBuilderState {
 pub struct BinaryBuilder {
     pub state: BinaryBuilderState,
     pub regions: Vec<BinaryBuilderRegion>,
-    pub labels: HashMap<String, u32>
+    pub labels: HashMap<String, u32>,
+    pub breakpoints: HashMap<usize, u32> // offset -> pc
 }
 
 impl BinaryBuilderState {
@@ -99,7 +100,8 @@ impl BinaryBuilder {
         BinaryBuilder {
             state: BinaryBuilderState::new(),
             regions: vec![],
-            labels: HashMap::new()
+            labels: HashMap::new(),
+            breakpoints: HashMap::new()
         }
     }
 
