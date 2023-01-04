@@ -1,21 +1,40 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 use crate::cpu::{Memory, State};
-use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Running};
+use crate::cpu::error::Error;
+use crate::debug::debugger::DebuggerMode::{Breakpoint, Finished, Invalid, Paused, Running};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
     Running,
-    Invalid,
+    Invalid(Error),
     Paused,
     Breakpoint,
+    Finished(u32),
+}
+
+pub struct ExecutableRange {
+    pub address: u32,
+    pub count: u32
+}
+
+impl ExecutableRange {
+    pub fn contains(&self, address: u32) -> bool {
+        let end_bound = self.address.checked_add(self.count)
+            .map(|end_bound| address < end_bound)
+            .unwrap_or(true);
+
+        address >= self.address && end_bound
+    }
 }
 
 pub struct Debugger<Mem: Memory> {
     mode: DebuggerMode,
 
     state: State<Mem>,
-    batch: usize
+    batch: usize,
+
+    executable: Option<Vec<ExecutableRange>>
 }
 
 // Addresses
@@ -33,7 +52,11 @@ pub struct DebugFrame {
 
 impl<Mem: Memory> Debugger<Mem> {
     pub fn new(state: State<Mem>) -> Debugger<Mem> {
-        Debugger { mode: Paused, state, batch: 140 }
+        Debugger { mode: Paused, state, batch: 140, executable: None }
+    }
+
+    pub fn new_with_ranges(state: State<Mem>, executable: Vec<ExecutableRange>) -> Debugger<Mem> {
+        Debugger { mode: Paused, state, batch: 140, executable: Some(executable) }
     }
 
     fn frame_with_pc(&self, pc: u32) -> DebugFrame {
@@ -68,9 +91,22 @@ impl<Mem: Memory> Debugger<Mem> {
         let start_pc = self.state.pc;
 
         if let Err(err) = self.state.step() {
-            println!("Invalid Instruction: {}", err);
+            let invalid_or_unmapped = match err {
+                Error::CpuInvalid(_) => true,
+                Error::MemoryUnmapped(_) => true,
+                _ => false
+            };
 
-            self.mode = Invalid;
+            let is_executable = self.executable.as_ref()
+                .map(|executable| executable.iter()
+                    .any(|x| x.contains(start_pc)))
+                .unwrap_or(true);
+
+            self.mode = if !is_executable && invalid_or_unmapped {
+                Finished(start_pc)
+            } else {
+                Invalid(err)
+            };
 
             Some(self.frame_with_pc(start_pc))
         } else {

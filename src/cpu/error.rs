@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     MemoryAlign(u32),
     MemoryUnmapped(u32),
