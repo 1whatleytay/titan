@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 pub struct LineDetails<'a> {
     pub line_number: usize,
     pub line_offset: usize,
@@ -10,7 +12,22 @@ pub struct LineDetails<'a> {
 
 impl<'a> LineDetails<'a> {
     pub fn marker(&self) -> String {
-        let result = "".to_string();
+        let mut result = "".to_string();
+
+        for (i, c) in self.line_text.chars().enumerate() {
+            if i > self.line_offset {
+                break
+            }
+
+            if c.is_whitespace() {
+                result.push(c)
+            } else {
+                // Assuming no unicode.
+                result.push(' ')
+            }
+        }
+
+        result.push('^');
 
         result
     }
