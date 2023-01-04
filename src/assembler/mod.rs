@@ -10,3 +10,4 @@ pub mod source;
 pub mod binary;
 pub mod assembler;
 pub mod instructions;
+pub mod line_details;

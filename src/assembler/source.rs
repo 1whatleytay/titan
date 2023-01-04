@@ -15,6 +15,16 @@ pub enum SourceError {
     Assembler(AssemblerError)
 }
 
+impl SourceError {
+    pub fn start(&self) -> Option<usize> {
+        match self {
+            Lexer(error) => Some(error.start),
+            Preprocessor(error) => Some(error.start),
+            Assembler(error) => error.start
+        }
+    }
+}
+
 impl From<LexerError> for SourceError {
     fn from(value: LexerError) -> Self {
         Lexer(value)
