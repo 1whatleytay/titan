@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use Opcode::Algebra;
-use crate::assembler::binary::{BinaryBuilder, InstructionLabel};
-use crate::assembler::binary::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
+use crate::assembler::binary_builder::InstructionLabel;
+use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
@@ -11,6 +11,7 @@ use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
 use crate::assembler::assembler_util::{expect_left_brace, expect_right_brace, get_constant, get_label, get_register, get_value, maybe_get_value, AssemblerReason, InstructionValue};
 use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownInstruction};
+use crate::assembler::binary_builder::BinaryBuilder;
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {

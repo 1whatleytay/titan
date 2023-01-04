@@ -6,6 +6,7 @@ mod emit;
 mod assembler_util;
 mod directive;
 mod registers;
+mod binary_builder;
 pub mod source;
 pub mod binary;
 pub mod assembler;

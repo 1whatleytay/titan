@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use crate::assembler::binary::{Binary, BinaryBuilder};
-use crate::assembler::binary::BinaryBuilderMode::Text;
+use crate::assembler::binary::Binary;
+use crate::assembler::binary_builder::BinaryBuilder;
+use crate::assembler::binary::BinarySection::Text;
 use crate::assembler::directive::do_directive;
 use crate::assembler::emit::do_instruction;
 use crate::assembler::lexer::{Token, TokenKind};
