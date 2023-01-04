@@ -25,11 +25,36 @@ pub enum PreprocessorReason {
     MacroUnknownParameter(String),
 }
 
+impl Display for PreprocessorReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EndOfFile => write!(f, "A required token is missing for the preprocessor, nstead got end-of-file"),
+            ExpectedSymbol => write!(f, "Expected a symbol (name) token, but got something else"),
+            ExpectedParameter => write!(f, "Expected a parameter (%param) token, but got something else"),
+            ExpectedLeftBrace => write!(f, "Expected a left brace, but got something else"),
+            ExpectedRightBrace => write!(f, "Expected a right brace, but got something else"),
+            RecursiveExpansion => write!(f, "Macro recursively calls itself, so preprocessor has stopped expanding"),
+            MacroUnknown(name) => write!(f, "Could not find a macro named \"{}\"", name),
+            MacroParameterCount(expected, actual) => write!(f, "Expected {} macro parameters, but passed {}", expected, actual),
+            MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{}\"", name),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PreprocessorError {
     pub start: usize,
     pub reason: PreprocessorReason
 }
+
+impl Display for PreprocessorError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.reason.fmt(f)
+    }
+}
+
+impl Error for PreprocessorError { }
+
 
 #[derive(Clone)]
 struct Macro<'a> {
@@ -62,14 +87,6 @@ impl<'a> Cache<'a> {
         }
     }
 }
-
-impl Display for PreprocessorError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.reason)
-    }
-}
-
-impl Error for PreprocessorError { }
 
 fn consume_eqv<'a, T: LexerSeek<'a>>(
     iter: &mut T
