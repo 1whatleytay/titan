@@ -169,6 +169,8 @@ impl BinaryBuilder {
             binary.regions.push(raw)
         }
 
+        binary.breakpoints = self.breakpoints;
+
         Ok(binary)
     }
 }

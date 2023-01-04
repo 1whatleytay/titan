@@ -718,12 +718,17 @@ fn dispatch_instruction<'a, T: LexerSeekPeekable<'a>>(
 }
 
 pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
-    instruction: &str, iter: &mut T,
+    instruction: &str, start: usize, iter: &mut T,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason> {
     let lowercase = instruction.to_lowercase();
 
     let emit = dispatch_instruction(&lowercase, iter, map)?;
+
+    let region = builder.region().ok_or(MissingRegion)?;
+
+    let pc = region.raw.address + region.raw.data.len() as u32;
+    builder.breakpoints.insert(start, pc);
 
     let region = builder.region().ok_or(MissingRegion)?;
 

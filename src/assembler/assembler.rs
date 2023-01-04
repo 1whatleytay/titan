@@ -13,7 +13,8 @@ use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, Missing
 use crate::assembler::assembler_util::{AssemblerError, AssemblerReason};
 
 fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
-    name: &str, iter: &mut T, builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
+    name: &str, start: usize, iter: &mut T,
+    builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerReason> {
     // We need this region!
 
@@ -28,7 +29,7 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
 
             Ok(())
         },
-        _ => do_instruction(name, iter, builder, map)
+        _ => do_instruction(name, start, iter, builder, map)
     }
 }
 
@@ -49,7 +50,7 @@ pub fn assemble<'a>(
 
         match token.kind {
             Directive(directive) => do_directive(directive, &mut iter, &mut builder),
-            Symbol(name) => do_symbol(name.get(), &mut iter, &mut builder, &map),
+            Symbol(name) => do_symbol(name.get(), token.start, &mut iter, &mut builder, &map),
             _ => return Err(fail(UnexpectedToken))
         }.map_err(|reason| fail(reason))?
     }
