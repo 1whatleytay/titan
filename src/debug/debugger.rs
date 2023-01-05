@@ -28,17 +28,18 @@ impl ExecutableRange {
     }
 }
 
+// Addresses
+type Breakpoints = HashSet<u32>;
+
 pub struct Debugger<Mem: Memory> {
     mode: DebuggerMode,
 
     state: State<Mem>,
+    breakpoints: Breakpoints,
     batch: usize,
 
     executable: Option<Vec<ExecutableRange>>
 }
-
-// Addresses
-type Breakpoints = HashSet<u32>;
 
 #[derive(Debug)]
 pub struct DebugFrame {
@@ -52,11 +53,19 @@ pub struct DebugFrame {
 
 impl<Mem: Memory> Debugger<Mem> {
     pub fn new(state: State<Mem>) -> Debugger<Mem> {
-        Debugger { mode: Paused, state, batch: 140, executable: None }
+        Debugger {
+            mode: Paused, state,
+            breakpoints: HashSet::new(),
+            batch: 140, executable: None
+        }
     }
 
     pub fn new_with_ranges(state: State<Mem>, executable: Vec<ExecutableRange>) -> Debugger<Mem> {
-        Debugger { mode: Paused, state, batch: 140, executable: Some(executable) }
+        Debugger {
+            mode: Paused, state,
+            breakpoints: HashSet::new(),
+            batch: 140, executable: Some(executable)
+        }
     }
 
     fn frame_with_pc(&self, pc: u32) -> DebugFrame {
@@ -67,6 +76,10 @@ impl<Mem: Memory> Debugger<Mem> {
             lo: self.state.lo,
             hi: self.state.hi,
         }
+    }
+
+    pub fn set_breakpoints(&mut self, breakpoints: Breakpoints) {
+        self.breakpoints = breakpoints
     }
 
     pub fn frame(&self) -> DebugFrame {
@@ -81,8 +94,8 @@ impl<Mem: Memory> Debugger<Mem> {
         &mut self.state.memory
     }
 
-    pub fn cycle(&mut self, breakpoints: &Breakpoints, hit_breakpoint: bool) -> Option<DebugFrame> {
-        if !hit_breakpoint && breakpoints.contains(&self.state.pc) {
+    pub fn cycle(&mut self, hit_breakpoint: bool) -> Option<DebugFrame> {
+        if !hit_breakpoint && self.breakpoints.contains(&self.state.pc) {
             self.mode = Breakpoint;
 
             return Some(self.frame())
@@ -118,7 +131,7 @@ impl<Mem: Memory> Debugger<Mem> {
         self.mode = Paused
     }
 
-    pub fn run(debugger: &Mutex<Debugger<Mem>>, breakpoints: &Breakpoints) -> DebugFrame {
+    pub fn run(debugger: &Mutex<Debugger<Mem>>) -> DebugFrame {
         let mut hit_breakpoint = {
             let mut value = debugger.lock().unwrap();
 
@@ -140,7 +153,7 @@ impl<Mem: Memory> Debugger<Mem> {
                     return value.frame()
                 }
 
-                if let Some(frame) = value.cycle(breakpoints, hit_breakpoint) {
+                if let Some(frame) = value.cycle(hit_breakpoint) {
                     return frame
                 }
 
