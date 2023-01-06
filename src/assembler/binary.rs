@@ -54,7 +54,8 @@ pub fn source_breakpoints(map: &HashMap<usize, u32>, source: &str) -> HashMap<us
     while let Some(c) = input.chars().next() {
         let next = &input[1..];
 
-        if let Some(pc) = map.get(&(input.as_ptr() as usize)).copied() {
+        let start = input.as_ptr() as usize - source.as_ptr() as usize;
+        if let Some(pc) = map.get(&start).copied() {
             result.insert(line_number, pc);
         }
 
