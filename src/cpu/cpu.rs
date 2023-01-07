@@ -3,23 +3,36 @@ use crate::cpu::error::Error::{CpuInvalid, CpuTrap};
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Result;
 
+impl<T: Memory> State<T> {
+    fn load_hilo_or_trap(&mut self, result: Option<u64>) -> Result<()> {
+        if let Some(result) = result {
+            self.hi = result.wrapping_shr(32) as u32;
+            self.lo = result as u32;
+
+            Ok(())
+        } else {
+            self.trap()
+        }
+    }
+}
+
 impl<Mem: Memory> State<Mem> {
     fn register(&mut self, index: u8) -> &mut u32 {
         &mut self.registers[index as usize]
     }
 
     fn skip(&mut self, imm: u16) {
-        self.pc = (self.pc as i32 + ((imm as i16 as i32) << 2)) as u32;
+        self.pc = (self.pc as i32).wrapping_add((imm as i16 as i32).wrapping_shl(2)) as u32;
     }
 
     fn jump(&mut self, bits: u32) {
-        self.pc = (self.pc & 0xFC000000) | (bits << 2);
+        self.pc = (self.pc & 0xFC000000) | bits.wrapping_shl(2);
     }
 
     pub fn step(&mut self) -> Result<()> {
         let instruction = self.memory.get_u32(self.pc)?;
 
-        self.pc += 4;
+        self.pc = self.pc.wrapping_add(4);
 
         self.dispatch(instruction)
             .unwrap_or(Err(CpuInvalid(instruction)))
@@ -38,7 +51,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn addu(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        *self.register(d) = *self.register(s) + *self.register(t);
+        *self.register(d) = self.register(s).wrapping_add(*self.register(t));
 
         Ok(())
     }
@@ -51,7 +64,11 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
     fn div(&mut self, s: u8, t: u8) -> Result<()> {
         let (a, b) = (*self.register(s) as i32, *self.register(t) as i32);
-        let (lo, hi) = if b != 0 { (a / b, a % b) } else { (0i32, 0i32) };
+        let (lo, hi) = if b != 0 {
+            (a.wrapping_div(b), a % b)
+        } else {
+            return self.trap()
+        };
 
         (self.lo, self.hi) = (lo as u32, hi as u32);
 
@@ -61,7 +78,11 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn divu(&mut self, s: u8, t: u8) -> Result<()> {
         let (a, b) = (*self.register(s), *self.register(t));
 
-        (self.lo, self.hi) = if b != 0 { (a / b, a % b) } else { (0u32, 0u32) };
+        (self.lo, self.hi) = if b != 0 {
+            (a.wrapping_div(b), a % b)
+        } else {
+            return self.trap()
+        };
 
         Ok(())
     }
@@ -70,7 +91,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let (a, b) = (*self.register(s) as i64, *self.register(t) as i64);
         let value = (a * b) as u64;
 
-        (self.lo, self.hi) = ((value & 0xFFFFFFFF) as u32, (value >> 32) as u32);
+        (self.lo, self.hi) = (value as u32, value.wrapping_shr(32) as u32);
 
         Ok(())
     }
@@ -79,7 +100,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let (a, b) = (*self.register(s) as u64, *self.register(t) as u64);
         let value = a * b;
 
-        (self.lo, self.hi) = ((value & 0xFFFFFFFF) as u32, (value >> 32) as u32);
+        (self.lo, self.hi) = (value as u32, value.wrapping_shr(32) as u32);
 
         Ok(())
     }
@@ -97,13 +118,13 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sll(&mut self, t: u8, d: u8, sham: u8) -> Result<()> {
-        *self.register(d) = *self.register(t) << sham;
+        *self.register(d) = self.register(t).wrapping_shl(sham as u32);
 
         Ok(())
     }
 
     fn sllv(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        *self.register(d) = *self.register(t) << *self.register(s);
+        *self.register(d) = self.register(t).wrapping_shl(*self.register(s));
 
         Ok(())
     }
@@ -111,7 +132,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn sra(&mut self, t: u8, d: u8, sham: u8) -> Result<()> {
         let source = *self.register(t) as i32;
 
-        *self.register(d) = (source >> (sham as i32)) as u32;
+        *self.register(d) = source.wrapping_shr(sham as u32) as u32;
 
         Ok(())
     }
@@ -119,19 +140,19 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn srav(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         let source = *self.register(t) as i32;
 
-        *self.register(d) = (source >> (*self.register(s) as i32)) as u32;
+        *self.register(d) = source.wrapping_shr(*self.register(s)) as u32;
 
         Ok(())
     }
 
     fn srl(&mut self, t: u8, d: u8, sham: u8) -> Result<()> {
-        *self.register(d) = *self.register(t) >> sham;
+        *self.register(d) = self.register(t).wrapping_shr(sham as u32);
 
         Ok(())
     }
 
     fn srlv(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        *self.register(d) = *self.register(t) >> *self.register(s);
+        *self.register(d) = self.register(t).wrapping_shr(*self.register(s));
 
         Ok(())
     }
@@ -147,7 +168,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn subu(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        *self.register(d) = *self.register(s) - *self.register(t);
+        *self.register(d) = self.register(s).wrapping_sub(*self.register(t));
 
         Ok(())
     }
@@ -191,29 +212,29 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn madd(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
-        let hilo = ((self.hi as u64) << 32 | (self.lo as u64)) as i64;
-        let result = (a * b + hilo) as u64;
+        let hilo = ((self.hi as u64).wrapping_shl(32) | (self.lo as u64)) as i64;
 
-        self.hi = (result >> 32) as u32;
-        self.lo = result as u32;
+        let result = a.checked_mul(b)
+            .map_or(None, |ab| ab.checked_add(hilo))
+            .map(|result| result as u64);
 
-        Ok(())
+        self.load_hilo_or_trap(result)
     }
 
     fn maddu(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as u64;
         let b = *self.register(t) as u64;
-        let hilo = (self.hi as u64) << 32 | (self.lo as u64);
-        let result = a * b + hilo;
+        let hilo = (self.hi as u64).wrapping_shl(32) | (self.lo as u64);
+        let result = a.wrapping_mul(b).wrapping_add(hilo);
 
-        self.hi = (result >> 32) as u32;
+        self.hi = result.wrapping_shr(32) as u32;
         self.lo = result as u32;
 
         Ok(())
     }
 
     fn mul(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        let value = *self.register(s) * *self.register(t);
+        let value = self.register(s).wrapping_mul(*self.register(t));
 
         *self.register(d) = value;
 
@@ -221,27 +242,27 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn msub(&mut self, s: u8, t: u8) -> Result<()> {
-        let a = *self.register(s) as i32 as i64;
-        let b = *self.register(t) as i32 as i64;
-        let hilo = ((self.hi as u64) << 32 | (self.lo as u64)) as i64;
-        let result = (hilo - a * b) as u64;
+        let a = *self.register(s) as u64;
+        let b = *self.register(t) as u64;
+        let hilo = (self.hi as u64).wrapping_shl(32) | (self.lo as u64);
+        let result = hilo.wrapping_sub(a.wrapping_mul(b));
 
-        self.hi = (result >> 32) as u32;
+        self.hi = result.wrapping_shr(32) as u32;
         self.lo = result as u32;
 
         Ok(())
     }
 
     fn msubu(&mut self, s: u8, t: u8) -> Result<()> {
-        let a = *self.register(s) as u64;
-        let b = *self.register(t) as u64;
-        let hilo = (self.hi as u64) << 32 | (self.lo as u64);
-        let result = hilo - a * b;
+        let a = *self.register(s) as i32 as i64;
+        let b = *self.register(t) as i32 as i64;
+        let hilo = ((self.hi as u64).wrapping_shl(32) | (self.lo as u64)) as i64;
 
-        self.hi = (result >> 32) as u32;
-        self.lo = result as u32;
+        let result = a.checked_mul(b)
+            .map_or(None, |ab| hilo.checked_sub(ab))
+            .map(|result| result as u64);
 
-        Ok(())
+        self.load_hilo_or_trap(result)
     }
 
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
@@ -259,7 +280,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn addiu(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
         let imm = imm as i16 as i32;
 
-        *self.register(t) = ((*self.register(s) as i32) + imm) as u32;
+        *self.register(t) = (*self.register(s) as i32).wrapping_add(imm) as u32;
 
         Ok(())
     }
@@ -283,13 +304,13 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lui(&mut self, t: u8, imm: u16) -> Result<()> {
-        *self.register(t) = (imm as u32) << 16;
+        *self.register(t) = (imm as u32).wrapping_shl(16);
 
         Ok(())
     }
 
     fn lhi(&mut self, t: u8, imm: u16) -> Result<()> {
-        let value = (*self.register(t) & 0x0000FFFF) | ((imm as u32) << 16);
+        let value = (*self.register(t) & 0x0000FFFF) | ((imm as u32).wrapping_shl(16));
 
         *self.register(t) = value;
 
@@ -403,7 +424,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lb(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
 
         *self.register(t) = self.memory.get(address as u32)? as i8 as i32 as u32;
 
@@ -411,7 +432,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lbu(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
 
         *self.register(t) = self.memory.get(address as u32)? as u32;
 
@@ -419,7 +440,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lh(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
 
         *self.register(t) = self.memory.get_u16(address as u32)? as i16 as i32 as u32;
 
@@ -427,7 +448,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lhu(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
 
         *self.register(t) = self.memory.get_u16(address as u32)? as u32;
 
@@ -435,7 +456,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn lw(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
 
         *self.register(t) = self.memory.get_u32(address as u32)?;
 
@@ -443,7 +464,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sb(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
         let value = *self.register(t) as u8;
 
         self.memory.set(address as u32, value)?;
@@ -452,7 +473,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sh(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
         let value = *self.register(t) as u16;
 
         self.memory.set_u16(address as u32, value)?;
@@ -461,7 +482,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sw(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let address = (*self.register(s) as i32) + (imm as i16 as i32);
+        let address = (*self.register(s) as i32).wrapping_add(imm as i16 as i32);
         let value = *self.register(t);
 
         self.memory.set_u32(address as u32, value)?;
