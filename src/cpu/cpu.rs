@@ -1,13 +1,17 @@
 use crate::cpu::decoder::Decoder;
-use crate::cpu::error::Error::{CpuInvalid, CpuTrap};
+use crate::cpu::error::Error::{CpuInvalid, CpuSyscall, CpuTrap};
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Result;
 
 impl<T: Memory> State<T> {
+    fn hilo(&self) -> u64 {
+        (self.registers.hi as u64).wrapping_shl(32) | (self.registers.lo as u64)
+    }
+
     fn load_hilo_or_trap(&mut self, result: Option<u64>) -> Result<()> {
         if let Some(result) = result {
-            self.hi = result.wrapping_shr(32) as u32;
-            self.lo = result as u32;
+            self.registers.hi = result.wrapping_shr(32) as u32;
+            self.registers.lo = result as u32;
 
             Ok(())
         } else {
@@ -18,21 +22,24 @@ impl<T: Memory> State<T> {
 
 impl<Mem: Memory> State<Mem> {
     fn register(&mut self, index: u8) -> &mut u32 {
-        &mut self.registers[index as usize]
+        &mut self.registers.line[index as usize]
     }
 
     fn skip(&mut self, imm: u16) {
-        self.pc = (self.pc as i32).wrapping_add((imm as i16 as i32).wrapping_shl(2)) as u32;
+        let destination = (self.registers.pc as i32).wrapping_add(imm as i16 as i32);
+        let shifted = destination.wrapping_shl(2) as u32;
+
+        self.registers.pc = shifted
     }
 
     fn jump(&mut self, bits: u32) {
-        self.pc = (self.pc & 0xFC000000) | bits.wrapping_shl(2);
+        self.registers.pc = (self.registers.pc & 0xFC000000) | bits.wrapping_shl(2);
     }
 
     pub fn step(&mut self) -> Result<()> {
-        let instruction = self.memory.get_u32(self.pc)?;
+        let instruction = self.memory.get_u32(self.registers.pc)?;
 
-        self.pc = self.pc.wrapping_add(4);
+        self.registers.pc = self.registers.pc.wrapping_add(4);
 
         self.dispatch(instruction)
             .unwrap_or(Err(CpuInvalid(instruction)))
@@ -70,7 +77,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
             return self.trap()
         };
 
-        (self.lo, self.hi) = (lo as u32, hi as u32);
+        (self.registers.lo, self.registers.hi) = (lo as u32, hi as u32);
 
         Ok(())
     }
@@ -78,20 +85,20 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn divu(&mut self, s: u8, t: u8) -> Result<()> {
         let (a, b) = (*self.register(s), *self.register(t));
 
-        (self.lo, self.hi) = if b != 0 {
-            (a.wrapping_div(b), a % b)
-        } else {
-            return self.trap()
-        };
+        if b != 0 {
+            (self.registers.lo, self.registers.hi) = (a.wrapping_div(b), a % b);
 
-        Ok(())
+            Ok(())
+        } else {
+            self.trap()
+        }
     }
 
     fn mult(&mut self, s: u8, t: u8) -> Result<()> {
         let (a, b) = (*self.register(s) as i64, *self.register(t) as i64);
         let value = (a * b) as u64;
 
-        (self.lo, self.hi) = (value as u32, value.wrapping_shr(32) as u32);
+        (self.registers.lo, self.registers.hi) = (value as u32, value.wrapping_shr(32) as u32);
 
         Ok(())
     }
@@ -100,7 +107,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let (a, b) = (*self.register(s) as u64, *self.register(t) as u64);
         let value = a * b;
 
-        (self.lo, self.hi) = (value as u32, value.wrapping_shr(32) as u32);
+        (self.registers.lo, self.registers.hi) = (value as u32, value.wrapping_shr(32) as u32);
 
         Ok(())
     }
@@ -196,15 +203,15 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn jr(&mut self, s: u8) -> Result<()> {
-        self.pc = *self.register(s);
+        self.registers.pc = *self.register(s);
 
         Ok(())
     }
 
     fn jalr(&mut self, s: u8) -> Result<()> {
-        *self.register(31) = self.pc;
+        *self.register(31) = self.registers.pc;
 
-        self.pc = *self.register(s);
+        self.registers.pc = *self.register(s);
 
         Ok(())
     }
@@ -212,10 +219,9 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn madd(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
-        let hilo = ((self.hi as u64).wrapping_shl(32) | (self.lo as u64)) as i64;
 
         let result = a.checked_mul(b)
-            .map_or(None, |ab| ab.checked_add(hilo))
+            .map_or(None, |ab| ab.checked_add(self.hilo() as i64))
             .map(|result| result as u64);
 
         self.load_hilo_or_trap(result)
@@ -224,11 +230,10 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn maddu(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as u64;
         let b = *self.register(t) as u64;
-        let hilo = (self.hi as u64).wrapping_shl(32) | (self.lo as u64);
-        let result = a.wrapping_mul(b).wrapping_add(hilo);
+        let result = a.wrapping_mul(b).wrapping_add(self.hilo());
 
-        self.hi = result.wrapping_shr(32) as u32;
-        self.lo = result as u32;
+        self.registers.hi = result.wrapping_shr(32) as u32;
+        self.registers.lo = result as u32;
 
         Ok(())
     }
@@ -244,11 +249,10 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn msub(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as u64;
         let b = *self.register(t) as u64;
-        let hilo = (self.hi as u64).wrapping_shl(32) | (self.lo as u64);
-        let result = hilo.wrapping_sub(a.wrapping_mul(b));
+        let result = self.hilo().wrapping_sub(a.wrapping_mul(b));
 
-        self.hi = result.wrapping_shr(32) as u32;
-        self.lo = result as u32;
+        self.registers.hi = result.wrapping_shr(32) as u32;
+        self.registers.lo = result as u32;
 
         Ok(())
     }
@@ -256,10 +260,9 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn msubu(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
-        let hilo = ((self.hi as u64).wrapping_shl(32) | (self.lo as u64)) as i64;
 
         let result = a.checked_mul(b)
-            .map_or(None, |ab| hilo.checked_sub(ab))
+            .map_or(None, |ab| (self.hilo() as i64).checked_sub(ab))
             .map(|result| result as u64);
 
         self.load_hilo_or_trap(result)
@@ -391,7 +394,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
     fn bltzal(&mut self, s: u8, imm: u16) -> Result<()> {
         if (*self.register(s) as i32) < 0 {
-            *self.register(31) = self.pc;
+            *self.register(31) = self.registers.pc;
 
             self.skip(imm);
         }
@@ -401,7 +404,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
     fn bgezal(&mut self, s: u8, imm: u16) -> Result<()> {
         if (*self.register(s) as i32) >= 0 {
-            *self.register(31) = self.pc;
+            *self.register(31) = self.registers.pc;
 
             self.skip(imm);
         }
@@ -416,7 +419,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn jal(&mut self, imm: u32) -> Result<()> {
-        *self.register(31) = self.pc;
+        *self.register(31) = self.registers.pc;
 
         self.jump(imm);
 
@@ -491,25 +494,25 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn mfhi(&mut self, d: u8) -> Result<()> {
-        *self.register(d) = self.hi;
+        *self.register(d) = self.registers.hi;
 
         Ok(())
     }
 
     fn mflo(&mut self, d: u8) -> Result<()> {
-        *self.register(d) = self.lo;
+        *self.register(d) = self.registers.lo;
 
         Ok(())
     }
 
     fn mthi(&mut self, s: u8) -> Result<()> {
-        self.hi = *self.register(s);
+        self.registers.hi = *self.register(s);
 
         Ok(())
     }
 
     fn mtlo(&mut self, s: u8) -> Result<()> {
-        self.lo = *self.register(s);
+        self.registers.lo = *self.register(s);
 
         Ok(())
     }
@@ -519,6 +522,6 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn syscall(&mut self) -> Result<()> {
-        todo!()
+        Err(CpuSyscall)
     }
 }

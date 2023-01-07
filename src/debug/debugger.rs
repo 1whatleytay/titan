@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Error;
+use crate::cpu::state::Registers;
 use crate::debug::debugger::DebuggerMode::{Breakpoint, Finished, Invalid, Paused, Running};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -44,11 +45,7 @@ pub struct Debugger<Mem: Memory> {
 #[derive(Debug)]
 pub struct DebugFrame {
     pub mode: DebuggerMode,
-
-    pub pc: u32,
-    pub registers: [u32; 32],
-    pub lo: u32,
-    pub hi: u32
+    pub registers: Registers
 }
 
 impl<Mem: Memory> Debugger<Mem> {
@@ -69,12 +66,12 @@ impl<Mem: Memory> Debugger<Mem> {
     }
 
     fn frame_with_pc(&self, pc: u32) -> DebugFrame {
+        let mut registers = self.state.registers;
+        registers.pc = pc;
+
         DebugFrame {
             mode: self.mode,
-            pc,
-            registers: self.state.registers,
-            lo: self.state.lo,
-            hi: self.state.hi,
+            registers
         }
     }
 
@@ -83,7 +80,7 @@ impl<Mem: Memory> Debugger<Mem> {
     }
 
     pub fn frame(&self) -> DebugFrame {
-        self.frame_with_pc(self.state.pc)
+        self.frame_with_pc(self.state.registers.pc)
     }
 
     pub fn state(&mut self) -> &mut State<Mem> {
@@ -95,13 +92,13 @@ impl<Mem: Memory> Debugger<Mem> {
     }
 
     pub fn cycle(&mut self, hit_breakpoint: bool) -> Option<DebugFrame> {
-        if !hit_breakpoint && self.breakpoints.contains(&self.state.pc) {
+        if !hit_breakpoint && self.breakpoints.contains(&self.state.registers.pc) {
             self.mode = Breakpoint;
 
             return Some(self.frame())
         }
 
-        let start_pc = self.state.pc;
+        let start_pc = self.state.registers.pc;
 
         if let Err(err) = self.state.step() {
             let invalid_or_unmapped = match err {

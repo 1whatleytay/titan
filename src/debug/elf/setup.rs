@@ -28,7 +28,7 @@ pub fn create_simple_state(elf: &Elf, heap_size: u32) -> State<SectionMemory> {
     memory.mount(heap);
 
     let mut state = State::new(elf.header.program_entry, memory);
-    state.registers[29] = heap_end;
+    state.registers.line[29] = heap_end;
 
     state
 }
