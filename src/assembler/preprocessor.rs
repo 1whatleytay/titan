@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 use crate::assembler::lexer::{SymbolName, Token, TokenKind};
 use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
@@ -73,7 +74,7 @@ impl<'a> Macro<'a> {
 struct Cache<'a> {
     seed: usize,
     tokens: HashMap<String, TokenKind<'a>>,
-    macros: HashMap<String, Macro<'a>>,
+    macros: HashMap<String, Rc<Macro<'a>>>,
     expanding: HashSet<String>
 }
 
@@ -156,7 +157,7 @@ fn consume_macro<'a, T: LexerSeek<'a>>(
 }
 
 fn expand_macro<'a>(
-    macro_info: &Macro<'a>, parameters: Vec<Token<'a>>, cache: &mut Cache<'a>
+    macro_info: Rc<Macro<'a>>, parameters: Vec<Token<'a>>, cache: &mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if cache.expanding.contains(&macro_info.name) {
         return Err(RecursiveExpansion)
@@ -249,10 +250,7 @@ fn handle_symbol<'a, T: LexerSeek<'a>>(
         }
     };
 
-    // I'm too lazy to think of a clever solution.
-    // Macro Expansion -> Clone My Vec! Maybe Cow might help?
-    let macro_info_clone = macro_info.clone();
-    expand_macro(&macro_info_clone, parameters, cache)
+    expand_macro(macro_info.clone(), parameters, cache)
 }
 
 fn preprocess_cached<'a, 'b>(
@@ -281,7 +279,7 @@ fn preprocess_cached<'a, 'b>(
                         let value = consume_macro(&mut iter)
                             .map_err(|err| fail(err))?;
 
-                        cache.macros.insert(value.name.clone(), value);
+                        cache.macros.insert(value.name.clone(), Rc::new(value));
                     },
                     _ => panic!()
                 }
