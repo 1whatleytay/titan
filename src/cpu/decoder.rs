@@ -69,6 +69,7 @@ pub trait Decoder<T> {
     fn mtlo(&mut self, s: u8) -> T;
 
     fn trap(&mut self) -> T;
+    fn syscall(&mut self) -> T;
 
     fn dispatch_rtype(&mut self, instruction: u32) -> Option<T> {
         let func = instruction & 0x3F;
@@ -87,6 +88,7 @@ pub trait Decoder<T> {
             7 => self.srav(s, t, d),
             8 => self.jr(s),
             9 => self.jalr(s),
+            12 => self.syscall(),
             16 => self.mfhi(d),
             17 => self.mthi(s),
             18 => self.mflo(d),

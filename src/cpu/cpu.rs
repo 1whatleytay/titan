@@ -517,4 +517,8 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn trap(&mut self) -> Result<()> {
         Err(CpuTrap)
     }
+
+    fn syscall(&mut self) -> Result<()> {
+        todo!()
+    }
 }

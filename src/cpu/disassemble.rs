@@ -349,4 +349,8 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn trap(&mut self) -> String {
         format!("trap")
     }
+
+    fn syscall(&mut self) -> String {
+        format!("syscall")
+    }
 }

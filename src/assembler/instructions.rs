@@ -95,7 +95,7 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
     Instruction { name: "llo", opcode: Op(24), encoding: LoadImmediate },
     Instruction { name: "lhi", opcode: Op(25), encoding: LoadImmediate },
     Instruction { name: "trap", opcode: Op(26), encoding: Parameterless },
-    Instruction { name: "syscall", opcode: Op(26), encoding: Parameterless },
+    Instruction { name: "syscall", opcode: Func(12), encoding: Parameterless },
     Instruction { name: "lb", opcode: Op(32), encoding: Offset },
     Instruction { name: "lh", opcode: Op(33), encoding: Offset },
     Instruction { name: "lw", opcode: Op(35), encoding: Offset },

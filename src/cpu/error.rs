@@ -7,6 +7,7 @@ pub enum Error {
     MemoryBoundary(u32),
     CpuInvalid(u32),
     CpuTrap,
+    CpuSyscall, // Intended to be caught by higher level.
 }
 
 impl Display for Error {
@@ -22,6 +23,8 @@ impl Display for Error {
                 write!(f, "Invalid CPU instruction 0x{:08x}", instruction),
             Error::CpuTrap =>
                 write!(f, "CPU Trap was thrown"),
+            Error::CpuSyscall =>
+                write!(f, "CPU Syscall was not handled"),
         }
     }
 }
