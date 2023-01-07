@@ -1,5 +1,5 @@
 pub mod elf;
 pub mod debugger;
-pub mod sycall_handler;
+pub mod syscall;
 
 pub use debugger::Debugger;
