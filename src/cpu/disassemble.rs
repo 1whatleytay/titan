@@ -135,7 +135,7 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn sllv(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("sllv {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("sllv {}, {}, {}", reg(d), reg(t), reg(s))
     }
 
     fn sra(&mut self, t: u8, d: u8, sham: u8) -> String {
@@ -143,7 +143,7 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn srav(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("srav {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("srav {}, {}, {}", reg(d), reg(t), reg(s))
     }
 
     fn srl(&mut self, t: u8, d: u8, sham: u8) -> String {
@@ -151,7 +151,7 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn srlv(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("srlv {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("srlv {}, {}, {}", reg(d), reg(t), reg(s))
     }
 
     fn sub(&mut self, s: u8, t: u8, d: u8) -> String {

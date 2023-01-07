@@ -160,6 +160,24 @@ fn do_register_instruction<'a, T: LexerSeek<'a>>(
     Ok(EmitInstruction { instructions })
 }
 
+fn do_register_shift_instruction<'a, T: LexerSeek<'a>>(
+    op: &Opcode, iter: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let dest = get_register(iter)?;
+    let temp = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    let instructions = vec![(inst, None)];
+
+    Ok(EmitInstruction { instructions })
+}
+
 fn do_source_instruction<'a, T: LexerSeek<'a>>(
     op: &Opcode, iter: &mut T
 ) -> Result<EmitInstruction, AssemblerReason> {
@@ -700,6 +718,7 @@ fn dispatch_instruction<'a, T: LexerSeekPeekable<'a>>(
 
     let emit = match instruction.encoding {
         Encoding::Register => do_register_instruction(op, iter),
+        Encoding::RegisterShift => do_register_shift_instruction(op, iter),
         Encoding::Source => do_source_instruction(op, iter),
         Encoding::Destination => do_destination_instruction(op, iter),
         Encoding::Inputs => do_inputs_instruction(op, iter),

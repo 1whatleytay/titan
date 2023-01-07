@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::assembler::instructions::Encoding::{
     Register,
+    RegisterShift,
     Source,
     Destination,
     Inputs,
@@ -18,6 +19,7 @@ use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special};
 
 pub enum Encoding {
     Register, // $, $, $, opcode: 0
+    RegisterShift, // t then s, same as Register
     Source, // $, opcode: 0
     Destination, // $, opcode: 0
     Inputs, // $, $, opcode: 0
@@ -49,9 +51,9 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
     Instruction { name: "sll", opcode: Func(0), encoding: Sham },
     Instruction { name: "srl", opcode: Func(2), encoding: Sham },
     Instruction { name: "sra", opcode: Func(3), encoding: Sham },
-    Instruction { name: "sllv", opcode: Func(4), encoding: Register },
-    Instruction { name: "srlv", opcode: Func(6), encoding: Register },
-    Instruction { name: "srav", opcode: Func(7), encoding: Register },
+    Instruction { name: "sllv", opcode: Func(4), encoding: RegisterShift },
+    Instruction { name: "srlv", opcode: Func(6), encoding: RegisterShift },
+    Instruction { name: "srav", opcode: Func(7), encoding: RegisterShift },
     Instruction { name: "jr", opcode: Func(8), encoding: Source },
     Instruction { name: "jalr", opcode: Func(9), encoding: Source },
     Instruction { name: "mfhi", opcode: Func(16), encoding: Destination },
