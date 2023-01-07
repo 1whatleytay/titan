@@ -42,11 +42,28 @@ pub struct RawRegion {
 pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
-    pub breakpoints: HashMap<usize, u32> // offset -> pc
+    pub breakpoints: HashMap<u32, usize> // pc -> offset
 }
 
-pub fn source_breakpoints(map: &HashMap<usize, u32>, source: &str) -> HashMap<usize, u32> {
-    let mut result = HashMap::new();
+pub fn flip_breakpoints<Key: Copy + Hash + Eq, Value: Copy + Hash + Eq>(
+    map: &HashMap<Key, Value>
+) -> HashMap<Value, Vec<Key>> {
+    let mut result: HashMap<Value, Vec<Key>> = HashMap::new();
+
+    for (key, value) in map {
+        if let Some(list) = result.get_mut(value) {
+            list.push(*key);
+        } else {
+            result.insert(*value, vec![*key]);
+        }
+    }
+
+    result
+}
+
+pub fn source_breakpoints(map: &HashMap<u32, usize>, source: &str) -> HashMap<u32, usize> {
+    let mut result: HashMap<u32, usize> = HashMap::new();
+    let flipped = flip_breakpoints(&map);
 
     let mut line_number = 0;
     let mut input = source;
@@ -55,8 +72,10 @@ pub fn source_breakpoints(map: &HashMap<usize, u32>, source: &str) -> HashMap<us
         let next = &input[1..];
 
         let start = input.as_ptr() as usize - source.as_ptr() as usize;
-        if let Some(pc) = map.get(&start).copied() {
-            result.insert(line_number, pc);
+        if let Some(pcs) = flipped.get(&start) {
+            for pc in pcs {
+                result.insert(*pc, line_number);
+            }
         }
 
         if c == '\n' {
@@ -70,7 +89,7 @@ pub fn source_breakpoints(map: &HashMap<usize, u32>, source: &str) -> HashMap<us
 }
 
 impl Binary {
-    pub fn source_breakpoints(&self, source: &str) -> HashMap<usize, u32> {
+    pub fn source_breakpoints(&self, source: &str) -> HashMap<u32, usize> {
         source_breakpoints(&self.breakpoints, source)
     }
 

@@ -79,7 +79,7 @@ pub struct BinaryBuilder {
     pub state: BinaryBuilderState,
     pub regions: Vec<BinaryBuilderRegion>,
     pub labels: HashMap<String, u32>,
-    pub breakpoints: HashMap<usize, u32> // offset -> pc
+    pub breakpoints: HashMap<u32, usize> // pc -> offset
 }
 
 impl BinaryBuilderState {

@@ -725,14 +725,14 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
 
     let emit = dispatch_instruction(&lowercase, iter, map)?;
 
-    let region = builder.region().ok_or(MissingRegion)?;
-
-    let pc = region.raw.address + region.raw.data.len() as u32;
-    builder.breakpoints.insert(start, pc);
+    let mut breakpoints = HashMap::new();
 
     let region = builder.region().ok_or(MissingRegion)?;
 
     for (word, branch) in emit.instructions {
+        let pc = region.raw.address + region.raw.data.len() as u32;
+        breakpoints.insert(pc, start);
+
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {
@@ -741,6 +741,8 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
 
         region.raw.data.write_u32::<LittleEndian>(word).unwrap();
     }
+
+    builder.breakpoints.extend(breakpoints);
 
     Ok(())
 }

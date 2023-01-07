@@ -41,7 +41,7 @@ impl LabelProvider for &mut LabelManager {
 }
 
 pub struct Inspection {
-    pub breakpoints: HashMap<usize, u32>, // line to address
+    pub breakpoints: HashMap<u32, usize>, // pc -> line
     pub lines: Vec<String>
 }
 
@@ -172,7 +172,7 @@ impl Inspection {
                     lines.push(format!("{}:", manager.label_string(pc)));
                 }
 
-                breakpoints.insert(lines.len(), pc);
+                breakpoints.insert(pc, lines.len());
 
                 lines.push(format!("    {}", instruction));
 
