@@ -105,7 +105,7 @@ fn take_count<F>(input: &str, f: F) -> usize where F: Fn(char) -> bool {
             break
         }
 
-        size += 1
+        size += item.len_utf8()
     }
 
     size
