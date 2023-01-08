@@ -27,7 +27,7 @@ pub trait SyscallHandler<T: Send> {
     async fn midi_out_sync(&mut self, state: &mut T) -> Result<()>;
     async fn print_hexadecimal(&mut self, state: &mut T) -> Result<()>;
     async fn print_binary(&mut self, state: &mut T) -> Result<()>;
-    async fn print_unsinged(&mut self, state: &mut T) -> Result<()>;
+    async fn print_unsigned(&mut self, state: &mut T) -> Result<()>;
     async fn set_seed(&mut self, state: &mut T) -> Result<()>;
     async fn random_int(&mut self, state: &mut T) -> Result<()>;
     async fn random_int_ranged(&mut self, state: &mut T) -> Result<()>;
@@ -63,7 +63,7 @@ pub trait SyscallHandler<T: Send> {
             33 => self.midi_out_sync(state).await,
             34 => self.print_hexadecimal(state).await,
             35 => self.print_binary(state).await,
-            36 => self.print_unsinged(state).await,
+            36 => self.print_unsigned(state).await,
             40 => self.set_seed(state).await,
             41 => self.random_int(state).await,
             42 => self.random_int_ranged(state).await,
