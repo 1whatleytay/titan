@@ -2,10 +2,6 @@ use async_trait::async_trait;
 use crate::cpu::error::Error::CpuTrap;
 use crate::cpu::error::Result;
 
-pub trait SyscallCodeProvider {
-    fn code(&self) -> u32;
-}
-
 #[async_trait]
 pub trait SyscallHandler<T: Send> {
     async fn print_integer(&mut self, state: &mut T) -> Result<()>;
@@ -75,14 +71,5 @@ pub trait SyscallHandler<T: Send> {
             44 => self.random_double(state).await,
             _ => Err(CpuTrap)
         }
-    }
-}
-
-#[async_trait]
-pub trait SyscallHandlerDefault<T: Send + SyscallCodeProvider>: SyscallHandler<T> {
-    async fn dispatch(&mut self, state: &mut T) -> Result<()> {
-        let code = state.code();
-
-        SyscallHandler::dispatch(self, state, code).await
     }
 }
