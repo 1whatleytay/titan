@@ -26,10 +26,11 @@ impl<Mem: Memory> State<Mem> {
     }
 
     fn skip(&mut self, imm: u16) {
-        let destination = (self.registers.pc as i32).wrapping_add(imm as i16 as i32);
-        let shifted = destination.wrapping_shl(2) as u32;
+        // ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
+        let offset = (imm as i16 as i32).wrapping_shl(2);
+        let destination = (self.registers.pc as i32).wrapping_add(offset);
 
-        self.registers.pc = shifted
+        self.registers.pc = destination as u32
     }
 
     fn jump(&mut self, bits: u32) {
