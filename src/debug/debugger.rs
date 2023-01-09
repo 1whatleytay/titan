@@ -4,7 +4,6 @@ use crate::cpu::{Memory, State};
 use crate::cpu::error::Error;
 use crate::cpu::state::Registers;
 use crate::debug::debugger::DebuggerMode::{Breakpoint, Finished, Invalid, Paused, Running};
-use crate::debug::syscall::{SyscallHandler};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
@@ -156,31 +155,6 @@ impl<Mem: Memory> Debugger<Mem> {
                 }
 
                 hit_breakpoint = false
-            }
-        }
-    }
-}
-
-impl<Mem: Send + Memory> Debugger<Mem> {
-    pub async fn run_with_handler<Handler: Send + SyscallHandler<State<Mem>>>(
-        debugger: &Mutex<Debugger<Mem>>, handler: &mut Handler
-    ) -> DebugFrame {
-        loop {
-            let mut frame = Self::run(debugger);
-
-            match frame.mode {
-                Invalid(Error::CpuSyscall) => {
-                    let mut debugger = debugger.lock().unwrap();
-                    let state = debugger.state();
-                    let code = state.registers.line[2]; // $v0
-
-                    if let Err(error) = handler.dispatch(state, code).await {
-                        frame.mode = Invalid(error);
-
-                        return frame
-                    }
-                }
-                _ => return frame
             }
         }
     }
