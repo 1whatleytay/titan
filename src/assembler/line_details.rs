@@ -46,7 +46,7 @@ impl<'a> LineDetails<'a> {
         let mut input = source;
 
         while let Some(c) = input.chars().next() {
-            let next = &input[1..];
+            let next = &input[c.len_utf8()..];
 
             // Weird iteration just for the pointer checking here.
             let start = input.as_ptr() as usize - source_offset;
@@ -57,7 +57,7 @@ impl<'a> LineDetails<'a> {
             }
 
             if c == '\n' {
-                last_line = count + 1;
+                last_line = count + c.len_utf8();
                 last_line_start = next;
                 line_number += 1;
                 line_offset = 0;
@@ -65,7 +65,7 @@ impl<'a> LineDetails<'a> {
                 line_offset += 1;
             }
 
-            count += 1;
+            count += c.len_utf8();
             input = next;
         }
 
@@ -74,8 +74,8 @@ impl<'a> LineDetails<'a> {
                 break
             }
 
-            count += 1;
-            input = &input[1..];
+            count += c.len_utf8();
+            input = &input[c.len_utf8()..];
         }
 
         LineDetails {

@@ -69,7 +69,7 @@ pub fn source_breakpoints(map: &HashMap<u32, usize>, source: &str) -> HashMap<u3
     let mut input = source;
 
     while let Some(c) = input.chars().next() {
-        let next = &input[1..];
+        let next = &input[c.len_utf8()..];
 
         let start = input.as_ptr() as usize - source.as_ptr() as usize;
         if let Some(pcs) = flipped.get(&start) {

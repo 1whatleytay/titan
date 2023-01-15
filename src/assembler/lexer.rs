@@ -220,6 +220,7 @@ fn integer_character(input: &str) -> Option<(&str, u64)> {
         return None
     }
 
+    // Should be over a quote...
     Some((&input[1..], body.chars().next()? as u64))
 }
 
@@ -244,7 +245,7 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);
 
     let Some(leading) = input.chars().next() else { return Ok(None) };
-    let after_leading = &input[1..];
+    let after_leading = &input[leading.len_utf8()..];
 
     match leading {
         '#' => Ok({
