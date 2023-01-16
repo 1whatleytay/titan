@@ -15,13 +15,30 @@ const SECTION_SIZE: usize = 1 << SECTION_SELECTOR_START;
 
 const INITIAL_BYTE: u8 = 0xCC;
 
-enum Section {
-    Empty,
-    Data(Box<[u8; SECTION_SIZE]>),
-    Listen(Box<dyn ListenResponder + Send>)
+pub trait ListenResponder {
+    fn read(&self, address: u32) -> Result<u8>;
+    fn write(&mut self, address: u32, value: u8) -> Result<()>;
 }
 
-impl Debug for Section {
+pub struct DefaultResponder { }
+
+impl ListenResponder for DefaultResponder {
+    fn read(&self, address: u32) -> Result<u8> {
+        Err(MemoryUnmapped(address))
+    }
+
+    fn write(&mut self, address: u32, _: u8) -> Result<()> {
+        Err(MemoryUnmapped(address))
+    }
+}
+
+enum Section<T: ListenResponder> {
+    Empty,
+    Data(Box<[u8; SECTION_SIZE]>),
+    Listen(T)
+}
+
+impl<T: ListenResponder> Debug for Section<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Empty => "Section [Unmounted]",
@@ -31,21 +48,16 @@ impl Debug for Section {
     }
 }
 
-pub trait ListenResponder {
-    fn read(&self, address: u32) -> Result<u8>;
-    fn write(&mut self, address: u32, value: u8) -> Result<()>;
+pub struct SectionMemory<T: ListenResponder> {
+    sections: Box<[Section<T>; SECTION_COUNT]>
 }
 
-pub struct SectionMemory {
-    sections: Box<[Section; SECTION_COUNT]>
-}
-
-impl SectionMemory {
-    pub fn new() -> SectionMemory {
+impl<T: ListenResponder> SectionMemory<T> {
+    pub fn new() -> SectionMemory<T> {
         let sections = vec![(); SECTION_COUNT]
             .into_iter()
             .map(|_| Empty)
-            .collect::<Vec<Section>>()
+            .collect::<Vec<Section<T>>>()
             .try_into()
             .unwrap();
 
@@ -77,7 +89,7 @@ impl SectionMemory {
     }
 
     // selector is NOT an address! Leading 16-bits.
-    pub fn mount_listen(&mut self, selector: usize, listener: Box<dyn ListenResponder + Send>) {
+    pub fn mount_listen(&mut self, selector: usize, listener: T) {
         self.sections[selector] = Listen(listener);
     }
 }
@@ -89,7 +101,7 @@ const fn split(address: u32) -> (usize, usize) {
     (section, index)
 }
 
-impl Memory for SectionMemory {
+impl<T: ListenResponder> Memory for SectionMemory<T> {
     fn get(&self, address: u32) -> Result<u8> {
         let (section, index) = split(address);
 
@@ -115,7 +127,7 @@ impl Memory for SectionMemory {
     }
 }
 
-impl Mountable for SectionMemory {
+impl<T: ListenResponder> Mountable for SectionMemory<T> {
     fn mount(&mut self, region: Region) {
         let (start_selector, start_index) = split(region.start);
         let (end_selector, end_index) = split(region.start + region.data.len() as u32);

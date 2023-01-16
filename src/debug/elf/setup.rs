@@ -1,12 +1,12 @@
 use crate::cpu::memory::Mountable;
 use crate::cpu::memory::Region;
-use crate::cpu::memory::section::SectionMemory;
+use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::State;
 use crate::elf::Elf;
 
 pub const SMALL_HEAP_SIZE: u32 = 0x10000u32;
 
-pub fn create_simple_state(elf: &Elf, heap_size: u32) -> State<SectionMemory> {
+pub fn create_simple_state(elf: &Elf, heap_size: u32) -> State<SectionMemory<DefaultResponder>> {
     let mut memory = SectionMemory::new();
 
     for header in &elf.program_headers {
