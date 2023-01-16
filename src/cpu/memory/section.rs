@@ -1,7 +1,10 @@
+use std::fmt::{Debug, Formatter};
+use Section::Listen;
 use crate::cpu::error::Error::MemoryUnmapped;
 use crate::cpu::Memory;
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::error::Result;
+use crate::cpu::memory::section::Section::{Data, Empty};
 
 const SECTION_SELECTOR_START: u32 = 16;
 
@@ -12,33 +15,70 @@ const SECTION_SIZE: usize = 1 << SECTION_SELECTOR_START;
 
 const INITIAL_BYTE: u8 = 0xCC;
 
-type Section = Box<[u8; SECTION_SIZE]>;
+enum Section {
+    Empty,
+    Data(Box<[u8; SECTION_SIZE]>),
+    Listen(Box<dyn ListenResponder>)
+}
+
+impl Debug for Section {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Empty => "Section [Unmounted]",
+            Data(_) => "Section [Data Mounted]",
+            Listen(_) => "Section [Listen Mounted]"
+        })
+    }
+}
+
+pub trait ListenResponder {
+    fn read(&self, address: u32) -> Result<u8>;
+    fn write(&mut self, address: u32, value: u8) -> Result<()>;
+}
 
 pub struct SectionMemory {
-    sections: Box<[Option<Section>; SECTION_COUNT]>
+    sections: Box<[Section; SECTION_COUNT]>
 }
 
 impl SectionMemory {
     pub fn new() -> SectionMemory {
-        let sections = vec![None; SECTION_COUNT].try_into().unwrap();
+        let sections = vec![(); SECTION_COUNT]
+            .into_iter()
+            .map(|_| Empty)
+            .collect::<Vec<Section>>()
+            .try_into()
+            .unwrap();
 
         SectionMemory { sections }
     }
 
     fn create_section(&mut self, selector: usize) -> &mut [u8; SECTION_SIZE] {
-        let section = Section::new([INITIAL_BYTE; SECTION_SIZE]);
+        self.sections[selector] = Data(Box::new([INITIAL_BYTE; SECTION_SIZE]));
 
-        self.sections[selector] = Some(section);
-
-        self.sections[selector].as_mut().unwrap().as_mut()
+        match &mut self.sections[selector] {
+            Data(data) => data.as_mut(),
+            _ => panic!("Expected Data Section")
+        }
     }
 
     fn pick_section(&mut self, selector: usize) -> &mut [u8; SECTION_SIZE] {
-        if self.sections[selector].is_some() {
-            self.sections[selector].as_mut().unwrap();
+        // Complicated sidestepping of capting mut.
+        match &self.sections[selector] {
+            Data(_) => {
+                match &mut self.sections[selector] {
+                    Data(data) => data,
+                    _ => panic!()
+                }
+            }
+            _ => {
+                self.create_section(selector)
+            }
         }
+    }
 
-        self.create_section(selector)
+    // selector is NOT an address! Leading 16-bits.
+    pub fn mount_listen(&mut self, selector: usize, listener: Box<dyn ListenResponder>) {
+        self.sections[selector] = Listen(listener);
     }
 }
 
@@ -53,22 +93,24 @@ impl Memory for SectionMemory {
     fn get(&self, address: u32) -> Result<u8> {
         let (section, index) = split(address);
 
-        if let Some(section) = &self.sections[section] {
-            Ok(section[index])
-        } else {
-            Err(MemoryUnmapped(address))
+        match &self.sections[section] {
+            Data(section) => Ok(section[index]),
+            Listen(responder) => responder.read(address),
+            Empty => Err(MemoryUnmapped(address))
         }
     }
 
     fn set(&mut self, address: u32, value: u8) -> Result<()> {
         let (section, index) = split(address);
 
-        if let Some(section) = &mut self.sections[section] {
-            section[index] = value;
+        match &mut self.sections[section] {
+            Data(section) => {
+                section[index] = value;
 
-            Ok(())
-        } else {
-            Err(MemoryUnmapped(address))
+                Ok(())
+            }
+            Listen(responder) => responder.write(address, value),
+            Empty => Err(MemoryUnmapped(address))
         }
     }
 }
