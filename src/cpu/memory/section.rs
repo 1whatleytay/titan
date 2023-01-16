@@ -18,7 +18,7 @@ const INITIAL_BYTE: u8 = 0xCC;
 enum Section {
     Empty,
     Data(Box<[u8; SECTION_SIZE]>),
-    Listen(Box<dyn ListenResponder>)
+    Listen(Box<dyn ListenResponder + Send>)
 }
 
 impl Debug for Section {
@@ -77,7 +77,7 @@ impl SectionMemory {
     }
 
     // selector is NOT an address! Leading 16-bits.
-    pub fn mount_listen(&mut self, selector: usize, listener: Box<dyn ListenResponder>) {
+    pub fn mount_listen(&mut self, selector: usize, listener: Box<dyn ListenResponder + Send>) {
         self.sections[selector] = Listen(listener);
     }
 }
