@@ -7,7 +7,7 @@ use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, LeftBrace, Parameter, RightBrace, NewLine, Symbol, Directive
 };
-use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek};
+use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::preprocessor::PreprocessorReason::{
     EndOfFile, ExpectedSymbol, ExpectedParameter, ExpectedLeftBrace, ExpectedRightBrace,
     MacroUnknown, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion
@@ -208,14 +208,16 @@ fn expand_macro<'a>(
     Ok(result)
 }
 
-fn handle_symbol<'a, T: LexerSeek<'a>>(
+fn handle_symbol<'a, T: LexerSeekPeekable<'a>>(
     name: SymbolName<'a>, start: usize, iter: &mut T, cache: &mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if let Some(token) = cache.tokens.get(name.get()) {
         return Ok(vec![Token { start, kind: token.clone() }])
     }
 
-    let elements = iter.collect_until(|kind| is_adjacent_kind(kind));
+    // Workaroundy, forgot how to handle this well.
+    let elements = iter.collect_without(is_adjacent_kind);
+    let next = iter.seek_without(is_adjacent_kind);
 
     fn concat<'a>(element: Token<'a>, mut elements: Vec<Token<'a>>) -> Vec<Token<'a>> {
         let mut first = vec![element];
@@ -224,12 +226,12 @@ fn handle_symbol<'a, T: LexerSeek<'a>>(
         first
     }
 
-    let Some(last) = elements.last() else {
+    let Some(last) = next else {
         return Ok(concat(Token { start, kind: Symbol(name) }, elements))
     };
 
     match last.kind {
-        LeftBrace => { },
+        LeftBrace => { iter.next(); /* pop */ },
         _ => return Ok(concat(Token { start, kind: Symbol(name) }, elements))
     }
 
