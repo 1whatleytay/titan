@@ -49,8 +49,10 @@ impl<Mem: Memory> State<Mem> {
 
 impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        if let Some(value) = self.register(s).checked_add(*self.register(t)) {
-            *self.register(d) = value;
+        let (a, b) = (*self.register(s) as i32, *self.register(t) as i32);
+
+        if let Some(value) = a.checked_add(b) {
+            *self.register(d) = value as u32;
 
             Ok(())
         } else {
@@ -166,8 +168,10 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sub(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        if let Some(value) = self.register(s).checked_sub(*self.register(t)) {
-            *self.register(d) = value;
+        let (a, b) = (*self.register(s) as i32, *self.register(t) as i32);
+
+        if let Some(value) = a.checked_sub(b) {
+            *self.register(d) = value as u32;
 
             Ok(())
         } else {
@@ -240,25 +244,16 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn mul(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        let value = self.register(s).wrapping_mul(*self.register(t));
+        let (a, b) = (*self.register(s) as i32, *self.register(t) as i32);
 
-        *self.register(d) = value;
+        let value = a.wrapping_mul(b);
+
+        *self.register(d) = value as u32;
 
         Ok(())
     }
 
     fn msub(&mut self, s: u8, t: u8) -> Result<()> {
-        let a = *self.register(s) as u64;
-        let b = *self.register(t) as u64;
-        let result = self.hilo().wrapping_sub(a.wrapping_mul(b));
-
-        self.registers.hi = result.wrapping_shr(32) as u32;
-        self.registers.lo = result as u32;
-
-        Ok(())
-    }
-
-    fn msubu(&mut self, s: u8, t: u8) -> Result<()> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
 
@@ -269,10 +264,22 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         self.load_hilo_or_trap(result)
     }
 
+    fn msubu(&mut self, s: u8, t: u8) -> Result<()> {
+        let a = *self.register(s) as u64;
+        let b = *self.register(t) as u64;
+        let result = self.hilo().wrapping_sub(a.wrapping_mul(b));
+
+        self.registers.hi = result.wrapping_shr(32) as u32;
+        self.registers.lo = result as u32;
+
+        Ok(())
+    }
+
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
         let imm = imm as i16 as i32;
+        let a = *self.register(s) as i32;
 
-        if let Some(value) = (*self.register(s) as i32).checked_add(imm) {
+        if let Some(value) = a.checked_add(imm) {
             *self.register(t) = value as u32;
 
             Ok(())
@@ -283,8 +290,9 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
     fn addiu(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
         let imm = imm as i16 as i32;
+        let a = *self.register(s) as i32;
 
-        *self.register(t) = (*self.register(s) as i32).wrapping_add(imm) as u32;
+        *self.register(t) = a.wrapping_add(imm) as u32;
 
         Ok(())
     }
