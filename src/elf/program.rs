@@ -30,7 +30,7 @@ bitflags! {
 }
 
 impl ProgramHeaderFlags {
-    pub fn known_mask() -> u32 { 0x111 }
+    pub fn known_mask() -> u32 { 0b111 }
 }
 
 #[derive(Debug)]
