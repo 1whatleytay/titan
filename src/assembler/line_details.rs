@@ -15,7 +15,7 @@ impl<'a> LineDetails<'a> {
         let mut result = "".to_string();
 
         for (i, c) in self.line_text.chars().enumerate() {
-            if i > self.line_offset {
+            if i >= self.line_offset {
                 break
             }
 
