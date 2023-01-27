@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::sync::Mutex;
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Error;
@@ -72,6 +73,13 @@ impl<Mem: Memory> Debugger<Mem> {
         DebugFrame {
             mode: self.mode,
             registers
+        }
+    }
+
+    pub fn handle_invalid(&mut self, mode: DebuggerMode) {
+        match self.mode {
+            Invalid(_) => self.mode = mode,
+            _ => { }
         }
     }
 
