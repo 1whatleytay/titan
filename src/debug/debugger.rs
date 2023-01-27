@@ -4,11 +4,14 @@ use std::sync::Mutex;
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Error;
 use crate::cpu::state::Registers;
-use crate::debug::debugger::DebuggerMode::{Breakpoint, Finished, Invalid, Paused, Running};
+use crate::debug::debugger::DebuggerMode::{
+    Breakpoint, Finished, Invalid, Paused, Recovered, Running
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
     Running,
+    Recovered, // Recovery State after Invalid(CpuSyscall)
     Invalid(Error),
     Paused,
     Breakpoint,
@@ -76,9 +79,9 @@ impl<Mem: Memory> Debugger<Mem> {
         }
     }
 
-    pub fn handle_invalid(&mut self, mode: DebuggerMode) {
+    pub fn invalid_handled(&mut self) {
         match self.mode {
-            Invalid(_) => self.mode = mode,
+            Invalid(_) => self.mode = Recovered,
             _ => { }
         }
     }
