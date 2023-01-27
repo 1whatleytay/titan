@@ -4,9 +4,7 @@ use std::sync::Mutex;
 use crate::cpu::{Memory, State};
 use crate::cpu::error::Error;
 use crate::cpu::state::Registers;
-use crate::debug::debugger::DebuggerMode::{
-    Breakpoint, Finished, Invalid, Paused, Recovered, Running
-};
+use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Recovered, Running};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
@@ -15,22 +13,6 @@ pub enum DebuggerMode {
     Invalid(Error),
     Paused,
     Breakpoint,
-    Finished(u32),
-}
-
-pub struct ExecutableRange {
-    pub address: u32,
-    pub count: u32
-}
-
-impl ExecutableRange {
-    pub fn contains(&self, address: u32) -> bool {
-        let end_bound = self.address.checked_add(self.count)
-            .map(|end_bound| address < end_bound)
-            .unwrap_or(true);
-
-        address >= self.address && end_bound
-    }
 }
 
 // Addresses
@@ -41,9 +23,7 @@ pub struct Debugger<Mem: Memory> {
 
     state: State<Mem>,
     breakpoints: Breakpoints,
-    batch: usize,
-
-    executable: Option<Vec<ExecutableRange>>
+    batch: usize
 }
 
 #[derive(Debug)]
@@ -57,15 +37,7 @@ impl<Mem: Memory> Debugger<Mem> {
         Debugger {
             mode: Paused, state,
             breakpoints: HashSet::new(),
-            batch: 140, executable: None
-        }
-    }
-
-    pub fn new_with_ranges(state: State<Mem>, executable: Vec<ExecutableRange>) -> Debugger<Mem> {
-        Debugger {
-            mode: Paused, state,
-            breakpoints: HashSet::new(),
-            batch: 140, executable: Some(executable)
+            batch: 140
         }
     }
 
@@ -112,22 +84,7 @@ impl<Mem: Memory> Debugger<Mem> {
         let start_pc = self.state.registers.pc;
 
         if let Err(err) = self.state.step() {
-            let invalid_or_unmapped = match err {
-                Error::CpuInvalid(_) => true,
-                Error::MemoryUnmapped(_) => true,
-                _ => false
-            };
-
-            let is_executable = self.executable.as_ref()
-                .map(|executable| executable.iter()
-                    .any(|x| x.contains(start_pc)))
-                .unwrap_or(true);
-
-            self.mode = if !is_executable && invalid_or_unmapped {
-                Finished(start_pc)
-            } else {
-                Invalid(err)
-            };
+            self.mode = Invalid(err);
 
             Some(self.frame_with_pc(start_pc))
         } else {
