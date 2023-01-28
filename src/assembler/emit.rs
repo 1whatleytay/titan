@@ -9,8 +9,12 @@ use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::lexer_seek::{LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
-use crate::assembler::assembler_util::{expect_left_brace, expect_right_brace, get_constant, get_label, get_register, get_value, maybe_get_value, AssemblerReason, InstructionValue};
+use crate::assembler::assembler_util::{
+    get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value,
+    AssemblerReason, InstructionValue, OffsetOrLabel
+};
 use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownInstruction};
+use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary_builder::BinaryBuilder;
 
 fn instruction_base(op: &Opcode) -> u32 {
@@ -67,8 +71,10 @@ impl InstructionBuilder {
     }
 }
 
+type InstructionPair = (u32, Option<InstructionLabel>);
+
 struct EmitInstruction {
-    instructions: Vec<(u32, Option<InstructionLabel>)>,
+    instructions: Vec<InstructionPair>,
 }
 
 impl EmitInstruction {
@@ -121,6 +127,40 @@ fn load_immediate(constant: u64, into: RegisterSlot) -> Vec<u32> {
         }
 
         instructions
+    }
+}
+
+fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
+    // Load Address may not know the label location yet.
+    // So we will never optimize away the size of this instruction,
+    // as this might change the label location.
+
+    let label_upper = label.clone();
+    let label_lower = label;
+
+    let lui = InstructionBuilder::from_op(&Op(15))
+        .with_temp(dest)
+        .0;
+
+    let ori = InstructionBuilder::from_op(&Op(13))
+        .with_temp(dest)
+        .with_source(dest)
+        .0;
+
+    vec![
+        (lui, Some(UpperLabel(label_upper))),
+        (ori, Some(LowerLabel(label_lower)))
+    ]
+}
+
+fn make_offset_or_label(offset: OffsetOrLabel) -> (u16, RegisterSlot, Vec<InstructionPair>) {
+    match offset {
+        OffsetOrLabel::Offset(value, register) => (value as u16, register, vec![]),
+        OffsetOrLabel::Address(label) => {
+            let instructions = make_label(label, AssemblerTemporary);
+
+            (0, AssemblerTemporary, instructions)
+        }
     }
 }
 
@@ -343,22 +383,29 @@ fn do_parameterless_instruction<'a, T: LexerSeek<'a>>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_offset_instruction<'a, T: LexerSeek<'a>>(
+fn do_offset_instruction<'a, T: LexerSeekPeekable<'a>>(
     op: &Opcode, iter: &mut T
 ) -> Result<EmitInstruction, AssemblerReason> {
     let temp = get_register(iter)?;
-    let constant = get_constant(iter)?;
-    expect_left_brace(iter)?;
-    let source = get_register(iter)?;
-    expect_right_brace(iter)?;
+
+    // let constant = get_constant(iter)?;
+    // expect_left_brace(iter)?;
+    // let source = get_register(iter)?;
+    // expect_right_brace(iter)?;
+
+    let offset = get_offset_or_label(iter)?;
+
+    let (immediate, register, mut instructions) = make_offset_or_label(offset);
 
     let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
+        .with_source(register)
         .with_temp(temp)
-        .with_immediate(constant as u16)
+        .with_immediate(immediate)
         .0;
 
-    Ok(EmitInstruction::with(inst))
+    instructions.push((inst, None));
+
+    Ok(EmitInstruction { instructions })
 }
 
 fn do_nop_instruction<'a, T: LexerSeekPeekable<'a>>(
@@ -561,27 +608,10 @@ fn do_li_instruction<'a, T: LexerSeekPeekable<'a>>(
 fn do_la_instruction<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T
 ) -> Result<EmitInstruction, AssemblerReason> {
-    // Load Address may not know the label location yet.
-    // So we will never optimize away the size of this instruction,
-    // as this might change the label location.
-
     let dest = get_register(iter)?;
-    let label_upper = get_label(iter)?;
-    let label_lower = label_upper.clone();
+    let label = get_label(iter)?;
 
-    let lui = InstructionBuilder::from_op(&Op(15))
-        .with_temp(dest)
-        .0;
-
-    let ori = InstructionBuilder::from_op(&Op(13))
-        .with_temp(dest)
-        .with_source(dest)
-        .0;
-
-    let instructions = vec![
-        (lui, Some(UpperLabel(label_upper))),
-        (ori, Some(LowerLabel(label_lower)))
-    ];
+    let instructions = make_label(label, dest);
 
     Ok(EmitInstruction { instructions })
 }
