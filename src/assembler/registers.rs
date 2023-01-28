@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use num_derive::{FromPrimitive, ToPrimitive};
 
-#[derive(Debug, Copy, Clone, PartialEq, ToPrimitive, FromPrimitive)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ToPrimitive, FromPrimitive)]
 pub enum RegisterSlot {
     Zero = 0,
     AssemblerTemporary = 1,

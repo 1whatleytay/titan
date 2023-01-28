@@ -361,6 +361,15 @@ fn do_offset_instruction<'a, T: LexerSeek<'a>>(
     Ok(EmitInstruction::with(inst))
 }
 
+fn do_nop_instruction<'a, T: LexerSeekPeekable<'a>>(
+    _: &mut T
+) -> Result<EmitInstruction, AssemblerReason> {
+    let instruction = InstructionBuilder::from_op(&Func(0))
+        .0;
+
+    Ok(EmitInstruction::with(instruction))
+}
+
 fn do_abs_instruction<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T
 ) -> Result<EmitInstruction, AssemblerReason> {
@@ -686,6 +695,7 @@ fn dispatch_pseudo<'a, T: LexerSeekPeekable<'a>>(
     instruction: &str, iter: &mut T
 ) -> Result<Option<EmitInstruction>, AssemblerReason> {
     Ok(Some(match instruction {
+        "nop" => do_nop_instruction(iter)?,
         "abs" => do_abs_instruction(iter)?,
         "blt" => do_blt_instruction(iter)?,
         "bgt" => do_bgt_instruction(iter)?,

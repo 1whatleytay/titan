@@ -23,7 +23,7 @@ use crate::assembler::lexer::LexerReason::{ImproperLiteral, InvalidString, Stuck
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::registers::RegisterSlot;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
     Slice(&'a str),
     Owned(String)
@@ -42,7 +42,23 @@ fn offset_from_start(start: &str, other: &str) -> usize {
     other.as_ptr() as usize - start.as_ptr() as usize
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum StrippedKind {
+    Comment,
+    Directive,
+    Parameter,
+    Register,
+    IntegerLiteral,
+    StringLiteral,
+    Symbol,
+    Comma,
+    Colon,
+    NewLine,
+    LeftBrace,
+    RightBrace
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind<'a> {
     Comment(&'a str), // #*\n
     Directive(&'a str), // .*
@@ -56,6 +72,44 @@ pub enum TokenKind<'a> {
     NewLine,
     LeftBrace,
     RightBrace,
+}
+
+impl Display for StrippedKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            StrippedKind::Comment => "Comment",
+            StrippedKind::Directive => "Directive",
+            StrippedKind::Parameter => "Parameter",
+            StrippedKind::Register => "Register",
+            StrippedKind::IntegerLiteral => "IntegerLiteral",
+            StrippedKind::StringLiteral => "StringLiteral",
+            StrippedKind::Symbol => "Symbol",
+            StrippedKind::Comma => "Comma",
+            StrippedKind::Colon => "Colon",
+            StrippedKind::NewLine => "NewLine",
+            StrippedKind::LeftBrace => "LeftBrace",
+            StrippedKind::RightBrace => "RightBrace",
+        })
+    }
+}
+
+impl<'a> TokenKind<'a> {
+    pub fn strip(&self) -> StrippedKind {
+        match self {
+            Comment(_) => StrippedKind::Comment,
+            Directive(_) => StrippedKind::Directive,
+            Parameter(_) => StrippedKind::Parameter,
+            Register(_) => StrippedKind::Register,
+            IntegerLiteral(_) => StrippedKind::IntegerLiteral,
+            StringLiteral(_) => StrippedKind::StringLiteral,
+            Symbol(_) => StrippedKind::Symbol,
+            Comma => StrippedKind::Comma,
+            Colon => StrippedKind::Colon,
+            NewLine => StrippedKind::NewLine,
+            LeftBrace => StrippedKind::LeftBrace,
+            RightBrace => StrippedKind::RightBrace
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

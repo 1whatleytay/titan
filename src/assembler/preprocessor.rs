@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use crate::assembler::lexer::{SymbolName, Token, TokenKind};
+use crate::assembler::lexer::{StrippedKind, SymbolName, Token, TokenKind};
 use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, LeftBrace, Parameter, RightBrace, NewLine, Symbol, Directive
@@ -16,10 +16,10 @@ use crate::assembler::preprocessor::PreprocessorReason::{
 #[derive(Debug)]
 pub enum PreprocessorReason {
     EndOfFile,
-    ExpectedSymbol,
-    ExpectedParameter,
-    ExpectedLeftBrace,
-    ExpectedRightBrace,
+    ExpectedSymbol(StrippedKind),
+    ExpectedParameter(StrippedKind),
+    ExpectedLeftBrace(StrippedKind),
+    ExpectedRightBrace(StrippedKind),
     RecursiveExpansion,
     MacroUnknown(String),
     MacroParameterCount(usize, usize), // expected, actual
@@ -29,15 +29,24 @@ pub enum PreprocessorReason {
 impl Display for PreprocessorReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            EndOfFile => write!(f, "A required token is missing for the preprocessor, nstead got end-of-file"),
-            ExpectedSymbol => write!(f, "Expected a symbol (name) token, but got something else"),
-            ExpectedParameter => write!(f, "Expected a parameter (%param) token, but got something else"),
-            ExpectedLeftBrace => write!(f, "Expected a left brace, but got something else"),
-            ExpectedRightBrace => write!(f, "Expected a right brace, but got something else"),
-            RecursiveExpansion => write!(f, "Macro recursively calls itself, so preprocessor has stopped expanding"),
-            MacroUnknown(name) => write!(f, "Could not find a macro named \"{}\"", name),
-            MacroParameterCount(expected, actual) => write!(f, "Expected {} macro parameters, but passed {}", expected, actual),
-            MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{}\"", name),
+            EndOfFile =>
+                write!(f, "A required token is missing for the preprocessor, nstead got end-of-file"),
+            ExpectedSymbol(kind) =>
+                write!(f, "Expected a symbol (name) token, but found {}", kind),
+            ExpectedParameter(kind) =>
+                write!(f, "Expected a parameter (%param) token, but found {}", kind),
+            ExpectedLeftBrace(kind) =>
+                write!(f, "Expected a left brace, but found {}", kind),
+            ExpectedRightBrace(kind) =>
+                write!(f, "Expected a right brace, but found {}", kind),
+            RecursiveExpansion =>
+                write!(f, "Macro recursively calls itself, so preprocessor has stopped expanding"),
+            MacroUnknown(name) =>
+                write!(f, "Could not find a macro named \"{}\"", name),
+            MacroParameterCount(expected, actual) =>
+                write!(f, "Expected {} macro parameters, but passed {}", expected, actual),
+            MacroUnknownParameter(name) =>
+                write!(f, "Unknown macro parameter named \"{}\"", name),
         }
     }
 }
@@ -95,7 +104,7 @@ fn consume_eqv<'a, T: LexerSeek<'a>>(
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
     let Some(value) = iter.next_adjacent() else { return Err(EndOfFile) };
 
-    let Symbol(key) = symbol.kind else { return Err(ExpectedSymbol) };
+    let Symbol(key) = symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
 
     Ok((key.get().to_string(), value.kind))
 }
@@ -104,12 +113,12 @@ fn consume_macro<'a, T: LexerSeek<'a>>(
     iter: &mut T
 ) -> Result<Macro<'a>, PreprocessorReason> {
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
-    let Symbol(name) = symbol.kind else { return Err(ExpectedSymbol) };
+    let Symbol(name) = symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
 
     let mut result = Macro::new(name.get().to_string());
 
     let Some(left_brace) = iter.next_adjacent() else { return Err(EndOfFile) };
-    if left_brace.kind != LeftBrace { return Err(ExpectedLeftBrace) };
+    if left_brace.kind != LeftBrace { return Err(ExpectedLeftBrace(left_brace.kind.strip())) };
 
     loop {
         let Some(next) = iter.next_adjacent() else { return Err(EndOfFile) };
@@ -117,8 +126,8 @@ fn consume_macro<'a, T: LexerSeek<'a>>(
         match next.kind {
             RightBrace => break,
             Parameter(name) => { result.parameters.push(name) },
-            NewLine => return Err(ExpectedRightBrace),
-            _ => return Err(ExpectedParameter)
+            NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
+            _ => return Err(ExpectedParameter(next.kind.strip()))
         }
     }
 
@@ -247,7 +256,7 @@ fn handle_symbol<'a, T: LexerSeekPeekable<'a>>(
 
         match next.kind {
             RightBrace => break,
-            NewLine => return Err(ExpectedRightBrace),
+            NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
             _ => parameters.push(next)
         }
     };

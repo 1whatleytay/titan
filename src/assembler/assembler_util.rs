@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{Token};
+use crate::assembler::lexer::{StrippedKind, Token};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
@@ -29,13 +29,13 @@ use crate::assembler::assembler_util::AssemblerReason::{
 pub enum AssemblerReason {
     UnexpectedToken,
     EndOfFile,
-    ExpectedRegister,
-    ExpectedConstant,
-    ExpectedString,
-    ExpectedLabel,
-    ExpectedNewline,
-    ExpectedLeftBrace,
-    ExpectedRightBrace,
+    ExpectedRegister(StrippedKind),
+    ExpectedConstant(StrippedKind),
+    ExpectedString(StrippedKind),
+    ExpectedLabel(StrippedKind),
+    ExpectedNewline(StrippedKind),
+    ExpectedLeftBrace(StrippedKind),
+    ExpectedRightBrace(StrippedKind),
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
@@ -49,13 +49,13 @@ impl Display for AssemblerReason {
         match self {
             UnexpectedToken => write!(f, "Expected instruction or directive, but encountered some unexpected token"),
             EndOfFile => write!(f, "Assembler reached the end of the file, but requires an additional token here"),
-            ExpectedRegister => write!(f, "Expected a register, but found something else"),
-            ExpectedConstant => write!(f, "Expected an integer, but found something else"),
-            ExpectedString => write!(f, "Expected a string literal, but found something else"),
-            ExpectedLabel => write!(f, "Expected a label, but found something else"),
-            ExpectedNewline => write!(f, "Expected a newline, but found something else"),
-            ExpectedLeftBrace => write!(f, "Expected a left brace, but found something else"),
-            ExpectedRightBrace => write!(f, "Expected a right brace, but found something else"),
+            ExpectedRegister(kind) => write!(f, "Expected a register, but found {}", kind),
+            ExpectedConstant(kind) => write!(f, "Expected an integer, but found {}", kind),
+            ExpectedString(kind) => write!(f, "Expected a string literal, but found {}", kind),
+            ExpectedLabel(kind) => write!(f, "Expected a label, but found {}", kind),
+            ExpectedNewline(kind) => write!(f, "Expected a newline, but found {}", kind),
+            ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {}", kind),
+            ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {}", kind),
             UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),
             UnknownDirective(name) => write!(f, "There's no current support for any {} directive", name),
             UnknownInstruction(name) => write!(f, "Unknown instruction named \"{}\", check for typos", name),
@@ -88,7 +88,7 @@ pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, 
     let t = get_token(iter)?;
     match t.kind {
         Register(slot) => Ok(slot),
-        _ => Err(ExpectedRegister)
+        _ => Err(ExpectedRegister(t.kind.strip()))
     }
 }
 
@@ -102,7 +102,7 @@ pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue,
     match t.kind {
         Register(slot) => Ok(Slot(slot)),
         IntegerLiteral(value) => Ok(Literal(value)),
-        _ => Err(ExpectedRegister)
+        _ => Err(ExpectedRegister(t.kind.strip()))
     }
 }
 
@@ -127,38 +127,48 @@ pub fn maybe_get_value<'a, T: LexerSeekPeekable<'a>>(
 }
 
 pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerReason> {
-    match get_token(iter)?.kind {
+    let token_kind = get_token(iter)?.kind;
+
+    match token_kind {
         IntegerLiteral(value) => Ok(value),
-        _ => Err(ExpectedConstant)
+        _ => Err(ExpectedConstant(token_kind.strip()))
     }
 }
 
 pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, AssemblerReason> {
-    match get_token(iter)?.kind {
+    let token_kind = get_token(iter)?.kind;
+
+    match token_kind {
         StringLiteral(value) => Ok(value),
-        _ => Err(ExpectedString)
+        _ => Err(ExpectedString(token_kind.strip()))
     }
 }
 
 pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerReason> {
+    let token_kind = get_token(iter)?.kind;
+
     match get_token(iter)?.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
         Symbol(value) => Ok(Label(value.get().to_string())),
-        _ => Err(ExpectedLabel)
+        _ => Err(ExpectedLabel(token_kind.strip()))
     }
 }
 
 pub fn expect_left_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason> {
+    let token_kind = get_token(iter)?.kind;
+
     match get_token(iter)?.kind {
         LeftBrace => Ok(()),
-        _ => Err(ExpectedLeftBrace)
+        _ => Err(ExpectedLeftBrace(token_kind.strip()))
     }
 }
 
 pub fn expect_right_brace<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<(), AssemblerReason> {
+    let token_kind = get_token(iter)?.kind;
+
     match get_token(iter)?.kind {
         RightBrace => Ok(()),
-        _ => Err(ExpectedRightBrace)
+        _ => Err(ExpectedRightBrace(token_kind.strip()))
     }
 }
 
