@@ -8,7 +8,6 @@ use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::binary_builder::BinarySection::Text;
 
-
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerReason> {
     match label {
         Constant(value) => Ok(value as u32),

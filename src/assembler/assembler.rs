@@ -10,15 +10,16 @@ use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekabl
 use crate::assembler::instructions::Instruction;
 use crate::assembler::instructions::instructions_map;
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
-use crate::assembler::assembler_util::{AssemblerError, AssemblerReason};
+use crate::assembler::assembler_util::AssemblerError;
 
 fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
     name: &str, start: usize, iter: &mut T,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     // We need this region!
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region()
+        .ok_or(AssemblerError { start: Some(start), reason: MissingRegion })?;
 
     match iter.seek_without(is_adjacent_kind) {
         Some(token) if token.kind == TokenKind::Colon => {
@@ -44,15 +45,16 @@ pub fn assemble<'a>(
     builder.seek_mode(Text);
 
     while let Some(token) = iter.next_any() {
-        let fail = |reason: AssemblerReason| AssemblerError {
-            start: Some(token.start), reason
-        };
-
         match token.kind {
-            Directive(directive) => do_directive(directive, &mut iter, &mut builder),
-            Symbol(name) => do_symbol(name.get(), token.start, &mut iter, &mut builder, &map),
-            _ => return Err(fail(UnexpectedToken))
-        }.map_err(|reason| fail(reason))?
+            Directive(directive) =>
+                do_directive(directive, token.start, &mut iter, &mut builder),
+            Symbol(name) =>
+                do_symbol(name.get(), token.start, &mut iter, &mut builder, &map),
+            _ => return Err(AssemblerError {
+                start: Some(token.start),
+                reason: UnexpectedToken
+            })
+        }?
     }
 
     builder.build().map_err(|reason| AssemblerError { start: None, reason })

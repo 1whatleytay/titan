@@ -4,12 +4,16 @@ use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::lexer::TokenKind::IntegerLiteral;
 use crate::assembler::lexer_seek::{is_solid_kind, LexerSeekPeekable};
-use crate::assembler::assembler_util::{AssemblerReason, get_constant, get_optional_constant, get_string};
+use crate::assembler::assembler_util::{
+    AssemblerError, default_start, get_constant, get_optional_constant, get_string
+};
 use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownDirective};
+
+const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
 
 fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
     mode: BinarySection, iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let address = get_optional_constant(iter);
 
     match address {
@@ -22,9 +26,9 @@ fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
 
     region.raw.data.append(&mut bytes);
 
@@ -33,11 +37,11 @@ fn do_ascii_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_asciiz_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
     bytes.push(0);
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
 
     region.raw.data.append(&mut bytes);
 
@@ -48,11 +52,11 @@ const MAX_ZERO: usize = 0x1000000;
 
 fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let shift = get_constant(iter)?;
     let align = 1 << shift;
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
     let pc = region.raw.address + region.raw.data.len() as u32;
 
     let (select, remainder) = (pc / align, pc % align);
@@ -74,8 +78,8 @@ fn do_align_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_space_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
-    let region = builder.region().ok_or(MissingRegion)?;
+) -> Result<(), AssemblerError> {
+    let region = builder.region().ok_or(MISSING_REGION)?;
     let pc = region.raw.address + region.raw.data.len() as u32;
 
     let byte_count = get_constant(iter)? as usize;
@@ -110,11 +114,11 @@ fn get_constants<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Vec<u64> {
 
 fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let mut values: Vec<u8> = get_constants(iter).into_iter()
         .map(|value| value as u8).collect();
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
 
     region.raw.data.append(&mut values);
 
@@ -123,7 +127,7 @@ fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let mut values: Vec<u8> = get_constants(iter).into_iter()
         .flat_map(|value| {
             let mut array = [0u8; 2];
@@ -132,7 +136,7 @@ fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(
             array
         }).collect();
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
 
     region.raw.data.append(&mut values);
 
@@ -141,7 +145,7 @@ fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(
 
 fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     let mut values: Vec<u8> = get_constants(iter).into_iter()
         .flat_map(|value| {
             let mut array = [0u8; 4];
@@ -150,7 +154,7 @@ fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(
             array
         }).collect();
 
-    let region = builder.region().ok_or(MissingRegion)?;
+    let region = builder.region().ok_or(MISSING_REGION)?;
 
     region.raw.data.append(&mut values);
 
@@ -160,19 +164,19 @@ fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(
 // Don't want to deal with this until coprocessor
 fn do_float_directive<'a, T: LexerSeekPeekable<'a>>(
     _: &mut T, _: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
-    Err(UnknownDirective("float".to_string()))
+) -> Result<(), AssemblerError> {
+    Err(AssemblerError { start: None, reason: UnknownDirective("float".to_string()) })
 }
 
 fn do_double_directive<'a, T: LexerSeekPeekable<'a>>(
     _: &mut T, _: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
-    Err(UnknownDirective("double".to_string()))
+) -> Result<(), AssemblerError> {
+    Err(AssemblerError { start: None, reason: UnknownDirective("double".to_string()) })
 }
 
 fn do_extern_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, _: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+) -> Result<(), AssemblerError> {
     get_string(iter)?;
     get_constant(iter)?;
 
@@ -180,8 +184,8 @@ fn do_extern_directive<'a, T: LexerSeekPeekable<'a>>(
 }
 
 pub fn do_directive<'a, T: LexerSeekPeekable<'a>>(
-    directive: &'a str, iter: &mut T, builder: &mut BinaryBuilder
-) -> Result<(), AssemblerReason> {
+    directive: &'a str, start: usize, iter: &mut T, builder: &mut BinaryBuilder
+) -> Result<(), AssemblerError> {
     let lowercase = directive.to_lowercase();
 
     match &lowercase as &str {
@@ -201,6 +205,10 @@ pub fn do_directive<'a, T: LexerSeekPeekable<'a>>(
         "kdata" => do_seek_directive(KernelData, iter, builder),
 
         "extern" => do_extern_directive(iter, builder),
-        _ => Err(UnknownDirective(directive.to_string()))
+        _ => Err(AssemblerError {
+            start: Some(start),
+            reason: UnknownDirective(directive.to_string())
+        })
     }
+        .map_err(default_start(start))
 }

@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
+use crate::assembler::lexer::{StrippedKind, Token};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
@@ -80,15 +80,15 @@ impl Display for AssemblerError {
 
 impl Error for AssemblerError { }
 
-pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, AssemblerReason> {
-    iter.next_adjacent().ok_or(EndOfFile)
+pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, AssemblerError> {
+    iter.next_adjacent().ok_or(AssemblerError { start: None, reason: EndOfFile })
 }
 
-pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, AssemblerReason> {
+pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, AssemblerError> {
     let t = get_token(iter)?;
     match t.kind {
         Register(slot) => Ok(slot),
-        _ => Err(ExpectedRegister(t.kind.strip()))
+        _ => Err(AssemblerError { start: Some(t.start), reason: ExpectedRegister(t.kind.strip()) })
     }
 }
 
@@ -97,12 +97,13 @@ pub enum InstructionValue {
     Literal(u64)
 }
 
-pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue, AssemblerReason> {
+pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue, AssemblerError> {
     let t = get_token(iter)?;
+
     match t.kind {
         Register(slot) => Ok(Slot(slot)),
         IntegerLiteral(value) => Ok(Literal(value)),
-        _ => Err(ExpectedRegister(t.kind.strip()))
+        _ => Err(AssemblerError { start: Some(t.start), reason: ExpectedRegister(t.kind.strip()) })
     }
 }
 
@@ -126,34 +127,43 @@ pub fn maybe_get_value<'a, T: LexerSeekPeekable<'a>>(
     }
 }
 
-pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerReason> {
-    let token_kind = get_token(iter)?.kind;
+pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerError> {
+    let token = get_token(iter)?;
 
-    match token_kind {
+    match token.kind {
         IntegerLiteral(value) => Ok(value),
-        _ => Err(ExpectedConstant(token_kind.strip()))
+        _ => Err(AssemblerError {
+            start: Some(token.start),
+            reason: ExpectedConstant(token.kind.strip())
+        })
     }
 }
 
-pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, AssemblerReason> {
-    let token_kind = get_token(iter)?.kind;
+pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, AssemblerError> {
+    let token = get_token(iter)?;
 
-    match token_kind {
+    match token.kind {
         StringLiteral(value) => Ok(value),
-        _ => Err(ExpectedString(token_kind.strip()))
+        _ => Err(AssemblerError {
+            start: Some(token.start),
+            reason: ExpectedString(token.kind.strip())
+        })
     }
 }
 
-fn to_label(kind: TokenKind) -> Result<AddressLabel, AssemblerReason> {
-    match kind {
+fn to_label(token: Token) -> Result<AddressLabel, AssemblerError> {
+    match token.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
         Symbol(value) => Ok(Label(value.get().to_string())),
-        _ => Err(ExpectedLabel(kind.strip()))
+        _ => Err(AssemblerError {
+            start: Some(token.start),
+            reason: ExpectedLabel(token.kind.strip())
+        })
     }
 }
 
-pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerReason> {
-    to_label(get_token(iter)?.kind)
+pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerError> {
+    to_label(get_token(iter)?)
 }
 
 pub enum OffsetOrLabel {
@@ -161,16 +171,19 @@ pub enum OffsetOrLabel {
     Address(AddressLabel)
 }
 
-pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result<OffsetOrLabel, AssemblerReason> {
-    let token_kind = get_token(iter)?.kind;
+pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result<OffsetOrLabel, AssemblerError> {
+    let token = get_token(iter)?;
 
     let is_offset = iter.seek_without(is_adjacent_kind)
         .map(|token| token.kind == LeftBrace)
         .unwrap_or(false);
 
     if is_offset {
-        let IntegerLiteral(value) = token_kind else {
-            return Err(ExpectedLabel(token_kind.strip()))
+        let IntegerLiteral(value) = token.kind else {
+            return Err(AssemblerError {
+                start: Some(token.start),
+                reason: ExpectedLabel(token.kind.strip())
+            })
         };
 
         iter.next(); // left brace
@@ -178,16 +191,22 @@ pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result
         let register = get_register(iter)?;
 
         let Some(right) = iter.next_adjacent() else {
-            return Err(EndOfFile)
+            return Err(AssemblerError {
+                start: None,
+                reason: EndOfFile
+            })
         };
 
         if right.kind != RightBrace {
-            return Err(ExpectedRightBrace(token_kind.strip()))
+            return Err(AssemblerError {
+                start: Some(right.start),
+                reason: ExpectedRightBrace(right.kind.strip())
+            })
         }
 
         Ok(OffsetOrLabel::Offset(value, register))
     } else {
-        Ok(OffsetOrLabel::Address(to_label(token_kind)?))
+        Ok(OffsetOrLabel::Address(to_label(token)?))
     }
 }
 
@@ -205,5 +224,18 @@ pub fn get_optional_constant<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Opti
         }
     } else {
         None
+    }
+}
+
+pub fn default_start(start: usize) -> impl Fn(AssemblerError) -> AssemblerError {
+    move |error| {
+        if error.start.is_none() {
+            AssemblerError {
+                start: Some(start),
+                reason: error.reason
+            }
+        } else {
+            error
+        }
     }
 }
