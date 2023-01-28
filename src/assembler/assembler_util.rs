@@ -1,8 +1,9 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use TokenKind::NewLine;
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{StrippedKind, Token};
+use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
@@ -84,11 +85,22 @@ pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, Assemb
     iter.next_adjacent().ok_or(AssemblerError { start: None, reason: EndOfFile })
 }
 
+fn default_error(reason: AssemblerReason, token: Token) -> AssemblerError {
+    let start = if token.kind == NewLine {
+        None
+    } else {
+        Some(token.start)
+    };
+
+    AssemblerError { start, reason }
+}
+
 pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, AssemblerError> {
-    let t = get_token(iter)?;
-    match t.kind {
+    let token = get_token(iter)?;
+
+    match token.kind {
         Register(slot) => Ok(slot),
-        _ => Err(AssemblerError { start: Some(t.start), reason: ExpectedRegister(t.kind.strip()) })
+        _ => Err(default_error(ExpectedRegister(token.kind.strip()), token))
     }
 }
 
@@ -98,12 +110,12 @@ pub enum InstructionValue {
 }
 
 pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue, AssemblerError> {
-    let t = get_token(iter)?;
+    let token = get_token(iter)?;
 
-    match t.kind {
+    match token.kind {
         Register(slot) => Ok(Slot(slot)),
         IntegerLiteral(value) => Ok(Literal(value)),
-        _ => Err(AssemblerError { start: Some(t.start), reason: ExpectedRegister(t.kind.strip()) })
+        _ => Err(default_error(ExpectedRegister(token.kind.strip()), token))
     }
 }
 
@@ -132,10 +144,7 @@ pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, Assembler
 
     match token.kind {
         IntegerLiteral(value) => Ok(value),
-        _ => Err(AssemblerError {
-            start: Some(token.start),
-            reason: ExpectedConstant(token.kind.strip())
-        })
+        _ => Err(default_error(ExpectedConstant(token.kind.strip()), token))
     }
 }
 
@@ -144,10 +153,7 @@ pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, Assemble
 
     match token.kind {
         StringLiteral(value) => Ok(value),
-        _ => Err(AssemblerError {
-            start: Some(token.start),
-            reason: ExpectedString(token.kind.strip())
-        })
+        _ => Err(default_error(ExpectedString(token.kind.strip()), token))
     }
 }
 
@@ -155,10 +161,7 @@ fn to_label(token: Token) -> Result<AddressLabel, AssemblerError> {
     match token.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
         Symbol(value) => Ok(Label(value.get().to_string())),
-        _ => Err(AssemblerError {
-            start: Some(token.start),
-            reason: ExpectedLabel(token.kind.strip())
-        })
+        _ => Err(default_error(ExpectedLabel(token.kind.strip()), token))
     }
 }
 
@@ -180,10 +183,7 @@ pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result
 
     if is_offset {
         let IntegerLiteral(value) = token.kind else {
-            return Err(AssemblerError {
-                start: Some(token.start),
-                reason: ExpectedLabel(token.kind.strip())
-            })
+            return Err(default_error(ExpectedLabel(token.kind.strip()), token))
         };
 
         iter.next(); // left brace
@@ -198,10 +198,7 @@ pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result
         };
 
         if right.kind != RightBrace {
-            return Err(AssemblerError {
-                start: Some(right.start),
-                reason: ExpectedRightBrace(right.kind.strip())
-            })
+            return Err(default_error(ExpectedRightBrace(right.kind.strip()), right))
         }
 
         Ok(OffsetOrLabel::Offset(value, register))
