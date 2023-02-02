@@ -160,7 +160,7 @@ pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, Assemble
 fn to_label(token: Token) -> Result<AddressLabel, AssemblerError> {
     match token.kind {
         IntegerLiteral(value) => Ok(Constant(value)),
-        Symbol(value) => Ok(Label(value.get().to_string())),
+        Symbol(value) => Ok(Label(value.get().to_string(), token.start)),
         _ => Err(default_error(ExpectedLabel(token.kind.strip()), token))
     }
 }

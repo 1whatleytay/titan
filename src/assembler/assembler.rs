@@ -57,5 +57,5 @@ pub fn assemble<'a>(
         }?
     }
 
-    builder.build().map_err(|reason| AssemblerError { start: None, reason })
+    builder.build()
 }

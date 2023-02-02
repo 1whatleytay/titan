@@ -797,7 +797,7 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {
-            region.labels.insert(offset, label);
+            region.labels.insert(offset, (start, label));
         }
 
         region.raw.data.write_u32::<LittleEndian>(word).unwrap();

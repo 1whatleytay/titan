@@ -1,29 +1,34 @@
 use std::collections::HashMap;
 use std::io::{Cursor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use crate::assembler::assembler_util::AssemblerReason;
+use crate::assembler::assembler_util::AssemblerError;
 use crate::assembler::assembler_util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
 use crate::assembler::binary::{AddressLabel, Binary, BinarySection, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::binary_builder::BinarySection::Text;
 
-fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerReason> {
+fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerError> {
     match label {
         Constant(value) => Ok(value as u32),
-        Label(name) => map.get(&name).copied().ok_or_else(|| UnknownLabel(name))
+        Label(name, start) => map.get(&name).copied()
+            .ok_or_else(|| AssemblerError { start: Some(start), reason: UnknownLabel(name) })
     }
 }
 
-fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<String, u32>)
-             -> Result<u32, AssemblerReason> {
+fn add_label(instruction: u32, pc: u32, start: usize, label: InstructionLabel, map: &HashMap<String, u32>)
+             -> Result<u32, AssemblerError> {
+    let make_out_of_range = |destination: u32| {
+        AssemblerError { start: Some(start), reason: JumpOutOfRange(destination, pc) }
+    };
+
     Ok(match label {
         BranchLabel(label) => {
             let destination = get_address(label, map)?;
             let immediate = (destination >> 2) as i32 - ((pc + 4) >> 2) as i32;
 
             if immediate > 0xFFFF || immediate < -0x10000 {
-                return Err(JumpOutOfRange(destination, pc))
+                return Err(make_out_of_range(destination))
             }
 
             instruction & 0xFFFF0000 | (immediate as u32 & 0xFFFF)
@@ -33,7 +38,7 @@ fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<S
             let lossy_mask = 0xF0000000u32;
 
             if destination & lossy_mask != (pc + 4) & lossy_mask {
-                return Err(JumpOutOfRange(destination, pc))
+                return Err(make_out_of_range(destination))
             }
 
             let mask = !0u32 << 26;
@@ -58,7 +63,7 @@ fn add_label(instruction: u32, pc: u32, label: InstructionLabel, map: &HashMap<S
 
 pub struct BinaryBuilderRegion {
     pub raw: RawRegion,
-    pub labels: HashMap<usize, InstructionLabel>
+    pub labels: HashMap<usize, (usize, InstructionLabel)> // start
 }
 
 #[derive(Debug)]
@@ -137,13 +142,15 @@ impl BinaryBuilder {
         Some(&mut self.regions[index])
     }
 
-    pub fn build(self) -> Result<Binary, AssemblerReason> {
+    pub fn build(self) -> Result<Binary, AssemblerError> {
         let mut binary = Binary::new();
+
+        const MISSING: AssemblerError = AssemblerError { start: None, reason: MissingInstruction };
 
         for region in self.regions {
             let mut raw = region.raw;
 
-            for (offset, label) in region.labels {
+            for (offset, (start, label)) in region.labels {
                 let pc = raw.address + offset as u32;
                 let size = raw.data.len();
 
@@ -151,15 +158,15 @@ impl BinaryBuilder {
 
                 let instruction = Cursor::new(bytes).read_u32::<LittleEndian>();
                 let Ok(instruction) = instruction else {
-                    return Err(MissingInstruction)
+                    return Err(MISSING)
                 };
 
-                let result = add_label(instruction, pc, label, &self.labels)?;
+                let result = add_label(instruction, pc, start, label, &self.labels)?;
 
                 let mut_bytes = &mut raw.data[offset .. offset + 4];
 
                 if let Err(_) = Cursor::new(mut_bytes).write_u32::<LittleEndian>(result) {
-                    return Err(MissingInstruction)
+                    return Err(MISSING)
                 }
 
                 assert_eq!(size, raw.data.len());
