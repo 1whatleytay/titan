@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use Opcode::Algebra;
-use crate::assembler::binary_builder::InstructionLabel;
+use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::instructions::Opcode::{Op, Func, Special};
@@ -797,7 +797,7 @@ pub fn do_instruction<'a, T: LexerSeekPeekable<'a>>(
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {
-            region.labels.insert(offset, (start, label));
+            region.labels.push(BinaryBuilderLabel { offset, start, label });
         }
 
         region.raw.data.write_u32::<LittleEndian>(word).unwrap();

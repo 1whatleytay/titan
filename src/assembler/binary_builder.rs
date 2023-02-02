@@ -61,9 +61,15 @@ fn add_label(instruction: u32, pc: u32, start: usize, label: InstructionLabel, m
     })
 }
 
+pub struct BinaryBuilderLabel {
+    pub offset: usize,
+    pub start: usize,
+    pub label: InstructionLabel
+}
+
 pub struct BinaryBuilderRegion {
     pub raw: RawRegion,
-    pub labels: HashMap<usize, (usize, InstructionLabel)> // start
+    pub labels: Vec<BinaryBuilderLabel> // start
 }
 
 #[derive(Debug)]
@@ -113,7 +119,7 @@ impl BinaryBuilder {
         let index = self.regions.len();
 
         self.regions.push(BinaryBuilderRegion {
-            raw: RawRegion { address, data: vec![] }, labels: HashMap::new()
+            raw: RawRegion { address, data: vec![] }, labels: vec![]
         });
 
         index
@@ -150,20 +156,22 @@ impl BinaryBuilder {
         for region in self.regions {
             let mut raw = region.raw;
 
-            for (offset, (start, label)) in region.labels {
-                let pc = raw.address + offset as u32;
+            for label in region.labels {
+                let pc = raw.address + label.offset as u32;
                 let size = raw.data.len();
 
-                let bytes = &raw.data[offset .. offset + 4];
+                let bytes = &raw.data[label.offset .. label.offset + 4];
 
                 let instruction = Cursor::new(bytes).read_u32::<LittleEndian>();
                 let Ok(instruction) = instruction else {
                     return Err(MISSING)
                 };
 
-                let result = add_label(instruction, pc, start, label, &self.labels)?;
+                let result = add_label(
+                    instruction, pc, label.start, label.label, &self.labels
+                )?;
 
-                let mut_bytes = &mut raw.data[offset .. offset + 4];
+                let mut_bytes = &mut raw.data[label.offset .. label.offset + 4];
 
                 if let Err(_) = Cursor::new(mut_bytes).write_u32::<LittleEndian>(result) {
                     return Err(MISSING)
