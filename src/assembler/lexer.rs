@@ -178,10 +178,10 @@ fn take_split<F>(input: &str, f: F) -> (&str, &str) where F: Fn(char) -> bool {
 // I want the ability to precompute a hash table, so this is done via match.
 fn is_explicit_hard(c: char) -> bool {
     match c {
-        ':' | ';' | ',' | '.' | '{' | '}' | '+' | '-' |
-        '=' | '/' | '@' | '#' | '$' | '%' | '^' | '&' |
-        '|' | '*' | '(' | ')' | '!' | '?' | '<' | '>' |
-        '~' | '[' | ']' | '\\' | '\"' | '\'' => true,
+        ':' | ';' | ',' | '{' | '}' | '+' | '-' | '=' |
+        '/' | '@' | '#' | '$' | '%' | '^' | '&' | '|' |
+        '*' | '(' | ')' | '!' | '?' | '<' | '>' | '~' |
+        '[' | ']' | '\\' | '\"' | '\'' => true,
         _ => false
     }
 }
