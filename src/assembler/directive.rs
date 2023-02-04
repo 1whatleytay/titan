@@ -2,7 +2,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use crate::assembler::binary_builder::{BinaryBuilder};
 use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use crate::assembler::lexer::TokenKind::IntegerLiteral;
+use crate::assembler::lexer::TokenKind::{IntegerLiteral, NewLine};
 use crate::assembler::lexer_seek::{is_solid_kind, LexerSeekPeekable};
 use crate::assembler::assembler_util::{
     AssemblerError, default_start, get_constant, get_optional_constant, get_string
@@ -20,6 +20,16 @@ fn do_seek_directive<'a, T: LexerSeekPeekable<'a>>(
         Some(address) => builder.seek_mode_address(mode, address as u32),
         None => builder.seek_mode(mode)
     };
+
+    Ok(())
+}
+
+fn do_globl_directive<'a, T: LexerSeekPeekable<'a>>(
+    iter: &mut T, _: &mut BinaryBuilder
+) -> Result<(), AssemblerError> {
+    iter.collect_without(|kind| kind == &NewLine);
+
+    // Ignore, dummy directive since no multi-file support at the moment.
 
     Ok(())
 }
@@ -189,6 +199,8 @@ pub fn do_directive<'a, T: LexerSeekPeekable<'a>>(
     let lowercase = directive.to_lowercase();
 
     match &lowercase as &str {
+        "globl" | "global" => do_globl_directive(iter, builder),
+
         "ascii" => do_ascii_directive(iter, builder),
         "asciiz" => do_asciiz_directive(iter, builder),
         "align" => do_align_directive(iter, builder),
