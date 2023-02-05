@@ -66,12 +66,12 @@ impl<T: ListenResponder> SectionMemory<T> {
         SectionMemory { sections }
     }
 
-    fn allocate_section(value: u8) -> Section<T> {
-        Data(Box::new([value; SECTION_SIZE]))
+    fn allocate_data(value: u8) -> Box<[u8; SECTION_SIZE]> {
+        Box::new([value; SECTION_SIZE])
     }
 
     fn create_section(&mut self, selector: usize) -> &mut [u8; SECTION_SIZE] {
-        self.sections[selector] = Self::allocate_section(INITIAL_BYTE);
+        self.sections[selector] = Data(Self::allocate_data(INITIAL_BYTE));
 
         match &mut self.sections[selector] {
             Data(data) => data.as_mut(),
@@ -138,7 +138,10 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
             Listen(responder) => responder.write(address, value),
             Empty => Err(MemoryUnmapped(address)),
             Writable(value) => {
-                self.sections[section] = Self::allocate_section(*value);
+                let mut data = Self::allocate_data(*value);
+                data[index] = *value;
+
+                self.sections[section] = Data(data);
 
                 Ok(())
             }
