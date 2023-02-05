@@ -100,7 +100,10 @@ impl<T: ListenResponder> SectionMemory<T> {
     }
 
     pub fn mount_writable(&mut self, selector: usize, value: u8) {
-        self.sections[selector] = Writable(value)
+        // If the section isn't already writable...
+        if let Empty = self.sections[selector] {
+            self.sections[selector] = Writable(value)
+        }
     }
 }
 
