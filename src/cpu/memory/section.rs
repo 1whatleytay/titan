@@ -4,7 +4,7 @@ use crate::cpu::error::Error::MemoryUnmapped;
 use crate::cpu::Memory;
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::error::Result;
-use crate::cpu::memory::section::Section::{Data, Empty};
+use crate::cpu::memory::section::Section::{Data, Empty, Writable};
 
 const SECTION_SELECTOR_START: u32 = 16;
 
@@ -35,7 +35,8 @@ impl ListenResponder for DefaultResponder {
 enum Section<T: ListenResponder> {
     Empty,
     Data(Box<[u8; SECTION_SIZE]>),
-    Listen(T)
+    Listen(T),
+    Writable(u8)
 }
 
 impl<T: ListenResponder> Debug for Section<T> {
@@ -43,7 +44,8 @@ impl<T: ListenResponder> Debug for Section<T> {
         write!(f, "{}", match self {
             Empty => "Section [Unmounted]",
             Data(_) => "Section [Data Mounted]",
-            Listen(_) => "Section [Listen Mounted]"
+            Listen(_) => "Section [Listen Mounted]",
+            Writable(_) => "Section [Writable Mounted]",
         })
     }
 }
@@ -64,8 +66,12 @@ impl<T: ListenResponder> SectionMemory<T> {
         SectionMemory { sections }
     }
 
+    fn allocate_section(value: u8) -> Section<T> {
+        Data(Box::new([value; SECTION_SIZE]))
+    }
+
     fn create_section(&mut self, selector: usize) -> &mut [u8; SECTION_SIZE] {
-        self.sections[selector] = Data(Box::new([INITIAL_BYTE; SECTION_SIZE]));
+        self.sections[selector] = Self::allocate_section(INITIAL_BYTE);
 
         match &mut self.sections[selector] {
             Data(data) => data.as_mut(),
@@ -92,6 +98,10 @@ impl<T: ListenResponder> SectionMemory<T> {
     pub fn mount_listen(&mut self, selector: usize, listener: T) {
         self.sections[selector] = Listen(listener);
     }
+
+    pub fn mount_writable(&mut self, selector: usize, value: u8) {
+        self.sections[selector] = Writable(value)
+    }
 }
 
 const fn split(address: u32) -> (usize, usize) {
@@ -108,7 +118,8 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
         match &self.sections[section] {
             Data(section) => Ok(section[index]),
             Listen(responder) => responder.read(address),
-            Empty => Err(MemoryUnmapped(address))
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(value) => Ok(*value)
         }
     }
 
@@ -122,7 +133,12 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
                 Ok(())
             }
             Listen(responder) => responder.write(address, value),
-            Empty => Err(MemoryUnmapped(address))
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(value) => {
+                self.sections[section] = Self::allocate_section(*value);
+
+                Ok(())
+            }
         }
     }
 }
