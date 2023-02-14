@@ -12,7 +12,7 @@ use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, EndOfFi
 
 #[derive(Debug)]
 pub enum AssemblerReason {
-    UnexpectedToken,
+    UnexpectedToken(StrippedKind),
     EndOfFile,
     ExpectedRegister(StrippedKind),
     ExpectedConstant(StrippedKind),
@@ -33,7 +33,7 @@ pub enum AssemblerReason {
 impl Display for AssemblerReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            UnexpectedToken => write!(f, "Expected instruction or directive, but encountered some unexpected token"),
+            UnexpectedToken(kind) => write!(f, "Expected instruction or directive, but found {}", kind),
             EndOfFile => write!(f, "Assembler reached the end of the file, but requires an additional token here"),
             ExpectedRegister(kind) => write!(f, "Expected a register, but found {}", kind),
             ExpectedConstant(kind) => write!(f, "Expected an integer, but found {}", kind),

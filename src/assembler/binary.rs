@@ -16,6 +16,22 @@ pub enum BinarySection {
 }
 
 impl BinarySection {
+    pub fn is_data(&self) -> bool {
+        match self {
+            Data => true,
+            KernelData => true,
+            _ => false
+        }
+    }
+
+    pub fn is_text(&self) -> bool {
+        match self {
+            Text => true,
+            KernelText => true,
+            _ => false
+        }
+    }
+    
     pub fn default_address(&self) -> u32 {
         match self {
             Text => 0x00400000,
