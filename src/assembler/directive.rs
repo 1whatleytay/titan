@@ -2,12 +2,12 @@ use byteorder::{ByteOrder, LittleEndian};
 use crate::assembler::binary_builder::{BinaryBuilder};
 use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use crate::assembler::lexer::TokenKind::{IntegerLiteral, NewLine};
-use crate::assembler::lexer_seek::{is_solid_kind, LexerSeekPeekable};
+use crate::assembler::lexer::TokenKind::{Comma, IntegerLiteral, NewLine};
+use crate::assembler::lexer_seek::{is_adjacent_kind, is_solid_kind, LexerSeekPeekable};
 use crate::assembler::assembler_util::{
     AssemblerError, default_start, get_constant, get_optional_constant, get_string
 };
-use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownDirective};
+use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, UnknownDirective};
 
 const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
 
@@ -107,30 +107,70 @@ fn do_space_directive<'a, T: LexerSeekPeekable<'a>>(
     Ok(())
 }
 
-fn get_constants<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Vec<u64> {
+const REPEAT_LIMIT: u64 = 0x100000;
+
+fn get_constants<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result<Vec<(u64, u64)>, AssemblerError> {
     let mut result = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
         match value.kind {
-            IntegerLiteral(value) => result.push(value),
+            IntegerLiteral(value) => {
+                iter.next();
+
+                let count = if iter.seek_without(is_adjacent_kind)
+                    .map(|x| x.kind == Comma).unwrap_or(false) {
+                    iter.next();
+
+                    let Some(token) = iter.next_adjacent() else {
+                        return Err(AssemblerError { start: None, reason: EndOfFile });
+                    };
+
+                    let IntegerLiteral(value) = token.kind else {
+                        return Err(AssemblerError {
+                            start: Some(token.start),
+                            reason: ExpectedConstant(token.kind.strip())
+                        })
+                    };
+
+                    if value > REPEAT_LIMIT {
+                        return Err(AssemblerError {
+                            start: Some(token.start),
+                            reason: ConstantOutOfRange(0, REPEAT_LIMIT)
+                        })
+                    }
+
+                    value as u64
+                } else {
+                    1u64
+                };
+
+                result.push((value, count))
+            },
             _ => break
         }
-
-        iter.next();
     }
 
-    result
+    Ok(result)
 }
 
 fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let mut values: Vec<u8> = get_constants(iter).into_iter()
-        .map(|value| value as u8).collect();
+    let values = get_constants(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    region.raw.data.append(&mut values);
+    for (value, count) in values {
+        if count > REPEAT_LIMIT {
+            continue
+        }
+
+        if count == 1 {
+            region.raw.data.push(value as u8)
+        } else {
+            region.raw.data.append(&mut vec![value as u8; count as usize])
+        }
+    }
 
     Ok(())
 }
@@ -138,17 +178,24 @@ fn do_byte_directive<'a, T: LexerSeekPeekable<'a>>(
 fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let mut values: Vec<u8> = get_constants(iter).into_iter()
-        .flat_map(|value| {
-            let mut array = [0u8; 2];
-            LittleEndian::write_u16(&mut array, value as u16);
-
-            array
-        }).collect();
+    let values = get_constants(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    region.raw.data.append(&mut values);
+    for (value, count) in values {
+        if count > REPEAT_LIMIT {
+            continue
+        }
+
+        let mut array = [0u8; 2];
+        LittleEndian::write_u16(&mut array, value as u16);
+
+        region.raw.data.reserve(2 * count as usize);
+
+        for _ in 0 .. count {
+            region.raw.data.extend_from_slice(&array);
+        }
+    }
 
     Ok(())
 }
@@ -156,17 +203,24 @@ fn do_half_directive<'a, T: LexerSeekPeekable<'a>>(
 fn do_word_directive<'a, T: LexerSeekPeekable<'a>>(
     iter: &mut T, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let mut values: Vec<u8> = get_constants(iter).into_iter()
-        .flat_map(|value| {
-            let mut array = [0u8; 4];
-            LittleEndian::write_u32(&mut array, value as u32);
-
-            array
-        }).collect();
+    let values = get_constants(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    region.raw.data.append(&mut values);
+    for (value, count) in values {
+        if count > REPEAT_LIMIT {
+            continue
+        }
+
+        let mut array = [0u8; 4];
+        LittleEndian::write_u32(&mut array, value as u32);
+
+        region.raw.data.reserve(4 * count as usize);
+
+        for _ in 0 .. count {
+            region.raw.data.extend_from_slice(&array);
+        }
+    }
 
     Ok(())
 }

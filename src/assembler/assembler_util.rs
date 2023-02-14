@@ -8,23 +8,7 @@ use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral
 use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
-use crate::assembler::assembler_util::AssemblerReason::{
-    UnexpectedToken,
-    EndOfFile,
-    ExpectedRegister,
-    ExpectedConstant,
-    ExpectedString,
-    ExpectedLabel,
-    ExpectedNewline,
-    ExpectedLeftBrace,
-    ExpectedRightBrace,
-    UnknownLabel,
-    UnknownDirective,
-    UnknownInstruction,
-    JumpOutOfRange,
-    MissingRegion,
-    MissingInstruction,
-};
+use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, EndOfFile, ExpectedRegister, ExpectedConstant, ExpectedString, ExpectedLabel, ExpectedNewline, ExpectedLeftBrace, ExpectedRightBrace, UnknownLabel, UnknownDirective, UnknownInstruction, JumpOutOfRange, MissingRegion, MissingInstruction, ConstantOutOfRange};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -37,6 +21,7 @@ pub enum AssemblerReason {
     ExpectedNewline(StrippedKind),
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
+    ConstantOutOfRange(u64, u64),
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
@@ -57,6 +42,7 @@ impl Display for AssemblerReason {
             ExpectedNewline(kind) => write!(f, "Expected a newline, but found {}", kind),
             ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {}", kind),
             ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {}", kind),
+            ConstantOutOfRange(min, max) => write!(f, "Constant must be between 0x{:x} and 0x{:x}", min, max),
             UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),
             UnknownDirective(name) => write!(f, "There's no current support for any {} directive", name),
             UnknownInstruction(name) => write!(f, "Unknown instruction named \"{}\", check for typos", name),
