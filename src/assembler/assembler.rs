@@ -12,10 +12,15 @@ use crate::assembler::instructions::instructions_map;
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
 use crate::assembler::assembler_util::AssemblerError;
 
+enum SymbolType {
+    Label,
+    Instruction
+}
+
 fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
     name: &str, start: usize, iter: &mut T,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
-) -> Result<(), AssemblerError> {
+) -> Result<SymbolType, AssemblerError> {
     // We need this region!
 
     let region = builder.region()
@@ -28,9 +33,13 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
             let pc = region.raw.address + region.raw.data.len() as u32;
             builder.labels.insert(name.to_string(), pc);
 
-            Ok(())
+            Ok(SymbolType::Label)
         },
-        _ => do_instruction(name, start, iter, builder, map)
+        _ => {
+            do_instruction(name, start, iter, builder, map)?;
+
+            Ok(SymbolType::Instruction)
+        }
     }
 }
 
@@ -67,18 +76,20 @@ pub fn assemble<'a>(
             Directive(directive) => {
                 last_directive = Some((directive, token.start));
 
-                do_directive(directive, token.start, &mut iter, &mut builder)
+                do_directive(directive, token.start, &mut iter, &mut builder)?
             }
             Symbol(name) => {
-                last_directive = None;
+                let result = do_symbol(name.get(), token.start, &mut iter, &mut builder, &map)?;
 
-                do_symbol(name.get(), token.start, &mut iter, &mut builder, &map)
+                if let SymbolType::Instruction = result {
+                    last_directive = None;
+                }
             }
             _ => return Err(AssemblerError {
                 start: Some(token.start),
                 reason: UnexpectedToken(token.kind.strip())
             })
-        }?
+        }
     }
 
     builder.build()

@@ -2,7 +2,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use crate::assembler::binary_builder::{BinaryBuilder};
 use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use crate::assembler::lexer::TokenKind::{Comma, IntegerLiteral, NewLine};
+use crate::assembler::lexer::TokenKind::{Colon, IntegerLiteral, NewLine};
 use crate::assembler::lexer_seek::{is_adjacent_kind, is_solid_kind, LexerSeekPeekable};
 use crate::assembler::assembler_util::{
     AssemblerError, default_start, get_constant, get_optional_constant, get_string
@@ -117,8 +117,9 @@ fn get_constants<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result<Vec<(u64,
             IntegerLiteral(value) => {
                 iter.next();
 
-                let count = if iter.seek_without(is_adjacent_kind)
-                    .map(|x| x.kind == Comma).unwrap_or(false) {
+                let next_up = iter.seek_without(is_adjacent_kind);
+
+                let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
                     iter.next();
 
                     let Some(token) = iter.next_adjacent() else {
