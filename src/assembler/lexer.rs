@@ -19,7 +19,7 @@ use crate::assembler::lexer::TokenKind::{
     LeftBrace,
     RightBrace,
 };
-use crate::assembler::lexer::LexerReason::{ImproperLiteral, InvalidString, Stuck, UnknownRegister};
+use crate::assembler::lexer::LexerReason::{ImproperLiteral, InvalidString, Stuck, UnexpectedCharacter, UnknownRegister};
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::registers::RegisterSlot;
 
@@ -122,6 +122,7 @@ pub struct Token<'a> {
 pub enum LexerReason {
     Stuck,
     UnknownRegister(String),
+    UnexpectedCharacter(char),
     InvalidString,
     ImproperLiteral,
 }
@@ -131,6 +132,7 @@ impl Display for LexerReason {
         match self {
             Stuck => write!(f, "Lexer got stuck on this token. Please file an issue at https://github.com/1whatleytay/titan/issues"),
             UnknownRegister(register) => write!(f, "Unknown register \"{}\"", register),
+            UnexpectedCharacter(c) => write!(f, "Unexpected character \"{}\"", c),
             InvalidString => write!(f, "String literal is incorrectly formatted. Check that you have closing quotes"),
             ImproperLiteral => write!(f, "Integer literal is incorrectly formatted or too big"),
         }
@@ -336,7 +338,7 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         '\"' => string_body(after_leading, '\"')
             .map(|(out, body)| Some((&out[1..], StringLiteral(body))))
             .ok_or(InvalidString),
-
+        _ if is_hard(leading) => Err(UnexpectedCharacter(leading)),
         _ => Ok({
             let (rest, value) = take_name(input);
 
