@@ -7,7 +7,7 @@ use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, LeftBrace, Parameter, RightBrace, NewLine, Symbol, Directive
 };
-use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
+use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::preprocessor::PreprocessorReason::{
     EndOfFile, ExpectedSymbol, ExpectedParameter, ExpectedLeftBrace, ExpectedRightBrace,
     MacroUnknown, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion
@@ -82,7 +82,7 @@ impl<'a> Macro<'a> {
 
 struct Cache<'a> {
     seed: usize,
-    tokens: HashMap<String, TokenKind<'a>>,
+    tokens: HashMap<String, Vec<TokenKind<'a>>>,
     macros: HashMap<String, Rc<Macro<'a>>>,
     expanding: HashSet<String>
 }
@@ -98,22 +98,22 @@ impl<'a> Cache<'a> {
     }
 }
 
-fn consume_eqv<'a, T: LexerSeek<'a>>(
-    iter: &mut T
-) -> Result<(String, TokenKind<'a>), PreprocessorReason> {
+fn consume_eqv<'a, 'b>(
+    iter: &mut LexerCursor<'a, 'b>
+) -> Result<(String, Vec<TokenKind<'a>>), PreprocessorReason> {
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
-    let Some(value) = iter.next_adjacent() else { return Err(EndOfFile) };
 
-    let Symbol(key) = symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
+    let Symbol(key) = &symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
+    let value = iter.collect_without(|kind| kind == &NewLine).into_iter()
+        .map(|token| token.kind.clone())
+        .collect();
 
-    Ok((key.get().to_string(), value.kind))
+    Ok((key.get().to_string(), value))
 }
 
-fn consume_macro<'a, T: LexerSeek<'a>>(
-    iter: &mut T
-) -> Result<Macro<'a>, PreprocessorReason> {
+fn consume_macro<'a>(iter: &mut LexerCursor<'a, '_>) -> Result<Macro<'a>, PreprocessorReason> {
     let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
-    let Symbol(name) = symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
+    let Symbol(name) = &symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
 
     let mut result = Macro::new(name.get().to_string());
 
@@ -155,7 +155,7 @@ fn consume_macro<'a, T: LexerSeek<'a>>(
             _ => false
         };
 
-        body.append(&mut items);
+        body.extend(items.into_iter().cloned());
     }
 
     body.pop();
@@ -217,34 +217,28 @@ fn expand_macro<'a>(
     Ok(result)
 }
 
-fn handle_symbol<'a, T: LexerSeekPeekable<'a>>(
-    name: SymbolName<'a>, start: usize, iter: &mut T, cache: &mut Cache<'a>
+fn handle_symbol<'a>(
+    name: &SymbolName<'a>, start: usize, iter: &mut LexerCursor<'a, '_>, cache: &mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
-    if let Some(token) = cache.tokens.get(name.get()) {
-        return Ok(vec![Token { start, kind: token.clone() }])
+    if let Some(tokens) = cache.tokens.get(name.get()) {
+        return Ok(tokens.iter().map(|kind| Token { start, kind: kind.clone() }).collect())
     }
 
-    // Workaroundy, forgot how to handle this well.
-    let elements = iter.collect_without(is_adjacent_kind);
-    let next = iter.seek_without(is_adjacent_kind);
+    // Consumes nothing until we call iter.consume_until(position)
+    let (position, token) = iter.peek_adjacent();
 
-    fn concat<'a>(element: Token<'a>, mut elements: Vec<Token<'a>>) -> Vec<Token<'a>> {
-        let mut first = vec![element];
-        first.append(&mut elements);
-
-        first
-    }
-
-    let Some(last) = next else {
-        return Ok(concat(Token { start, kind: Symbol(name) }, elements))
+    let Some(last) = token else {
+        return Ok(vec![Token { start, kind: Symbol(name.clone()) }])
     };
 
     match last.kind {
         LeftBrace => { iter.next(); /* pop */ },
-        _ => return Ok(concat(Token { start, kind: Symbol(name) }, elements))
+        _ => return Ok(vec![Token { start, kind: Symbol(name.clone()) }])
     }
 
     // Treat as a macro!
+    iter.consume_until(position); // includes the item
+
     let Some(macro_info) = cache.macros.get(name.get()) else {
         return Err(MacroUnknown(name.get().to_string()))
     };
@@ -257,7 +251,7 @@ fn handle_symbol<'a, T: LexerSeekPeekable<'a>>(
         match next.kind {
             RightBrace => break,
             NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
-            _ => parameters.push(next)
+            _ => parameters.push(next.clone())
         }
     };
 
@@ -267,7 +261,7 @@ fn handle_symbol<'a, T: LexerSeekPeekable<'a>>(
 fn preprocess_cached<'a, 'b>(
     items: Vec<Token<'a>>, cache: &'b mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
-    let mut iter = items.into_iter().peekable();
+    let mut iter = LexerCursor::new(&items);
     let mut result: Vec<Token> = vec![];
 
     let watched_directives = HashSet::from(["eqv", "macro"]);
@@ -277,9 +271,9 @@ fn preprocess_cached<'a, 'b>(
             start: element.start, reason
         };
 
-        match element.kind {
+        match &element.kind {
             Directive(directive) if watched_directives.contains(directive) => {
-                match directive {
+                match *directive {
                     "eqv" => {
                         let (key, value) = consume_eqv(&mut iter)
                             .map_err(|err| fail(err))?;
@@ -303,7 +297,7 @@ fn preprocess_cached<'a, 'b>(
                 result.append(&mut elements)
             },
 
-            _ => result.push(element)
+            _ => result.push(element.clone())
         }
     }
 

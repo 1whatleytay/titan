@@ -1,5 +1,5 @@
 pub mod lexer;
-mod lexer_seek;
+mod cursor;
 pub mod preprocessor;
 
 mod emit;

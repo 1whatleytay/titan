@@ -6,7 +6,7 @@ use crate::assembler::directive::do_directive;
 use crate::assembler::emit::do_instruction;
 use crate::assembler::lexer::{Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{Symbol, Directive, IntegerLiteral};
-use crate::assembler::lexer_seek::{is_adjacent_kind, is_solid_kind, LexerSeekPeekable};
+use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::instructions::Instruction;
 use crate::assembler::instructions::instructions_map;
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
@@ -17,8 +17,8 @@ enum SymbolType {
     Instruction
 }
 
-fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
-    name: &str, start: usize, iter: &mut T,
+fn do_symbol<'a>(
+    name: &str, start: usize, iter: &mut LexerCursor,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<SymbolType, AssemblerError> {
     // We need this region!
@@ -46,7 +46,7 @@ fn do_symbol<'a, T: LexerSeekPeekable<'a>>(
 pub fn assemble<'a>(
     items: Vec<Token<'a>>, instructions: &[Instruction]
 ) -> Result<Binary, AssemblerError> {
-    let mut iter = items.into_iter().peekable();
+    let mut cursor = LexerCursor::new(&items);
 
     let map = instructions_map(instructions);
 
@@ -55,7 +55,7 @@ pub fn assemble<'a>(
 
     let mut last_directive = Option::<(&str, usize)>::None;
 
-    while let Some(token) = iter.seek_without(is_solid_kind) {
+    while let Some(token) = cursor.seek_without(is_solid_kind) {
         match &token.kind {
             IntegerLiteral(_) => {
                 let Some((directive, start)) = last_directive else {
@@ -65,21 +65,21 @@ pub fn assemble<'a>(
                     })
                 };
 
-                do_directive(directive, start, &mut iter, &mut builder)?
+                do_directive(directive, start, &mut cursor, &mut builder)?
             }
             _ => { }
         }
 
-        let Some(token) = iter.next() else { continue };
+        let Some(token) = cursor.next() else { continue };
 
         match &token.kind {
             Directive(directive) => {
                 last_directive = Some((directive, token.start));
 
-                do_directive(directive, token.start, &mut iter, &mut builder)?
+                do_directive(directive, token.start, &mut cursor, &mut builder)?
             }
             Symbol(name) => {
-                let result = do_symbol(name.get(), token.start, &mut iter, &mut builder, &map)?;
+                let result = do_symbol(name.get(), token.start, &mut cursor, &mut builder, &map)?;
 
                 if let SymbolType::Instruction = result {
                     last_directive = None;

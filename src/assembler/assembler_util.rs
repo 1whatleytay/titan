@@ -5,7 +5,7 @@ use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
-use crate::assembler::lexer_seek::{is_adjacent_kind, LexerSeek, LexerSeekPeekable};
+use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, EndOfFile, ExpectedRegister, ExpectedConstant, ExpectedString, ExpectedLabel, ExpectedNewline, ExpectedLeftBrace, ExpectedRightBrace, UnknownLabel, UnknownDirective, UnknownInstruction, JumpOutOfRange, MissingRegion, MissingInstruction, ConstantOutOfRange};
@@ -67,11 +67,11 @@ impl Display for AssemblerError {
 
 impl Error for AssemblerError { }
 
-pub fn get_token<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<Token<'a>, AssemblerError> {
+pub fn get_token<'a, 'b>(iter: &mut LexerCursor<'a, 'b>) -> Result<&'b Token<'a>, AssemblerError> {
     iter.next_adjacent().ok_or(AssemblerError { start: None, reason: EndOfFile })
 }
 
-fn default_error(reason: AssemblerReason, token: Token) -> AssemblerError {
+fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
     let start = if token.kind == NewLine {
         None
     } else {
@@ -81,7 +81,7 @@ fn default_error(reason: AssemblerReason, token: Token) -> AssemblerError {
     AssemblerError { start, reason }
 }
 
-pub fn get_register<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<RegisterSlot, AssemblerError> {
+pub fn get_register<'a>(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     match token.kind {
@@ -95,7 +95,7 @@ pub enum InstructionValue {
     Literal(u64)
 }
 
-pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue, AssemblerError> {
+pub fn get_value<'a>(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerError> {
     let token = get_token(iter)?;
 
     match token.kind {
@@ -105,8 +105,8 @@ pub fn get_value<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<InstructionValue,
     }
 }
 
-pub fn maybe_get_value<'a, T: LexerSeekPeekable<'a>>(
-    iter: &mut T
+pub fn maybe_get_value<'a>(
+    iter: &mut LexerCursor
 ) -> Option<InstructionValue> {
     let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
 
@@ -125,7 +125,7 @@ pub fn maybe_get_value<'a, T: LexerSeekPeekable<'a>>(
     }
 }
 
-pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, AssemblerError> {
+pub fn get_constant<'a>(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     let token = get_token(iter)?;
 
     match token.kind {
@@ -134,24 +134,24 @@ pub fn get_constant<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<u64, Assembler
     }
 }
 
-pub fn get_string<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<String, AssemblerError> {
+pub fn get_string<'a>(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        StringLiteral(value) => Ok(value),
+    match &token.kind {
+        StringLiteral(value) => Ok(value.clone()),
         _ => Err(default_error(ExpectedString(token.kind.strip()), token))
     }
 }
 
-fn to_label(token: Token) -> Result<AddressLabel, AssemblerError> {
-    match token.kind {
-        IntegerLiteral(value) => Ok(Constant(value)),
+fn to_label(token: &Token) -> Result<AddressLabel, AssemblerError> {
+    match &token.kind {
+        IntegerLiteral(value) => Ok(Constant(*value)),
         Symbol(value) => Ok(Label(value.get().to_string(), token.start)),
         _ => Err(default_error(ExpectedLabel(token.kind.strip()), token))
     }
 }
 
-pub fn get_label<'a, T: LexerSeek<'a>>(iter: &mut T) -> Result<AddressLabel, AssemblerError> {
+pub fn get_label<'a>(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
     to_label(get_token(iter)?)
 }
 
@@ -160,7 +160,7 @@ pub enum OffsetOrLabel {
     Address(AddressLabel)
 }
 
-pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result<OffsetOrLabel, AssemblerError> {
+pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let token = get_token(iter)?;
 
     let is_offset = iter.seek_without(is_adjacent_kind)
@@ -193,7 +193,7 @@ pub fn get_offset_or_label<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Result
     }
 }
 
-pub fn get_optional_constant<'a, T: LexerSeekPeekable<'a>>(iter: &mut T) -> Option<u64> {
+pub fn get_optional_constant<'a>(iter: &mut LexerCursor) -> Option<u64> {
     let next = iter.seek_without(is_adjacent_kind);
 
     if let Some(next) = next {
