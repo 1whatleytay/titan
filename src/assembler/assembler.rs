@@ -44,9 +44,9 @@ fn do_symbol<'a>(
 }
 
 pub fn assemble<'a>(
-    items: Vec<Token<'a>>, instructions: &[Instruction]
+    items: &[Token<'a>], instructions: &[Instruction]
 ) -> Result<Binary, AssemblerError> {
-    let mut cursor = LexerCursor::new(&items);
+    let mut cursor = LexerCursor::new(items);
 
     let map = instructions_map(instructions);
 

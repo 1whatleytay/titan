@@ -209,7 +209,7 @@ fn expand_macro<'a>(
         result.push(Token { start: token.start, kind: mapped_kind });
     }
 
-    let result = preprocess_cached(result, cache)
+    let result = preprocess_cached(&result, cache)
         .map_err(|err| err.reason)?;
 
     cache.expanding.remove(&macro_info.name);
@@ -259,10 +259,12 @@ fn handle_symbol<'a>(
 }
 
 fn preprocess_cached<'a, 'b>(
-    items: Vec<Token<'a>>, cache: &'b mut Cache<'a>
+    items: &[Token<'a>], cache: &'b mut Cache<'a>
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
-    let mut iter = LexerCursor::new(&items);
+    let mut iter = LexerCursor::new(items);
     let mut result: Vec<Token> = vec![];
+
+    result.reserve(items.len());
 
     let watched_directives = HashSet::from(["eqv", "macro"]);
 
@@ -304,7 +306,7 @@ fn preprocess_cached<'a, 'b>(
     Ok(result)
 }
 
-pub fn preprocess(items: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
+pub fn preprocess<'a>(items: &[Token<'a>]) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut cache = Cache::new();
 
     preprocess_cached(items, &mut cache)

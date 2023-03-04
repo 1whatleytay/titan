@@ -57,8 +57,8 @@ impl Error for SourceError { }
 
 pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
     let items = lex(source)?;
-    let items = preprocess(items)?;
-    let binary = assemble(items, &INSTRUCTIONS)?;
+    let items = preprocess(&items)?;
+    let binary = assemble(&items, &INSTRUCTIONS)?;
 
     Ok(binary)
 }
