@@ -95,13 +95,57 @@ pub enum InstructionValue {
     Literal(u64)
 }
 
+// first -> pointed to but NOT consumed yet, this method call will consume it
+pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<u64> {
+    let start = iter.get_position();
+
+    match &first.kind {
+        TokenKind::Plus | TokenKind::Minus => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            let multiplier = if first.kind == TokenKind::Plus { 1i64 } else { -1i64 };
+
+            let adjacent = iter.next_adjacent();
+
+            if let Some(IntegerLiteral(value)) = adjacent.map(|t| &t.kind) {
+                Some(((*value as i64) * multiplier) as u64)
+            } else {
+                iter.set_position(start);
+
+                None
+            }
+        }
+        IntegerLiteral(value) => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            Some(*value)
+        }
+        _ => None
+    }
+}
+
+pub fn get_integer_adjacent(iter: &mut LexerCursor) -> Option<u64> {
+    if let Some(token) = iter.seek_without(is_adjacent_kind) {
+        get_integer(token, iter, true)
+    } else {
+        return None
+    }
+}
+
 pub fn get_value<'a>(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        Register(slot) => Ok(Slot(slot)),
-        IntegerLiteral(value) => Ok(Literal(value)),
-        _ => Err(default_error(ExpectedRegister(token.kind.strip()), token))
+    if let Some(value) = get_integer(token, iter, false) {
+        Ok(Literal(value))
+    } else {
+        match token.kind {
+            Register(slot) => Ok(Slot(slot)),
+            _ => Err(default_error(ExpectedRegister(token.kind.strip()), token))
+        }
     }
 }
 
@@ -110,27 +154,27 @@ pub fn maybe_get_value<'a>(
 ) -> Option<InstructionValue> {
     let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
 
-    match value.kind {
-        Register(slot) => {
-            iter.next();
+    if let Some(value) = get_integer(value, iter, true) {
+        return Some(Literal(value))
+    } else {
+        match value.kind {
+            Register(slot) => {
+                iter.next();
 
-            Some(Slot(slot))
-        },
-        IntegerLiteral(value) => {
-            iter.next();
-
-            Some(Literal(value))
-        },
-        _ => None
+                Some(Slot(slot))
+            },
+            _ => None
+        }
     }
 }
 
 pub fn get_constant<'a>(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        IntegerLiteral(value) => Ok(value),
-        _ => Err(default_error(ExpectedConstant(token.kind.strip()), token))
+    if let Some(value) = get_integer(token, iter, false) {
+        Ok(value)
+    } else {
+        Err(default_error(ExpectedConstant(token.kind.strip()), token))
     }
 }
 
@@ -143,16 +187,19 @@ pub fn get_string<'a>(iter: &mut LexerCursor) -> Result<String, AssemblerError> 
     }
 }
 
-fn to_label(token: &Token) -> Result<AddressLabel, AssemblerError> {
-    match &token.kind {
-        IntegerLiteral(value) => Ok(Constant(*value)),
-        Symbol(value) => Ok(Label(value.get().to_string(), token.start)),
-        _ => Err(default_error(ExpectedLabel(token.kind.strip()), token))
+fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
+    if let Some(value) = get_integer(token, iter, false) {
+        Ok(Constant(value))
+    } else {
+        match &token.kind {
+            Symbol(value) => Ok(Label(value.get().to_string(), token.start)),
+            _ => Err(default_error(ExpectedLabel(token.kind.strip()), token))
+        }
     }
 }
 
-pub fn get_label<'a>(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
-    to_label(get_token(iter)?)
+pub fn get_label(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
+    to_label(get_token(iter)?, iter)
 }
 
 pub enum OffsetOrLabel {
@@ -162,15 +209,14 @@ pub enum OffsetOrLabel {
 
 pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let token = get_token(iter)?;
+    let value = get_integer(token, iter, false);
 
     let is_offset = iter.seek_without(is_adjacent_kind)
         .map(|token| token.kind == LeftBrace)
         .unwrap_or(false);
 
     if is_offset {
-        let IntegerLiteral(value) = token.kind else {
-            return Err(default_error(ExpectedLabel(token.kind.strip()), token))
-        };
+        let value = value.unwrap_or(0);
 
         iter.next(); // left brace
 
@@ -189,24 +235,7 @@ pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, 
 
         Ok(OffsetOrLabel::Offset(value, register))
     } else {
-        Ok(OffsetOrLabel::Address(to_label(token)?))
-    }
-}
-
-pub fn get_optional_constant<'a>(iter: &mut LexerCursor) -> Option<u64> {
-    let next = iter.seek_without(is_adjacent_kind);
-
-    if let Some(next) = next {
-        match next.kind {
-            IntegerLiteral(literal) => {
-                iter.next();
-
-                Some(literal)
-            },
-            _ => None
-        }
-    } else {
-        None
+        Ok(OffsetOrLabel::Address(to_label(token, iter)?))
     }
 }
 

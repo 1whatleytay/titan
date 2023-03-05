@@ -120,7 +120,7 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
 
         (end, result)
     }
-
+    
     pub fn consume_until(&mut self, index: usize) -> Vec<&'b Token<'a>> {
         if index < self.index {
             vec![]

@@ -4,6 +4,7 @@ use std::ptr;
 use num::FromPrimitive;
 use std::str::FromStr;
 use SymbolName::Owned;
+use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::TokenKind::{
     Comment,
@@ -51,6 +52,8 @@ pub enum StrippedKind {
     IntegerLiteral,
     StringLiteral,
     Symbol,
+    Plus,
+    Minus,
     Comma,
     Colon,
     NewLine,
@@ -67,6 +70,8 @@ pub enum TokenKind<'a> {
     IntegerLiteral(u64), // 123 -> also characters
     StringLiteral(String),
     Symbol(SymbolName<'a>),
+    Plus,
+    Minus,
     Comma,
     Colon,
     NewLine,
@@ -81,9 +86,11 @@ impl Display for StrippedKind {
             StrippedKind::Directive => "Directive",
             StrippedKind::Parameter => "Parameter",
             StrippedKind::Register => "Register",
-            StrippedKind::IntegerLiteral => "IntegerLiteral",
-            StrippedKind::StringLiteral => "StringLiteral",
+            StrippedKind::IntegerLiteral => "Integer Literal",
+            StrippedKind::StringLiteral => "String Literal",
             StrippedKind::Symbol => "Symbol",
+            StrippedKind::Plus => "Plus",
+            StrippedKind::Minus => "Minus",
             StrippedKind::Comma => "Comma",
             StrippedKind::Colon => "Colon",
             StrippedKind::NewLine => "NewLine",
@@ -103,6 +110,8 @@ impl<'a> TokenKind<'a> {
             IntegerLiteral(_) => StrippedKind::IntegerLiteral,
             StringLiteral(_) => StrippedKind::StringLiteral,
             Symbol(_) => StrippedKind::Symbol,
+            Plus => StrippedKind::Plus,
+            Minus => StrippedKind::Minus,
             Comma => StrippedKind::Comma,
             Colon => StrippedKind::Colon,
             NewLine => StrippedKind::NewLine,
@@ -281,20 +290,12 @@ fn integer_character(input: &str) -> Option<(&str, u64)> {
 }
 
 fn integer_literal(input: &str) -> Option<(&str, u64)> {
-    let (input, positive) = match input.chars().next()? {
-        '+' => (&input[1..], true),
-        '-' => (&input[1..], false),
-        _ => (input, true)
-    };
-
     match input {
         _ if input.starts_with("0x") => integer_hexadecimal(input),
         _ if input.starts_with("0b") => integer_binary(input),
         _ if input.starts_with("\'") => integer_character(input),
         _ => integer_decimal(input)
-    }.map(|(input, value)| (
-        input, if positive { value } else { (-(value as i64)) as u64 }
-    ))
+    }
 }
 
 fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
@@ -327,12 +328,14 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
                 .map(|slot| Some((rest, Register(slot))))
                 .ok_or_else(|| UnknownRegister(value.to_string()))
         },
+        '+' => Ok(Some((&input[1..], Plus))),
+        '-' => Ok(Some((&input[1..], Minus))),
         ',' => Ok(Some((&input[1..], Comma))),
         '(' => Ok(Some((&input[1..], LeftBrace))),
         ')' => Ok(Some((&input[1..], RightBrace))),
         ':' => Ok(Some((&input[1..], Colon))),
         '\n' => Ok(Some((&input[1..], NewLine))),
-        '0'..='9' | '-' | '+' | '\'' => integer_literal(input)
+        '0'..='9' | '\'' => integer_literal(input)
             .map(|(out, value)| Some((out, IntegerLiteral(value))))
             .ok_or(ImproperLiteral),
         '\"' => string_body(after_leading, '\"')

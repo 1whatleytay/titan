@@ -2,11 +2,9 @@ use byteorder::{ByteOrder, LittleEndian};
 use crate::assembler::binary_builder::{BinaryBuilder};
 use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use crate::assembler::lexer::TokenKind::{Colon, IntegerLiteral, NewLine};
+use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
-use crate::assembler::assembler_util::{
-    AssemblerError, default_start, get_constant, get_optional_constant, get_string
-};
+use crate::assembler::assembler_util::{AssemblerError, default_start, get_constant, get_integer, get_integer_adjacent, get_string};
 use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, UnknownDirective};
 
 const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
@@ -14,7 +12,7 @@ const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: Mis
 fn do_seek_directive<'a>(
     mode: BinarySection, iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let address = get_optional_constant(iter);
+    let address = get_integer_adjacent(iter);
 
     match address {
         Some(address) => builder.seek_mode_address(mode, address as u32),
@@ -113,42 +111,41 @@ fn get_constants<'a>(iter: &mut LexerCursor) -> Result<Vec<(u64, u64)>, Assemble
     let mut result = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
-        match value.kind {
-            IntegerLiteral(value) => {
-                iter.next();
+        let Some(value) = get_integer(value, iter, true) else {
+            break
+        };
 
-                let next_up = iter.seek_without(is_adjacent_kind);
+        iter.next();
 
-                let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
-                    iter.next();
+        let next_up = iter.seek_without(is_adjacent_kind);
 
-                    let Some(token) = iter.next_adjacent() else {
-                        return Err(AssemblerError { start: None, reason: EndOfFile });
-                    };
+        let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
+            iter.next();
 
-                    let IntegerLiteral(value) = token.kind else {
-                        return Err(AssemblerError {
-                            start: Some(token.start),
-                            reason: ExpectedConstant(token.kind.strip())
-                        })
-                    };
+            let Some(token) = iter.next_adjacent() else {
+                return Err(AssemblerError { start: None, reason: EndOfFile });
+            };
 
-                    if value > REPEAT_LIMIT {
-                        return Err(AssemblerError {
-                            start: Some(token.start),
-                            reason: ConstantOutOfRange(0, REPEAT_LIMIT)
-                        })
-                    }
+            let Some(value) = get_integer(token, iter, false) else {
+                return Err(AssemblerError {
+                    start: Some(token.start),
+                    reason: ExpectedConstant(token.kind.strip())
+                })
+            };
 
-                    value as u64
-                } else {
-                    1u64
-                };
+            if value > REPEAT_LIMIT {
+                return Err(AssemblerError {
+                    start: Some(token.start),
+                    reason: ConstantOutOfRange(0, REPEAT_LIMIT)
+                })
+            }
 
-                result.push((value, count))
-            },
-            _ => break
-        }
+            value as u64
+        } else {
+            1u64
+        };
+
+        result.push((value, count))
     }
 
     Ok(result)

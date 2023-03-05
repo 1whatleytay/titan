@@ -5,12 +5,12 @@ use crate::assembler::binary::BinarySection::Text;
 use crate::assembler::directive::do_directive;
 use crate::assembler::emit::do_instruction;
 use crate::assembler::lexer::{Token, TokenKind};
-use crate::assembler::lexer::TokenKind::{Symbol, Directive, IntegerLiteral};
+use crate::assembler::lexer::TokenKind::{Minus, Plus, Symbol, Directive, IntegerLiteral};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::instructions::Instruction;
 use crate::assembler::instructions::instructions_map;
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
-use crate::assembler::assembler_util::AssemblerError;
+use crate::assembler::assembler_util::{AssemblerError};
 
 enum SymbolType {
     Label,
@@ -57,7 +57,7 @@ pub fn assemble<'a>(
 
     while let Some(token) = cursor.seek_without(is_solid_kind) {
         match &token.kind {
-            IntegerLiteral(_) => {
+            Plus | Minus | IntegerLiteral(_) => {
                 let Some((directive, start)) = last_directive else {
                     return Err(AssemblerError {
                         start: Some(token.start),
