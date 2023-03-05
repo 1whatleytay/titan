@@ -5,7 +5,7 @@ use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::assembler_util::{AssemblerError, default_start, get_constant, get_integer, get_integer_adjacent, get_string};
-use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, UnknownDirective};
+use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective};
 
 const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
 
@@ -56,12 +56,17 @@ fn do_asciiz_directive<'a>(
     Ok(())
 }
 
-const MAX_ZERO: usize = 0x1000000;
+const MAX_ZERO: usize = 0x100000;
 
 fn do_align_directive<'a>(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let shift = get_constant(iter)?;
+
+    if !(0 ..= 16).contains(&shift) {
+        return Err(AssemblerError { start: None, reason: ConstantOutOfRange(0, 16) })
+    }
+
     let align = 1 << shift;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
@@ -71,7 +76,7 @@ fn do_align_directive<'a>(
     let correction = if remainder > 0 { 1 } else { 0 };
 
     let target = (select + correction) * align;
-    let align_count = pc as usize - target as usize;
+    let align_count = target as usize - pc as usize;
 
     if align_count > MAX_ZERO {
         builder.seek_mode_address(builder.state.mode, target)
@@ -93,7 +98,9 @@ fn do_space_directive<'a>(
     let byte_count = get_constant(iter)? as usize;
 
     if byte_count > MAX_ZERO {
-        let target = pc + byte_count as u32;
+        let Some(target) = pc.checked_add(byte_count as u32) else {
+            return Err(AssemblerError { start: None, reason: OverwriteEdge(pc, byte_count as u64) })
+        };
 
         builder.seek_mode_address(builder.state.mode, target)
     } else {
