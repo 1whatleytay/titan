@@ -212,8 +212,7 @@ pub enum OffsetOrLabel {
 }
 
 pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
-    let token = get_token(iter)?;
-    let value = get_integer(token, iter, false);
+    let value = get_integer_adjacent(iter);
 
     let is_offset = iter.seek_without(is_adjacent_kind)
         .map(|token| token.kind == LeftBrace)
@@ -239,7 +238,7 @@ pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, 
 
         Ok(OffsetOrLabel::Offset(value, register))
     } else {
-        Ok(OffsetOrLabel::Address(to_label(token, iter)?))
+        Ok(OffsetOrLabel::Address(to_label(get_token(iter)?, iter)?))
     }
 }
 
@@ -253,5 +252,22 @@ pub fn default_start(start: usize) -> impl Fn(AssemblerError) -> AssemblerError 
         } else {
             error
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+    use std::time::Instant;
+    use crate::assembler::lexer::lex;
+    use crate::assembler::preprocessor::preprocess;
+    use crate::assembler::source::assemble_from;
+
+    #[test]
+    fn test_me() {
+        let text = fs::read_to_string("/Users/desgroup/Projects/breakout/test-value.asm").unwrap();
+
+        let result = assemble_from(&text).unwrap();
+        println!("{:x}", result.entry);
     }
 }

@@ -122,8 +122,6 @@ fn get_constants<'a>(iter: &mut LexerCursor) -> Result<Vec<(u64, u64)>, Assemble
             break
         };
 
-        iter.next();
-
         let next_up = iter.seek_without(is_adjacent_kind);
 
         let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
