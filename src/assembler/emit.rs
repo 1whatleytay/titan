@@ -484,9 +484,11 @@ fn do_set_custom_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
-    let temp = get_register(iter)?;
+    let temp = get_value(iter)?;
 
-    let (first, second) = if greater_than { (source, temp) } else { (temp, source) };
+    let (slot, mut instructions) = emit_unpack_value(temp);
+
+    let (first, second) = if greater_than { (source, slot) } else { (slot, source) };
     let set_op = if unsigned { &Func(41) } else { &Func(42) };
 
     let set = InstructionBuilder::from_op(set_op)
@@ -495,7 +497,7 @@ fn do_set_custom_instruction(
         .with_temp(second)
         .0;
 
-    let mut instructions = vec![(set, None)];
+    instructions.push((set, None));
 
     if !result_true {
         let xori = InstructionBuilder::from_op(&Op(14)) // xori
@@ -515,12 +517,14 @@ fn do_seq_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
-    let temp = get_register(iter)?;
+    let temp = get_value(iter)?;
+
+    let (slot, mut instructions) = emit_unpack_value(temp);
 
     let subu = InstructionBuilder::from_op(&Func(35))
         .with_dest(dest)
         .with_source(source)
-        .with_temp(temp)
+        .with_temp(slot)
         .0;
 
     let sltu = InstructionBuilder::from_op(&Func(41))
@@ -535,7 +539,7 @@ fn do_seq_instruction(
         .with_immediate(1)
         .0;
 
-    let instructions = vec![(subu, None), (sltu, None), (xori, None)];
+    instructions.extend([(subu, None), (sltu, None), (xori, None)]);
 
     Ok(EmitInstruction { instructions })
 }
@@ -545,12 +549,14 @@ fn do_sne_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
-    let temp = get_register(iter)?;
+    let temp = get_value(iter)?;
+
+    let (slot, mut instructions) = emit_unpack_value(temp);
 
     let subu = InstructionBuilder::from_op(&Func(35))
         .with_dest(dest)
         .with_source(source)
-        .with_temp(temp)
+        .with_temp(slot)
         .0;
 
     let sltu = InstructionBuilder::from_op(&Func(41))
@@ -559,7 +565,7 @@ fn do_sne_instruction(
         .with_temp(Zero)
         .0;
 
-    let instructions = vec![(subu, None), (sltu, None)];
+    instructions.extend([(subu, None), (sltu, None)]);
 
     Ok(EmitInstruction { instructions })
 }
