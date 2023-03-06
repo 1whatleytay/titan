@@ -11,7 +11,8 @@ use crate::assembler::binary_builder::BinarySection::Text;
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerError> {
     match label {
         Constant(value) => Ok(value as u32),
-        Label(name, start) => map.get(&name).copied()
+        Label(name, start, offset) => map.get(&name).copied()
+            .map(|value| value + offset as u32)
             .ok_or_else(|| AssemblerError { start: Some(start), reason: UnknownLabel(name) })
     }
 }

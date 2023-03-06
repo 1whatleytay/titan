@@ -1,10 +1,9 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use TokenKind::NewLine;
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
-use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace};
+use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace, NewLine, Plus};
 use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
@@ -196,7 +195,20 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
         Ok(Constant(value))
     } else {
         match &token.kind {
-            Symbol(value) => Ok(Label(value.get().to_string(), token.start)),
+            Symbol(value) => {
+                let (position, plus) = iter.peek_adjacent();
+                let follows_plus = plus.map(|token| token.kind == Plus).unwrap_or(false);
+
+                let offset = if follows_plus {
+                    iter.set_position(position);
+
+                    get_constant(iter)?
+                } else {
+                    0u64
+                };
+
+                Ok(Label(value.get().to_string(), token.start, offset))
+            },
             _ => Err(default_error(AssemblerReason::ExpectedLabel(token.kind.strip()), token))
         }
     }
@@ -252,22 +264,5 @@ pub fn default_start(start: usize) -> impl Fn(AssemblerError) -> AssemblerError 
         } else {
             error
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use std::fs;
-    use std::time::Instant;
-    use crate::assembler::lexer::lex;
-    use crate::assembler::preprocessor::preprocess;
-    use crate::assembler::source::assemble_from;
-
-    #[test]
-    fn test_me() {
-        let text = fs::read_to_string("/Users/desgroup/Projects/breakout/test-value.asm").unwrap();
-
-        let result = assemble_from(&text).unwrap();
-        println!("{:x}", result.entry);
     }
 }

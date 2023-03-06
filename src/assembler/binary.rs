@@ -45,7 +45,7 @@ impl BinarySection {
 #[derive(Clone, Debug)]
 pub enum AddressLabel {
     Constant(u64),
-    Label(String, usize) // usize -> start
+    Label(String, usize, u64) // usize -> start, offset
 }
 
 #[derive(Debug)]
