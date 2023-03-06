@@ -201,6 +201,7 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
 
                 let offset = if follows_plus {
                     iter.set_position(position);
+                    iter.next(); // consume +
 
                     get_constant(iter)?
                 } else {

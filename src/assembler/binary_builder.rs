@@ -12,7 +12,7 @@ fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, A
     match label {
         Constant(value) => Ok(value as u32),
         Label(name, start, offset) => map.get(&name).copied()
-            .map(|value| value + offset as u32)
+            .map(|value| value.wrapping_add(offset as u32))
             .ok_or_else(|| AssemblerError { start: Some(start), reason: UnknownLabel(name) })
     }
 }
