@@ -177,7 +177,7 @@ fn emit_unpack_value(value: InstructionValue)
     (slot, instructions.into_iter().map(|value| (value, None)).collect())
 }
 
-fn do_register_instruction<'a>(
+fn do_register_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -197,7 +197,7 @@ fn do_register_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_register_shift_instruction<'a>(
+fn do_register_shift_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -215,7 +215,7 @@ fn do_register_shift_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_source_instruction<'a>(
+fn do_source_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
@@ -227,7 +227,7 @@ fn do_source_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_destination_instruction<'a>(
+fn do_destination_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -239,7 +239,7 @@ fn do_destination_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_inputs_instruction<'a>(
+fn do_inputs_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let first = get_register(iter)?;
@@ -271,7 +271,7 @@ fn do_inputs_instruction<'a>(
     }
 }
 
-fn do_sham_instruction<'a>(
+fn do_sham_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -287,7 +287,7 @@ fn do_sham_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_special_branch_instruction<'a>(
+fn do_special_branch_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
@@ -300,7 +300,7 @@ fn do_special_branch_instruction<'a>(
     Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_immediate_instruction<'a>(
+fn do_immediate_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
@@ -316,7 +316,7 @@ fn do_immediate_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_load_immediate_instruction<'a>(
+fn do_load_immediate_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
@@ -330,7 +330,7 @@ fn do_load_immediate_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_jump_instruction<'a>(
+fn do_jump_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
@@ -340,7 +340,7 @@ fn do_jump_instruction<'a>(
     Ok(EmitInstruction { instructions: vec![(inst, Some(JumpLabel(label)))] })
 }
 
-fn do_branch_instruction<'a>(
+fn do_branch_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
@@ -359,7 +359,7 @@ fn do_branch_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_branch_zero_instruction<'a>(
+fn do_branch_zero_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
@@ -372,7 +372,7 @@ fn do_branch_zero_instruction<'a>(
     Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
 }
 
-fn do_parameterless_instruction<'a>(
+fn do_parameterless_instruction(
     op: &Opcode, _: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let inst = InstructionBuilder::from_op(op).0;
@@ -380,7 +380,7 @@ fn do_parameterless_instruction<'a>(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_offset_instruction<'a>(
+fn do_offset_instruction(
     op: &Opcode, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
@@ -405,7 +405,7 @@ fn do_offset_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_nop_instruction<'a>(
+fn do_nop_instruction(
     _: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let instruction = InstructionBuilder::from_op(&Func(0))
@@ -414,7 +414,7 @@ fn do_nop_instruction<'a>(
     Ok(EmitInstruction::with(instruction))
 }
 
-fn do_abs_instruction<'a>(
+fn do_abs_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -510,7 +510,61 @@ fn do_set_custom_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_neg_instruction<'a>(
+fn do_seq_instruction(
+    iter: &mut LexerCursor
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    let subu = InstructionBuilder::from_op(&Func(35))
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    let sltu = InstructionBuilder::from_op(&Func(41))
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(Zero)
+        .0;
+
+    let xori = InstructionBuilder::from_op(&Op(14))
+        .with_dest(dest)
+        .with_source(dest)
+        .with_immediate(1)
+        .0;
+
+    let instructions = vec![(subu, None), (sltu, None), (xori, None)];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_sne_instruction(
+    iter: &mut LexerCursor
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    let subu = InstructionBuilder::from_op(&Func(35))
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(temp)
+        .0;
+
+    let sltu = InstructionBuilder::from_op(&Func(41))
+        .with_dest(dest)
+        .with_source(source)
+        .with_temp(Zero)
+        .0;
+
+    let instructions = vec![(subu, None), (sltu, None)];
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_neg_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -525,7 +579,7 @@ fn do_neg_instruction<'a>(
     Ok(EmitInstruction::with(sub))
 }
 
-fn do_negu_instruction<'a>(
+fn do_negu_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -540,7 +594,7 @@ fn do_negu_instruction<'a>(
     Ok(EmitInstruction::with(subu))
 }
 
-fn do_not_instruction<'a>(
+fn do_not_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -555,7 +609,7 @@ fn do_not_instruction<'a>(
     Ok(EmitInstruction::with(nor))
 }
 
-fn do_li_instruction<'a>(
+fn do_li_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -568,7 +622,7 @@ fn do_li_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_la_instruction<'a>(
+fn do_la_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -579,7 +633,7 @@ fn do_la_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_move_instruction<'a>(
+fn do_move_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -594,7 +648,7 @@ fn do_move_instruction<'a>(
     Ok(EmitInstruction::with(addu))
 }
 
-fn do_b_instruction<'a>(
+fn do_b_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
@@ -610,7 +664,7 @@ fn do_b_instruction<'a>(
 }
 
 // MARS seems to load the instruction itself like `li`. I'm not sure about this! Do it yourself!
-fn do_subi_instruction<'a>(
+fn do_subi_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -626,7 +680,7 @@ fn do_subi_instruction<'a>(
     Ok(EmitInstruction::with(addi))
 }
 
-fn do_subiu_instruction<'a>(
+fn do_subiu_instruction(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -642,40 +696,44 @@ fn do_subiu_instruction<'a>(
     Ok(EmitInstruction::with(addiu))
 }
 
-fn dispatch_pseudo<'a>(
+fn dispatch_pseudo(
     instruction: &str, iter: &mut LexerCursor
 ) -> Result<Option<EmitInstruction>, AssemblerError> {
     Ok(Some(match instruction {
-        "nop" => do_nop_instruction(iter)?,
-        "abs" => do_abs_instruction(iter)?,
-        "blt" => do_branch_custom_instruction(iter, false, true, false)?,
-        "bgt" => do_branch_custom_instruction(iter, true, true, false)?,
-        "ble" => do_branch_custom_instruction(iter, true, false, false)?,
-        "bge" => do_branch_custom_instruction(iter, false, false, false)?,
-        "bltu" => do_branch_custom_instruction(iter, false, true, true)?,
-        "bgtu" => do_branch_custom_instruction(iter, true, true, true)?,
-        "bleu" => do_branch_custom_instruction(iter, true, false, true)?,
-        "bgeu" => do_branch_custom_instruction(iter, false, false, true)?,
-        "sge" => do_set_custom_instruction(iter, false, false, false)?,
-        "sgt" => do_set_custom_instruction(iter, true, true, false)?,
-        "sle" => do_set_custom_instruction(iter, true, false, false)?,
-        "sgeu" => do_set_custom_instruction(iter, false, false, true)?,
-        "sgtu" => do_set_custom_instruction(iter, true, true, true)?,
-        "sleu" => do_set_custom_instruction(iter, true, false, true)?,
-        "neg" => do_neg_instruction(iter)?,
-        "negu" => do_negu_instruction(iter)?,
-        "not" => do_not_instruction(iter)?,
-        "li" => do_li_instruction(iter)?,
-        "la" => do_la_instruction(iter)?,
-        "move" => do_move_instruction(iter)?,
-        "b" => do_b_instruction(iter)?,
-        "subi" => do_subi_instruction(iter)?,
-        "subiu" => do_subiu_instruction(iter)?,
+        "nop" => do_nop_instruction(iter),
+        "abs" => do_abs_instruction(iter),
+        "blt" => do_branch_custom_instruction(iter, false, true, false),
+        "bgt" => do_branch_custom_instruction(iter, true, true, false),
+        "ble" => do_branch_custom_instruction(iter, true, false, false),
+        "bge" => do_branch_custom_instruction(iter, false, false, false),
+        "bltu" => do_branch_custom_instruction(iter, false, true, true),
+        "bgtu" => do_branch_custom_instruction(iter, true, true, true),
+        "bleu" => do_branch_custom_instruction(iter, true, false, true),
+        "bgeu" => do_branch_custom_instruction(iter, false, false, true),
+        "sge" => do_set_custom_instruction(iter, false, false, false),
+        "sgt" => do_set_custom_instruction(iter, true, true, false),
+        "sle" => do_set_custom_instruction(iter, true, false, false),
+        "sgeu" => do_set_custom_instruction(iter, false, false, true),
+        "sgtu" => do_set_custom_instruction(iter, true, true, true),
+        "sleu" => do_set_custom_instruction(iter, true, false, true),
+        "beqz" => do_branch_zero_instruction(&Op(4), iter),
+        "bnez" => do_branch_zero_instruction(&Op(5), iter),
+        "seq" => do_seq_instruction(iter),
+        "sne" => do_sne_instruction(iter),
+        "neg" => do_neg_instruction(iter),
+        "negu" => do_negu_instruction(iter),
+        "not" => do_not_instruction(iter),
+        "li" => do_li_instruction(iter),
+        "la" => do_la_instruction(iter),
+        "move" => do_move_instruction(iter),
+        "b" => do_b_instruction(iter),
+        "subi" => do_subi_instruction(iter),
+        "subiu" => do_subiu_instruction(iter),
         _ => return Ok(None)
-    }))
+    }?))
 }
 
-fn dispatch_instruction<'a>(
+fn dispatch_instruction(
     instruction: &str, iter: &mut LexerCursor, map: &HashMap<&str, &Instruction>
 ) -> Result<EmitInstruction, AssemblerError> {
     let Some(instruction) = map.get(&instruction) else {
@@ -708,7 +766,7 @@ fn dispatch_instruction<'a>(
     Ok(emit)
 }
 
-pub fn do_instruction<'a>(
+pub fn do_instruction(
     instruction: &str, start: usize, iter: &mut LexerCursor,
     builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
 ) -> Result<(), AssemblerError> {

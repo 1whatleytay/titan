@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use TokenKind::Minus;
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
@@ -84,7 +85,7 @@ fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
     AssemblerError { start, reason }
 }
 
-pub fn get_register<'a>(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
+pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     match token.kind {
@@ -103,12 +104,12 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
     let start = iter.get_position();
 
     match &first.kind {
-        TokenKind::Plus | TokenKind::Minus => {
+        Plus | Minus => {
             if consume {
                 iter.next(); // consume first
             }
 
-            let multiplier = if first.kind == TokenKind::Plus { 1i64 } else { -1i64 };
+            let multiplier = if first.kind == Plus { 1i64 } else { -1i64 };
 
             let adjacent = iter.next_adjacent();
 
@@ -139,7 +140,7 @@ pub fn get_integer_adjacent(iter: &mut LexerCursor) -> Option<u64> {
     }
 }
 
-pub fn get_value<'a>(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerError> {
+pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Some(value) = get_integer(token, iter, false) {
@@ -152,7 +153,7 @@ pub fn get_value<'a>(iter: &mut LexerCursor) -> Result<InstructionValue, Assembl
     }
 }
 
-pub fn maybe_get_value<'a>(
+pub fn maybe_get_value(
     iter: &mut LexerCursor
 ) -> Option<InstructionValue> {
     let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
@@ -171,7 +172,7 @@ pub fn maybe_get_value<'a>(
     }
 }
 
-pub fn get_constant<'a>(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
+pub fn get_constant(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Some(value) = get_integer(token, iter, false) {
@@ -181,7 +182,7 @@ pub fn get_constant<'a>(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     }
 }
 
-pub fn get_string<'a>(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
+pub fn get_string(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
     let token = get_token(iter)?;
 
     match &token.kind {
@@ -224,7 +225,7 @@ pub enum OffsetOrLabel {
     Address(AddressLabel)
 }
 
-pub fn get_offset_or_label<'a>(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
+pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let value = get_integer_adjacent(iter);
 
     let is_offset = iter.seek_without(is_adjacent_kind)
