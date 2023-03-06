@@ -447,7 +447,8 @@ fn do_abs_instruction<'a>(
 fn do_branch_custom_instruction(
     iter: &mut LexerCursor,
     greater_than: bool,
-    result_true: bool
+    result_true: bool,
+    unsigned: bool
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -456,9 +457,10 @@ fn do_branch_custom_instruction(
     let (slot, mut instructions) = emit_unpack_value(temp);
 
     let (first, second) = if greater_than { (slot, source) } else { (source, slot) };
+    let set_op = if unsigned { &Func(41) } else { &Func(42) };
     let branch_op = if result_true { &Op(5) } else { &Op(4) };
 
-    let compare = InstructionBuilder::from_op(&Func(42)) // slt
+    let compare = InstructionBuilder::from_op(set_op) // slt
         .with_source(first)
         .with_temp(second)
         .with_dest(AssemblerTemporary)
@@ -470,6 +472,40 @@ fn do_branch_custom_instruction(
         .0;
 
     instructions.append(&mut vec![(compare, None), (branch, Some(BranchLabel(label)))]);
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_set_custom_instruction(
+    iter: &mut LexerCursor,
+    greater_than: bool,
+    result_true: bool,
+    unsigned: bool
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    let (first, second) = if greater_than { (source, temp) } else { (temp, source) };
+    let set_op = if unsigned { &Func(41) } else { &Func(42) };
+
+    let set = InstructionBuilder::from_op(set_op)
+        .with_dest(dest)
+        .with_source(first)
+        .with_temp(second)
+        .0;
+
+    let mut instructions = vec![(set, None)];
+
+    if !result_true {
+        let xori = InstructionBuilder::from_op(&Op(14)) // xori
+            .with_temp(dest)
+            .with_source(dest)
+            .with_immediate(1)
+            .0;
+
+        instructions.push((xori, None))
+    }
 
     Ok(EmitInstruction { instructions })
 }
@@ -558,48 +594,6 @@ fn do_move_instruction<'a>(
     Ok(EmitInstruction::with(addu))
 }
 
-fn do_sge_instruction<'a>(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
-    let temp = get_register(iter)?;
-
-    // s >= t -> !(s < t)
-
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_dest(dest)
-        .with_source(source)
-        .with_temp(temp)
-        .0;
-
-    let xori = InstructionBuilder::from_op(&Op(14)) // xori
-        .with_temp(dest)
-        .with_source(dest)
-        .with_immediate(1)
-        .0;
-
-    let instructions = vec![(slt, None), (xori, None)];
-
-    Ok(EmitInstruction { instructions })
-}
-
-fn do_sgt_instruction<'a>(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
-    let temp = get_register(iter)?;
-
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_dest(dest)
-        .with_source(temp)
-        .with_temp(source)
-        .0;
-
-    Ok(EmitInstruction::with(slt))
-}
-
 fn do_b_instruction<'a>(
     iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
@@ -654,18 +648,26 @@ fn dispatch_pseudo<'a>(
     Ok(Some(match instruction {
         "nop" => do_nop_instruction(iter)?,
         "abs" => do_abs_instruction(iter)?,
-        "blt" => do_branch_custom_instruction(iter, false, true)?,
-        "bgt" => do_branch_custom_instruction(iter, true, true)?,
-        "ble" => do_branch_custom_instruction(iter, true, false)?,
-        "bge" => do_branch_custom_instruction(iter, false, false)?,
+        "blt" => do_branch_custom_instruction(iter, false, true, false)?,
+        "bgt" => do_branch_custom_instruction(iter, true, true, false)?,
+        "ble" => do_branch_custom_instruction(iter, true, false, false)?,
+        "bge" => do_branch_custom_instruction(iter, false, false, false)?,
+        "bltu" => do_branch_custom_instruction(iter, false, true, true)?,
+        "bgtu" => do_branch_custom_instruction(iter, true, true, true)?,
+        "bleu" => do_branch_custom_instruction(iter, true, false, true)?,
+        "bgeu" => do_branch_custom_instruction(iter, false, false, true)?,
+        "sge" => do_set_custom_instruction(iter, false, false, false)?,
+        "sgt" => do_set_custom_instruction(iter, true, true, false)?,
+        "sle" => do_set_custom_instruction(iter, true, false, false)?,
+        "sgeu" => do_set_custom_instruction(iter, false, false, true)?,
+        "sgtu" => do_set_custom_instruction(iter, true, true, true)?,
+        "sleu" => do_set_custom_instruction(iter, true, false, true)?,
         "neg" => do_neg_instruction(iter)?,
         "negu" => do_negu_instruction(iter)?,
         "not" => do_not_instruction(iter)?,
         "li" => do_li_instruction(iter)?,
         "la" => do_la_instruction(iter)?,
         "move" => do_move_instruction(iter)?,
-        "sge" => do_sge_instruction(iter)?,
-        "sgt" => do_sgt_instruction(iter)?,
         "b" => do_b_instruction(iter)?,
         "subi" => do_subi_instruction(iter)?,
         "subiu" => do_subiu_instruction(iter)?,
