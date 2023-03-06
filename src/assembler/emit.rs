@@ -444,8 +444,10 @@ fn do_abs_instruction<'a>(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_blt_instruction<'a>(
-    iter: &mut LexerCursor
+fn do_branch_custom_instruction(
+    iter: &mut LexerCursor,
+    greater_than: bool,
+    result_true: bool
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -453,93 +455,21 @@ fn do_blt_instruction<'a>(
 
     let (slot, mut instructions) = emit_unpack_value(temp);
 
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_source(source)
-        .with_temp(slot)
+    let (first, second) = if greater_than { (slot, source) } else { (source, slot) };
+    let branch_op = if result_true { &Op(5) } else { &Op(4) };
+
+    let compare = InstructionBuilder::from_op(&Func(42)) // slt
+        .with_source(first)
+        .with_temp(second)
         .with_dest(AssemblerTemporary)
         .0;
 
-    let bne = InstructionBuilder::from_op(&Op(5)) // bne
+    let branch = InstructionBuilder::from_op(branch_op) // bne
         .with_source(AssemblerTemporary)
         .with_temp(Zero)
         .0;
 
-    instructions.append(&mut vec![(slt, None), (bne, Some(BranchLabel(label)))]);
-
-    Ok(EmitInstruction { instructions })
-}
-
-fn do_bgt_instruction<'a>(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let source = get_register(iter)?;
-    let temp = get_value(iter)?;
-    let label = get_label(iter)?;
-
-    let (slot, mut instructions) = emit_unpack_value(temp);
-
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_source(slot)
-        .with_temp(source)
-        .with_dest(AssemblerTemporary)
-        .0;
-
-    let bne = InstructionBuilder::from_op(&Op(5)) // bne
-        .with_source(AssemblerTemporary)
-        .with_temp(Zero)
-        .0;
-
-    instructions.append(&mut vec![(slt, None), (bne, Some(BranchLabel(label)))]);
-
-    Ok(EmitInstruction { instructions })
-}
-
-fn do_ble_instruction<'a>(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let source = get_register(iter)?;
-    let temp = get_value(iter)?;
-    let label = get_label(iter)?;
-
-    let (slot, mut instructions) = emit_unpack_value(temp);
-
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_source(slot)
-        .with_temp(source)
-        .with_dest(AssemblerTemporary)
-        .0;
-
-    let beq = InstructionBuilder::from_op(&Op(4)) // slt
-        .with_source(AssemblerTemporary)
-        .with_temp(Zero)
-        .0;
-
-    instructions.append(&mut vec![(slt, None), (beq, Some(BranchLabel(label)))]);
-
-    Ok(EmitInstruction { instructions })
-}
-
-fn do_bge_instruction<'a>(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let source = get_register(iter)?;
-    let temp = get_value(iter)?;
-    let label = get_label(iter)?;
-
-    let (slot, mut instructions) = emit_unpack_value(temp);
-
-    let slt = InstructionBuilder::from_op(&Func(42)) // slt
-        .with_source(source)
-        .with_temp(slot)
-        .with_dest(AssemblerTemporary)
-        .0;
-
-    let beq = InstructionBuilder::from_op(&Op(4)) // slt
-        .with_source(AssemblerTemporary)
-        .with_temp(Zero)
-        .0;
-
-    instructions.append(&mut vec![(slt, None), (beq, Some(BranchLabel(label)))]);
+    instructions.append(&mut vec![(compare, None), (branch, Some(BranchLabel(label)))]);
 
     Ok(EmitInstruction { instructions })
 }
@@ -724,10 +654,10 @@ fn dispatch_pseudo<'a>(
     Ok(Some(match instruction {
         "nop" => do_nop_instruction(iter)?,
         "abs" => do_abs_instruction(iter)?,
-        "blt" => do_blt_instruction(iter)?,
-        "bgt" => do_bgt_instruction(iter)?,
-        "ble" => do_ble_instruction(iter)?,
-        "bge" => do_bge_instruction(iter)?,
+        "blt" => do_branch_custom_instruction(iter, false, true)?,
+        "bgt" => do_branch_custom_instruction(iter, true, true)?,
+        "ble" => do_branch_custom_instruction(iter, true, false)?,
+        "bge" => do_branch_custom_instruction(iter, false, false)?,
         "neg" => do_neg_instruction(iter)?,
         "negu" => do_negu_instruction(iter)?,
         "not" => do_not_instruction(iter)?,
