@@ -8,7 +8,7 @@ use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
-use crate::assembler::assembler_util::{get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value, InstructionValue, OffsetOrLabel, AssemblerError, default_start};
+use crate::assembler::assembler_util::{get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value, InstructionValue, OffsetOrLabel, AssemblerError, default_start, pc_for_region};
 use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownInstruction};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary_builder::BinaryBuilder;
@@ -784,10 +784,11 @@ pub fn do_instruction(
     let mut breakpoints = HashMap::new();
 
     let region = builder.region()
-        .ok_or(AssemblerError { start: Some(start), reason: MissingRegion })?;
+        .ok_or_else(|| AssemblerError { start: Some(start), reason: MissingRegion })?;
 
     for (word, branch) in emit.instructions {
-        let pc = region.raw.address + region.raw.data.len() as u32;
+        let pc = pc_for_region(&region.raw, Some(start))?;
+
         breakpoints.insert(pc, start);
 
         let offset = region.raw.data.len();

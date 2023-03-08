@@ -4,7 +4,7 @@ use crate::assembler::binary::BinarySection;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
-use crate::assembler::assembler_util::{AssemblerError, default_start, get_constant, get_integer, get_integer_adjacent, get_string};
+use crate::assembler::assembler_util::{AssemblerError, default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region};
 use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective};
 
 const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
@@ -70,7 +70,7 @@ fn do_align_directive<'a>(
     let align = 1 << shift;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
-    let pc = region.raw.address + region.raw.data.len() as u32;
+    let pc = pc_for_region(&region.raw, None)?;
 
     let (select, remainder) = (pc / align, pc % align);
     let correction = if remainder > 0 { 1 } else { 0 };
@@ -93,13 +93,16 @@ fn do_space_directive<'a>(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let region = builder.region().ok_or(MISSING_REGION)?;
-    let pc = region.raw.address + region.raw.data.len() as u32;
+    let pc = pc_for_region(&region.raw, None)?;
 
     let byte_count = get_constant(iter)? as usize;
 
     if byte_count > MAX_ZERO {
         let Some(target) = pc.checked_add(byte_count as u32) else {
-            return Err(AssemblerError { start: None, reason: OverwriteEdge(pc, byte_count as u64) })
+            return Err(AssemblerError {
+                start: None,
+                reason: OverwriteEdge(pc, Some(byte_count as u64))
+            })
         };
 
         builder.seek_mode_address(builder.state.mode, target)

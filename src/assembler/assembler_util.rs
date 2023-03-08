@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
-use crate::assembler::binary::AddressLabel;
+use crate::assembler::assembler_util::AssemblerReason::OverwriteEdge;
+use crate::assembler::binary::{AddressLabel, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace, NewLine, Plus};
@@ -21,7 +22,7 @@ pub enum AssemblerReason {
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
     ConstantOutOfRange(u64, u64), // start, end
-    OverwriteEdge(u32, u64), // pc, count
+    OverwriteEdge(u32, Option<u64>), // pc, count
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
@@ -43,7 +44,10 @@ impl Display for AssemblerReason {
             AssemblerReason::ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {}", kind),
             AssemblerReason::ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {}", kind),
             AssemblerReason::ConstantOutOfRange(min, max) => write!(f, "Constant must be between 0x{:x} and 0x{:x}", min, max),
-            AssemblerReason::OverwriteEdge(pc, count) => write!(f, "Instruction pushes cursor out of boundary (from 0x{:} with {} bytes)", pc, count),
+            AssemblerReason::OverwriteEdge(pc, count) => write!(
+                f, "Instruction pushes cursor out of boundary (from 0x{:x}{})",
+                pc, count.map(|v| format!(" with 0x{:x} bytes", v)).unwrap_or("".into())
+            ),
             AssemblerReason::UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),
             AssemblerReason::UnknownDirective(name) => write!(f, "There's no current support for any {} directive", name),
             AssemblerReason::UnknownInstruction(name) => write!(f, "Unknown instruction named \"{}\", check for typos", name),
@@ -67,6 +71,15 @@ impl Display for AssemblerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.reason.fmt(f)
     }
+}
+
+pub fn pc_for_region(region: &RawRegion, start: Option<usize>) -> Result<u32, AssemblerError> {
+    region.pc()
+        .ok_or_else(|| {
+            let reason = OverwriteEdge(region.address, Some(region.data.len() as u64));
+
+            AssemblerError { start, reason }
+        })
 }
 
 impl Error for AssemblerError { }

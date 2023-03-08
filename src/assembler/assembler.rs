@@ -10,7 +10,7 @@ use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::instructions::Instruction;
 use crate::assembler::instructions::instructions_map;
 use crate::assembler::assembler_util::AssemblerReason::{UnexpectedToken, MissingRegion};
-use crate::assembler::assembler_util::{AssemblerError};
+use crate::assembler::assembler_util::{AssemblerError, pc_for_region};
 
 enum SymbolType {
     Label,
@@ -30,7 +30,7 @@ fn do_symbol<'a>(
         Some(token) if token.kind == TokenKind::Colon => {
             iter.next(); // consume
 
-            let pc = region.raw.address + region.raw.data.len() as u32;
+            let pc = pc_for_region(&region.raw, Some(start))?;
             builder.labels.insert(name.to_string(), pc);
 
             Ok(SymbolType::Label)

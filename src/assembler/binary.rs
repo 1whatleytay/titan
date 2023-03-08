@@ -54,6 +54,16 @@ pub struct RawRegion {
     pub data: Vec<u8>,
 }
 
+impl RawRegion {
+    pub fn pc(&self) -> Option<u32> {
+        self.address.checked_add(self.data.len() as u32)
+    }
+
+    pub fn wrapping_pc(&self) -> u32 {
+        self.address.wrapping_add(self.data.len() as u32)
+    }
+}
+
 #[derive(Debug)]
 pub struct Binary {
     pub entry: u32,
