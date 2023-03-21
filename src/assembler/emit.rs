@@ -9,7 +9,7 @@ use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
 use crate::assembler::assembler_util::{get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value, InstructionValue, OffsetOrLabel, AssemblerError, default_start, pc_for_region};
-use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnknownInstruction};
+use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, MissingRegion, UnknownInstruction};
 use crate::assembler::binary::AddressLabel;
 use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::cursor::LexerCursor;
@@ -301,19 +301,45 @@ fn do_special_branch_instruction(
 }
 
 fn do_immediate_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode, alt: Option<&Opcode>, iter: &mut LexerCursor
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
     let source = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
-        .with_temp(temp)
-        .with_immediate(constant as u16)
-        .0;
+    let signed = constant as i64;
 
-    Ok(EmitInstruction::with(inst))
+    if signed >= 0x8000 || signed < -0x8000 {
+        if let Some(alt) = alt {
+            let mut instructions = load_immediate(constant, AssemblerTemporary)
+                .into_iter()
+                .map(|i| (i, None))
+                .collect::<Vec<InstructionPair>>();
+
+            let inst = InstructionBuilder::from_op(alt)
+                .with_source(source)
+                .with_dest(temp)
+                .with_temp(AssemblerTemporary)
+                .0;
+
+            instructions.push((inst, None));
+
+            Ok(EmitInstruction { instructions })
+        } else {
+            Err(AssemblerError {
+                start: None,
+                reason: ConstantOutOfRange(-8000, 0x7fff)
+            })
+        }
+    } else {
+        let inst = InstructionBuilder::from_op(op)
+            .with_source(source)
+            .with_temp(temp)
+            .with_immediate(constant as u16)
+            .0;
+
+        Ok(EmitInstruction::with(inst))
+    }
 }
 
 fn do_load_immediate_instruction(
@@ -752,7 +778,7 @@ fn dispatch_instruction(
 
     let op = &instruction.opcode;
 
-    let emit = match instruction.encoding {
+    let emit = match &instruction.encoding {
         Encoding::Register => do_register_instruction(op, iter),
         Encoding::RegisterShift => do_register_shift_instruction(op, iter),
         Encoding::Source => do_source_instruction(op, iter),
@@ -760,7 +786,7 @@ fn dispatch_instruction(
         Encoding::Inputs => do_inputs_instruction(op, iter),
         Encoding::Sham => do_sham_instruction(op, iter),
         Encoding::SpecialBranch => do_special_branch_instruction(op, iter),
-        Encoding::Immediate => do_immediate_instruction(op, iter),
+        Encoding::Immediate(alt) => do_immediate_instruction(op, alt.as_ref(), iter),
         Encoding::LoadImmediate => do_load_immediate_instruction(op, iter),
         Encoding::Jump => do_jump_instruction(op, iter),
         Encoding::Branch => do_branch_instruction(op, iter),
@@ -786,11 +812,12 @@ pub fn do_instruction(
     let region = builder.region()
         .ok_or_else(|| AssemblerError { start: Some(start), reason: MissingRegion })?;
 
+    // assume !emit.instructions.empty()
+    let pc = pc_for_region(&region.raw, Some(start))?;
+
+    breakpoints.insert(pc, start);
+
     for (word, branch) in emit.instructions {
-        let pc = pc_for_region(&region.raw, Some(start))?;
-
-        breakpoints.insert(pc, start);
-
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {

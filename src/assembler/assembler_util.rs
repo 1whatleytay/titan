@@ -20,7 +20,7 @@ pub enum AssemblerReason {
     ExpectedNewline(StrippedKind),
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
-    ConstantOutOfRange(u64, u64), // start, end
+    ConstantOutOfRange(i64, i64), // start, end
     OverwriteEdge(u32, Option<u64>), // pc, count
     UnknownLabel(String),
     UnknownDirective(String),
@@ -42,9 +42,9 @@ impl Display for AssemblerReason {
             AssemblerReason::ExpectedNewline(kind) => write!(f, "Expected a newline, but found {}", kind),
             AssemblerReason::ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {}", kind),
             AssemblerReason::ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {}", kind),
-            AssemblerReason::ConstantOutOfRange(min, max) => write!(f, "Constant must be between 0x{:x} and 0x{:x}", min, max),
+            AssemblerReason::ConstantOutOfRange(min, max) => write!(f, "Constant must be between {:#x} and {:#x}", min, max),
             AssemblerReason::OverwriteEdge(pc, count) => write!(
-                f, "Instruction pushes cursor out of boundary (from 0x{:x}{})",
+                f, "Instruction pushes cursor out of boundary (from {:#x}{})",
                 pc, count.map(|v| format!(" with 0x{:x} bytes", v)).unwrap_or("".into())
             ),
             AssemblerReason::UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),

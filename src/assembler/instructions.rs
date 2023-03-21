@@ -25,7 +25,7 @@ pub enum Encoding {
     Inputs, // $, $, opcode: 0
     Sham, // $, $, sham, opcode: 0
     SpecialBranch, // opcode: 1
-    Immediate, // $, $, I
+    Immediate(Option<Opcode>), // $, $, I
     LoadImmediate,
     Jump, // I or Label
     Branch, // I or Label
@@ -84,13 +84,13 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
     Instruction { name: "bne", opcode: Op(5), encoding: Branch },
     Instruction { name: "blez", opcode: Op(6), encoding: BranchZero },
     Instruction { name: "bgtz", opcode: Op(7), encoding: BranchZero },
-    Instruction { name: "addi", opcode: Op(8), encoding: Immediate },
-    Instruction { name: "addiu", opcode: Op(9), encoding: Immediate },
-    Instruction { name: "slti", opcode: Op(10), encoding: Immediate },
-    Instruction { name: "sltiu", opcode: Op(11), encoding: Immediate },
-    Instruction { name: "andi", opcode: Op(12), encoding: Immediate },
-    Instruction { name: "ori", opcode: Op(13), encoding: Immediate },
-    Instruction { name: "xori", opcode: Op(14), encoding: Immediate },
+    Instruction { name: "addi", opcode: Op(8), encoding: Immediate(Some(Func(32))) },
+    Instruction { name: "addiu", opcode: Op(9), encoding: Immediate(Some(Func(33))) },
+    Instruction { name: "slti", opcode: Op(10), encoding: Immediate(Some(Func(42))) },
+    Instruction { name: "sltiu", opcode: Op(11), encoding: Immediate(Some(Func(41))) },
+    Instruction { name: "andi", opcode: Op(12), encoding: Immediate(Some(Func(36))) },
+    Instruction { name: "ori", opcode: Op(13), encoding: Immediate(Some(Func(37))) },
+    Instruction { name: "xori", opcode: Op(14), encoding: Immediate(Some(Func(38))) },
     Instruction { name: "lui", opcode: Op(15), encoding: LoadImmediate },
     Instruction { name: "llo", opcode: Op(24), encoding: LoadImmediate },
     Instruction { name: "lhi", opcode: Op(25), encoding: LoadImmediate },

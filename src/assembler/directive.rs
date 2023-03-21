@@ -144,7 +144,7 @@ fn get_constants<'a>(iter: &mut LexerCursor) -> Result<Vec<(u64, u64)>, Assemble
             if value > REPEAT_LIMIT {
                 return Err(AssemblerError {
                     start: Some(token.start),
-                    reason: ConstantOutOfRange(0, REPEAT_LIMIT)
+                    reason: ConstantOutOfRange(0, REPEAT_LIMIT as i64)
                 })
             }
 
