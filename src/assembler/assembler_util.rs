@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
-use crate::assembler::assembler_util::AssemblerReason::OverwriteEdge;
 use crate::assembler::binary::{AddressLabel, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
@@ -76,7 +75,9 @@ impl Display for AssemblerError {
 pub fn pc_for_region(region: &RawRegion, start: Option<usize>) -> Result<u32, AssemblerError> {
     region.pc()
         .ok_or_else(|| {
-            let reason = OverwriteEdge(region.address, Some(region.data.len() as u64));
+            let reason = AssemblerReason::OverwriteEdge(
+                region.address, Some(region.data.len() as u64)
+            );
 
             AssemblerError { start, reason }
         })
@@ -239,6 +240,7 @@ pub enum OffsetOrLabel {
 }
 
 pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
+    let start = iter.get_position();
     let value = get_integer_adjacent(iter);
 
     let is_offset = iter.seek_without(is_adjacent_kind)
@@ -265,6 +267,8 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
 
         Ok(OffsetOrLabel::Offset(value, register))
     } else {
+        iter.set_position(start); // unconsume the integer
+
         Ok(OffsetOrLabel::Address(to_label(get_token(iter)?, iter)?))
     }
 }
