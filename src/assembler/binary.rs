@@ -65,31 +65,43 @@ impl RawRegion {
 }
 
 #[derive(Debug)]
+pub struct BinaryBreakpoint {
+    pub offset: usize,
+    pub pcs: Vec<u32>
+}
+
+#[derive(Debug)]
 pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
-    pub breakpoints: HashMap<u32, usize> // pc -> offset
+    pub breakpoints: Vec<BinaryBreakpoint> // pc -> offset
 }
 
-pub fn flip_breakpoints<Key: Copy + Hash + Eq, Value: Copy + Hash + Eq>(
-    map: &HashMap<Key, Value>
-) -> HashMap<Value, Vec<Key>> {
-    let mut result: HashMap<Value, Vec<Key>> = HashMap::new();
+fn build_breakpoint_map(
+    breakpoints: &Vec<BinaryBreakpoint>
+) -> HashMap<usize, Vec<&BinaryBreakpoint>> { // offset -> breakpoints
+    let mut result: HashMap<usize, Vec<&BinaryBreakpoint>> = HashMap::new();
 
-    for (key, value) in map {
-        if let Some(list) = result.get_mut(value) {
-            list.push(*key);
+    for breakpoint in breakpoints {
+        if let Some(list) = result.get_mut(&breakpoint.offset) {
+            list.push(breakpoint);
         } else {
-            result.insert(*value, vec![*key]);
+            result.insert(breakpoint.offset, vec![breakpoint]);
         }
     }
 
     result
 }
 
-pub fn source_breakpoints(map: &HashMap<u32, usize>, source: &str) -> HashMap<u32, usize> {
-    let mut result: HashMap<u32, usize> = HashMap::new();
-    let flipped = flip_breakpoints(&map);
+// Similar definition, but offset is the line number.
+pub struct SourceBreakpoint {
+    pub line: usize,
+    pub pcs: Vec<u32> // anchor breakpoint is the first in the list
+}
+
+pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<SourceBreakpoint> {
+    let mut result: Vec<SourceBreakpoint> = vec![];
+    let map = build_breakpoint_map(&map);
 
     let mut line_number = 0;
     let mut input = source;
@@ -98,9 +110,12 @@ pub fn source_breakpoints(map: &HashMap<u32, usize>, source: &str) -> HashMap<u3
         let next = &input[c.len_utf8()..];
 
         let start = input.as_ptr() as usize - source.as_ptr() as usize;
-        if let Some(pcs) = flipped.get(&start) {
-            for pc in pcs {
-                result.insert(*pc, line_number);
+        if let Some(breakpoints) = map.get(&start) {
+            for breakpoint in breakpoints {
+                result.push(SourceBreakpoint {
+                    line: line_number,
+                    pcs: breakpoint.pcs.clone()
+                });
             }
         }
 
@@ -114,8 +129,9 @@ pub fn source_breakpoints(map: &HashMap<u32, usize>, source: &str) -> HashMap<u3
     result
 }
 
+
 impl Binary {
-    pub fn source_breakpoints(&self, source: &str) -> HashMap<u32, usize> {
+    pub fn source_breakpoints(&self, source: &str) -> Vec<SourceBreakpoint> {
         source_breakpoints(&self.breakpoints, source)
     }
 
@@ -123,7 +139,7 @@ impl Binary {
         Binary {
             entry: Text.default_address(),
             regions: vec![],
-            breakpoints: HashMap::new()
+            breakpoints: vec![]
         }
     }
 }

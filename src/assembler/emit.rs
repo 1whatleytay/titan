@@ -10,7 +10,7 @@ use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
 use crate::assembler::assembler_util::{get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value, InstructionValue, OffsetOrLabel, AssemblerError, default_start, pc_for_region};
 use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, MissingRegion, UnknownInstruction};
-use crate::assembler::binary::AddressLabel;
+use crate::assembler::binary::{AddressLabel, BinaryBreakpoint};
 use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::cursor::LexerCursor;
 
@@ -807,17 +807,16 @@ pub fn do_instruction(
     let emit = dispatch_instruction(&lowercase, iter, map)
         .map_err(default_start(start))?;
 
-    let mut breakpoints = HashMap::new();
-
     let region = builder.region()
         .ok_or_else(|| AssemblerError { start: Some(start), reason: MissingRegion })?;
 
-    // assume !emit.instructions.empty()
-    let pc = pc_for_region(&region.raw, Some(start))?;
-
-    breakpoints.insert(pc, start);
+    let mut breakpoint = BinaryBreakpoint { offset: start, pcs: vec![] };
 
     for (word, branch) in emit.instructions {
+        let pc = pc_for_region(&region.raw, Some(start))?;
+
+        breakpoint.pcs.push(pc);
+
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {
@@ -827,7 +826,10 @@ pub fn do_instruction(
         region.raw.data.write_u32::<LittleEndian>(word).unwrap();
     }
 
-    builder.breakpoints.extend(breakpoints);
+    // Just in case.
+    if !breakpoint.pcs.is_empty() {
+        builder.breakpoints.push(breakpoint)
+    }
 
     Ok(())
 }

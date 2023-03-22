@@ -3,7 +3,7 @@ use std::io::{Cursor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::assembler::assembler_util::AssemblerError;
 use crate::assembler::assembler_util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
-use crate::assembler::binary::{AddressLabel, Binary, BinarySection, RawRegion};
+use crate::assembler::binary::{AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::binary_builder::BinarySection::Text;
@@ -90,7 +90,7 @@ pub struct BinaryBuilder {
     pub state: BinaryBuilderState,
     pub regions: Vec<BinaryBuilderRegion>,
     pub labels: HashMap<String, u32>,
-    pub breakpoints: HashMap<u32, usize> // pc -> offset
+    pub breakpoints: Vec<BinaryBreakpoint>
 }
 
 impl BinaryBuilderState {
@@ -112,7 +112,7 @@ impl BinaryBuilder {
             state: BinaryBuilderState::new(),
             regions: vec![],
             labels: HashMap::new(),
-            breakpoints: HashMap::new()
+            breakpoints: vec![]
         }
     }
 
