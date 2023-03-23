@@ -1,4 +1,5 @@
 use byteorder::{ByteOrder, LittleEndian};
+use TokenKind::LeftBrace;
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel, InstructionLabelKind};
 use crate::assembler::binary::{BinarySection, NamedLabel};
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
@@ -170,8 +171,27 @@ fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>
     let mut result: Vec<ConstantOrLabel> = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
+        let start = iter.get_position();
+
         let item = if let TokenKind::Symbol(name) = &value.kind {
+            // This is workaroundy, but a symbol can also be a label
+
             iter.next();
+
+            let (_, token) = iter.peek_adjacent();
+
+            let do_skip = match token.map(|x| &x.kind) {
+                Some(Colon) => true, // label
+                Some(LeftBrace) => true, // Macro
+                _ => false
+            };
+
+            // This is obviously a sign that the directive section has to be reworked.
+            if do_skip {
+                iter.set_position(start);
+
+                break
+            }
 
             let address = NamedLabel { name: name.get().to_string(), start: value.start, offset: 0 };
 
@@ -250,7 +270,15 @@ fn do_half_directive(
 fn do_word_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let values = get_constant_or_labels(iter)?;
+    // Being extra cautious for when these features are enabled.
+    // Don't want it to consume "symbols" of instructions.
+    let values = if builder.state.mode.is_data() {
+        get_constant_or_labels(iter)?
+    } else {
+        get_constants(iter)?.into_iter()
+            .map(|x| ConstantOrLabel::Constant(x))
+            .collect()
+    };
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
