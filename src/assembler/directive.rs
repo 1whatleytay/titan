@@ -171,6 +171,8 @@ fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
         let item = if let TokenKind::Symbol(name) = &value.kind {
+            iter.next();
+
             let address = NamedLabel { name: name.get().to_string(), start: value.start, offset: 0 };
 
             ConstantOrLabel::Label(address)
