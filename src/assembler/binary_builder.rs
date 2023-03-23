@@ -5,27 +5,33 @@ use crate::assembler::assembler_util::AssemblerError;
 use crate::assembler::assembler_util::AssemblerReason::{JumpOutOfRange, MissingInstruction, UnknownLabel};
 use crate::assembler::binary::{AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::binary_builder::BinarySection::Text;
 
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerError> {
     match label {
         Constant(value) => Ok(value as u32),
-        Label(name, start, offset) => map.get(&name).copied()
-            .map(|value| value.wrapping_add(offset as u32))
-            .ok_or_else(|| AssemblerError { start: Some(start), reason: UnknownLabel(name) })
+        Label(name) => {
+            map.get(&name.name).copied()
+                .map(|value| value.wrapping_add(name.offset as u32))
+                .ok_or_else(|| AssemblerError {
+                    start: Some(name.start),
+                    reason: UnknownLabel(name.name)
+                })
+        }
     }
 }
 
-fn add_label(instruction: u32, pc: u32, start: usize, label: InstructionLabel, map: &HashMap<String, u32>)
-             -> Result<u32, AssemblerError> {
+fn add_label(
+    instruction: u32, pc: u32, start: usize, label: InstructionLabel, map: &HashMap<String, u32>
+) -> Result<u32, AssemblerError> {
     let make_out_of_range = |destination: u32| {
         AssemblerError { start: Some(start), reason: JumpOutOfRange(destination, pc) }
     };
 
-    Ok(match label {
-        BranchLabel(label) => {
-            let destination = get_address(label, map)?;
+    let destination = get_address(label.label, map)?;
+
+    Ok(match label.kind {
+        InstructionLabelKind::Branch => {
             let immediate = (destination >> 2) as i32 - ((pc + 4) >> 2) as i32;
 
             if immediate > 0xFFFF || immediate < -0x10000 {
@@ -34,8 +40,7 @@ fn add_label(instruction: u32, pc: u32, start: usize, label: InstructionLabel, m
 
             instruction & 0xFFFF0000 | (immediate as u32 & 0xFFFF)
         }
-        JumpLabel(label) => {
-            let destination = get_address(label, map)?;
+        InstructionLabelKind::Jump => {
             let lossy_mask = 0xF0000000u32;
 
             if destination & lossy_mask != (pc + 4) & lossy_mask {
@@ -47,17 +52,18 @@ fn add_label(instruction: u32, pc: u32, start: usize, label: InstructionLabel, m
 
             instruction & mask | constant
         }
-        LowerLabel(label) => {
-            let destination = get_address(label, map)?;
+        InstructionLabelKind::Lower => {
             let bottom = destination & 0x0000FFFF;
 
             instruction & 0xFFFF0000 | bottom
         }
-        UpperLabel(label) => {
-            let destination = get_address(label, map)?;
+        InstructionLabelKind::Upper => {
             let top = (destination & 0xFFFF0000) >> 16;
 
             instruction & 0xFFFF0000 | top
+        },
+        InstructionLabelKind::Full => {
+            destination
         }
     })
 }
@@ -74,11 +80,18 @@ pub struct BinaryBuilderRegion {
 }
 
 #[derive(Debug)]
-pub enum InstructionLabel {
-    BranchLabel(AddressLabel),
-    JumpLabel(AddressLabel),
-    LowerLabel(AddressLabel),
-    UpperLabel(AddressLabel)
+pub enum InstructionLabelKind {
+    Branch,
+    Jump,
+    Lower,
+    Upper,
+    Full,
+}
+
+#[derive(Debug)]
+pub struct InstructionLabel {
+    pub kind: InstructionLabelKind,
+    pub label: AddressLabel
 }
 
 pub struct BinaryBuilderState {

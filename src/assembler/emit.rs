@@ -3,7 +3,6 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use Opcode::Algebra;
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
-use crate::assembler::binary_builder::InstructionLabel::{BranchLabel, JumpLabel, LowerLabel, UpperLabel};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::instructions::Opcode::{Op, Func, Special};
 use crate::assembler::registers::RegisterSlot;
@@ -12,6 +11,7 @@ use crate::assembler::assembler_util::{get_constant, get_label, get_register, ge
 use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, MissingRegion, UnknownInstruction};
 use crate::assembler::binary::{AddressLabel, BinaryBreakpoint};
 use crate::assembler::binary_builder::BinaryBuilder;
+use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::cursor::LexerCursor;
 
 fn instruction_base(op: &Opcode) -> u32 {
@@ -145,8 +145,8 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
         .0;
 
     vec![
-        (lui, Some(UpperLabel(label_upper))),
-        (ori, Some(LowerLabel(label_lower)))
+        (lui, Some(InstructionLabel { label: label_upper, kind: Upper })),
+        (ori, Some(InstructionLabel { label: label_lower, kind: Lower }))
     ]
 }
 
@@ -297,7 +297,11 @@ fn do_special_branch_instruction(
         .with_source(source)
         .0;
 
-    Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
+    let instructions = vec![
+        (inst, Some(InstructionLabel { label, kind: Branch }))
+    ];
+
+    Ok(EmitInstruction { instructions })
 }
 
 fn do_immediate_instruction(
@@ -363,7 +367,7 @@ fn do_jump_instruction(
 
     let inst = InstructionBuilder::from_op(op).0;
 
-    Ok(EmitInstruction { instructions: vec![(inst, Some(JumpLabel(label)))] })
+    Ok(EmitInstruction { instructions: vec![(inst, Some(InstructionLabel { label, kind: Jump }))] })
 }
 
 fn do_branch_instruction(
@@ -380,7 +384,7 @@ fn do_branch_instruction(
         .with_temp(slot)
         .0;
 
-    instructions.push((inst, Some(BranchLabel(label))));
+    instructions.push((inst, Some(InstructionLabel { label, kind: Branch })));
 
     Ok(EmitInstruction { instructions })
 }
@@ -395,7 +399,11 @@ fn do_branch_zero_instruction(
         .with_source(source)
         .0;
 
-    Ok(EmitInstruction { instructions: vec![(inst, Some(BranchLabel(label)))] })
+    let instructions = vec![
+        (inst, Some(InstructionLabel { label, kind: Branch }))
+    ];
+
+    Ok(EmitInstruction { instructions })
 }
 
 fn do_parameterless_instruction(
@@ -497,7 +505,10 @@ fn do_branch_custom_instruction(
         .with_temp(Zero)
         .0;
 
-    instructions.append(&mut vec![(compare, None), (branch, Some(BranchLabel(label)))]);
+    instructions.append(&mut vec![
+        (compare, None),
+        (branch, Some(InstructionLabel { label, kind: Branch }))
+    ]);
 
     Ok(EmitInstruction { instructions })
 }
@@ -690,7 +701,7 @@ fn do_b_instruction(
         .with_temp(Zero)
         .0;
 
-    let instructions = vec![(beq, Some(BranchLabel(label)))];
+    let instructions = vec![(beq, Some(InstructionLabel { label, kind: Branch }))];
 
     Ok(EmitInstruction { instructions })
 }

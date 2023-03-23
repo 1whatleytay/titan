@@ -43,9 +43,16 @@ impl BinarySection {
 }
 
 #[derive(Clone, Debug)]
+pub struct NamedLabel {
+    pub name: String,
+    pub start: usize,
+    pub offset: u64
+}
+
+#[derive(Clone, Debug)]
 pub enum AddressLabel {
     Constant(u64),
-    Label(String, usize, u64) // usize -> start, offset
+    Label(NamedLabel) // usize -> start, offset
 }
 
 #[derive(Debug)]

@@ -1,15 +1,17 @@
 use byteorder::{ByteOrder, LittleEndian};
-use crate::assembler::binary_builder::{BinaryBuilder};
-use crate::assembler::binary::BinarySection;
+use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel, InstructionLabelKind};
+use crate::assembler::binary::{BinarySection, NamedLabel};
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::assembler_util::{AssemblerError, default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region};
 use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective};
+use crate::assembler::binary::AddressLabel::Label;
+use crate::assembler::lexer::{Token, TokenKind};
 
 const MISSING_REGION: AssemblerError = AssemblerError { start: None, reason: MissingRegion };
 
-fn do_seek_directive<'a>(
+fn do_seek_directive(
     mode: BinarySection, iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let address = get_integer_adjacent(iter);
@@ -22,7 +24,7 @@ fn do_seek_directive<'a>(
     Ok(())
 }
 
-fn do_globl_directive<'a>(
+fn do_globl_directive(
     iter: &mut LexerCursor, _: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     iter.collect_without(|kind| kind == &NewLine);
@@ -32,7 +34,7 @@ fn do_globl_directive<'a>(
     Ok(())
 }
 
-fn do_ascii_directive<'a>(
+fn do_ascii_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
@@ -43,7 +45,7 @@ fn do_ascii_directive<'a>(
     Ok(())
 }
 
-fn do_asciiz_directive<'a>(
+fn do_asciiz_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
@@ -58,7 +60,7 @@ fn do_asciiz_directive<'a>(
 
 const MAX_ZERO: usize = 0x100000;
 
-fn do_align_directive<'a>(
+fn do_align_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let shift = get_constant(iter)?;
@@ -89,7 +91,7 @@ fn do_align_directive<'a>(
     Ok(())
 }
 
-fn do_space_directive<'a>(
+fn do_space_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let region = builder.region().ok_or(MISSING_REGION)?;
@@ -117,88 +119,125 @@ fn do_space_directive<'a>(
 
 const REPEAT_LIMIT: u64 = 0x100000;
 
-fn get_constants<'a>(iter: &mut LexerCursor) -> Result<Vec<(u64, u64)>, AssemblerError> {
-    let mut result = vec![];
+struct ConstantInfo {
+    value: u64,
+    count: u64
+}
+
+// Specifically for .word
+enum ConstantOrLabel {
+    Constant(ConstantInfo),
+    Label(NamedLabel)
+}
+
+fn grab_value(value: &Token, iter: &mut LexerCursor) -> Result<Option<ConstantInfo>, AssemblerError> {
+    let Some(value) = get_integer(value, iter, true) else {
+        return Ok(None)
+    };
+
+    let next_up = iter.seek_without(is_adjacent_kind);
+
+    let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
+        iter.next();
+
+        let Some(token) = iter.next_adjacent() else {
+            return Err(AssemblerError { start: None, reason: EndOfFile });
+        };
+
+        let Some(value) = get_integer(token, iter, false) else {
+            return Err(AssemblerError {
+                start: Some(token.start),
+                reason: ExpectedConstant(token.kind.strip())
+            })
+        };
+
+        if value > REPEAT_LIMIT {
+            return Err(AssemblerError {
+                start: Some(token.start),
+                reason: ConstantOutOfRange(0, REPEAT_LIMIT as i64)
+            })
+        }
+
+        value as u64
+    } else {
+        1u64
+    };
+
+    return Ok(Some(ConstantInfo { value, count }))
+}
+
+fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>, AssemblerError> {
+    let mut result: Vec<ConstantOrLabel> = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
-        let Some(value) = get_integer(value, iter, true) else {
-            break
-        };
+        let item = if let TokenKind::Symbol(name) = &value.kind {
+            let address = NamedLabel { name: name.get().to_string(), start: value.start, offset: 0 };
 
-        let next_up = iter.seek_without(is_adjacent_kind);
-
-        let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
-            iter.next();
-
-            let Some(token) = iter.next_adjacent() else {
-                return Err(AssemblerError { start: None, reason: EndOfFile });
-            };
-
-            let Some(value) = get_integer(token, iter, false) else {
-                return Err(AssemblerError {
-                    start: Some(token.start),
-                    reason: ExpectedConstant(token.kind.strip())
-                })
-            };
-
-            if value > REPEAT_LIMIT {
-                return Err(AssemblerError {
-                    start: Some(token.start),
-                    reason: ConstantOutOfRange(0, REPEAT_LIMIT as i64)
-                })
-            }
-
-            value as u64
+            ConstantOrLabel::Label(address)
         } else {
-            1u64
+            let Some(constant) = grab_value(value, iter)? else { break };
+
+            ConstantOrLabel::Constant(constant)
         };
 
-        result.push((value, count))
+        result.push(item);
     }
 
     Ok(result)
 }
 
-fn do_byte_directive<'a>(
+fn get_constants(iter: &mut LexerCursor) -> Result<Vec<ConstantInfo>, AssemblerError> {
+    let mut result = vec![];
+
+    while let Some(value) = iter.seek_without(is_solid_kind) {
+        let Some(constant) = grab_value(value, iter)? else { break };
+
+        result.push(constant)
+    }
+
+    Ok(result)
+}
+
+fn do_byte_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let values = get_constants(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    for (value, count) in values {
-        if count > REPEAT_LIMIT {
+    for value in values {
+        if value.count > REPEAT_LIMIT {
             continue
         }
 
-        if count == 1 {
-            region.raw.data.push(value as u8)
+        if value.count == 1 {
+            region.raw.data.push(value.value as u8)
         } else {
-            region.raw.data.append(&mut vec![value as u8; count as usize])
+            region.raw.data.append(&mut vec![value.value as u8; value.count as usize])
         }
     }
 
     Ok(())
 }
 
-fn do_half_directive<'a>(
+fn do_half_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let values = get_constants(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    for (value, count) in values {
-        if count > REPEAT_LIMIT {
+    for value in values {
+        if value.count > REPEAT_LIMIT {
             continue
         }
 
         let mut array = [0u8; 2];
-        LittleEndian::write_u16(&mut array, value as u16);
+        LittleEndian::write_u16(&mut array, value.value as u16);
 
-        region.raw.data.reserve(2 * count as usize);
+        region.raw.data.reserve(2 * value.count as usize);
 
-        for _ in 0 .. count {
+        for _ in 0 .. value.count {
             region.raw.data.extend_from_slice(&array);
         }
     }
@@ -206,25 +245,42 @@ fn do_half_directive<'a>(
     Ok(())
 }
 
-fn do_word_directive<'a>(
+fn do_word_directive(
     iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
-    let values = get_constants(iter)?;
+    let values = get_constant_or_labels(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
-    for (value, count) in values {
-        if count > REPEAT_LIMIT {
-            continue
-        }
+    for value in values {
+        match value {
+            ConstantOrLabel::Label(label) => {
+                let offset = region.raw.data.len();
 
-        let mut array = [0u8; 4];
-        LittleEndian::write_u32(&mut array, value as u32);
+                region.raw.data.extend_from_slice(&[0u8; 4]);
+                region.labels.push(BinaryBuilderLabel {
+                    offset,
+                    start: label.start,
+                    label: InstructionLabel {
+                        kind: InstructionLabelKind::Full,
+                        label: Label(label),
+                    },
+                })
+            }
+            ConstantOrLabel::Constant(value) => {
+                if value.count > REPEAT_LIMIT {
+                    continue
+                }
 
-        region.raw.data.reserve(4 * count as usize);
+                let mut array = [0u8; 4];
+                LittleEndian::write_u32(&mut array, value.value as u32);
 
-        for _ in 0 .. count {
-            region.raw.data.extend_from_slice(&array);
+                region.raw.data.reserve(4 * value.count as usize);
+
+                for _ in 0 .. value.count {
+                    region.raw.data.extend_from_slice(&array);
+                }
+            }
         }
     }
 
@@ -232,19 +288,19 @@ fn do_word_directive<'a>(
 }
 
 // Don't want to deal with this until coprocessor
-fn do_float_directive<'a>(
+fn do_float_directive(
     _: &mut LexerCursor, _: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     Err(AssemblerError { start: None, reason: UnknownDirective("float".to_string()) })
 }
 
-fn do_double_directive<'a>(
+fn do_double_directive(
     _: &mut LexerCursor, _: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     Err(AssemblerError { start: None, reason: UnknownDirective("double".to_string()) })
 }
 
-fn do_extern_directive<'a>(
+fn do_extern_directive(
     iter: &mut LexerCursor, _: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     get_string(iter)?;
@@ -253,8 +309,8 @@ fn do_extern_directive<'a>(
     Ok(())
 }
 
-pub fn do_directive<'a>(
-    directive: &'a str, start: usize, iter: &mut LexerCursor, builder: &mut BinaryBuilder
+pub fn do_directive(
+    directive: &str, start: usize, iter: &mut LexerCursor, builder: &mut BinaryBuilder
 ) -> Result<(), AssemblerError> {
     let lowercase = directive.to_lowercase();
 

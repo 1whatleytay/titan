@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
-use crate::assembler::binary::{AddressLabel, RawRegion};
+use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
 use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
 use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace, NewLine, Plus};
@@ -223,7 +223,11 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
                     0u64
                 };
 
-                Ok(Label(value.get().to_string(), token.start, offset))
+                Ok(Label(NamedLabel {
+                    name: value.get().to_string(),
+                    start: token.start,
+                    offset
+                }))
             },
             _ => Err(default_error(AssemblerReason::ExpectedLabel(token.kind.strip()), token))
         }
