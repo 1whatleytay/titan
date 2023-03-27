@@ -1,43 +1,30 @@
+use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use std::collections::HashMap;
 use std::hash::Hash;
-use crate::assembler::binary::BinarySection::{
-    Text,
-    Data,
-    KernelText,
-    KernelData
-};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinarySection {
     Text,
     Data,
     KernelText,
-    KernelData
+    KernelData,
 }
 
 impl BinarySection {
     pub fn is_data(&self) -> bool {
-        match self {
-            Data => true,
-            KernelData => true,
-            _ => false
-        }
+        matches!(self, Data | KernelData)
     }
 
     pub fn is_text(&self) -> bool {
-        match self {
-            Text => true,
-            KernelText => true,
-            _ => false
-        }
+        matches!(self, Text | KernelText)
     }
-    
+
     pub fn default_address(&self) -> u32 {
         match self {
             Text => 0x00400000,
             Data => 0x10010000,
             KernelText => 0x80000000,
-            KernelData => 0x90000000
+            KernelData => 0x90000000,
         }
     }
 }
@@ -46,13 +33,13 @@ impl BinarySection {
 pub struct NamedLabel {
     pub name: String,
     pub start: usize,
-    pub offset: u64
+    pub offset: u64,
 }
 
 #[derive(Clone, Debug)]
 pub enum AddressLabel {
     Constant(u64),
-    Label(NamedLabel) // usize -> start, offset
+    Label(NamedLabel), // usize -> start, offset
 }
 
 #[derive(Debug)]
@@ -74,19 +61,20 @@ impl RawRegion {
 #[derive(Debug)]
 pub struct BinaryBreakpoint {
     pub offset: usize,
-    pub pcs: Vec<u32>
+    pub pcs: Vec<u32>,
 }
 
 #[derive(Debug)]
 pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
-    pub breakpoints: Vec<BinaryBreakpoint> // pc -> offset
+    pub breakpoints: Vec<BinaryBreakpoint>, // pc -> offset
 }
 
 fn build_breakpoint_map(
-    breakpoints: &Vec<BinaryBreakpoint>
-) -> HashMap<usize, Vec<&BinaryBreakpoint>> { // offset -> breakpoints
+    breakpoints: &Vec<BinaryBreakpoint>,
+) -> HashMap<usize, Vec<&BinaryBreakpoint>> {
+    // offset -> breakpoints
     let mut result: HashMap<usize, Vec<&BinaryBreakpoint>> = HashMap::new();
 
     for breakpoint in breakpoints {
@@ -103,12 +91,12 @@ fn build_breakpoint_map(
 // Similar definition, but offset is the line number.
 pub struct SourceBreakpoint {
     pub line: usize,
-    pub pcs: Vec<u32> // anchor breakpoint is the first in the list
+    pub pcs: Vec<u32>, // anchor breakpoint is the first in the list
 }
 
 pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<SourceBreakpoint> {
     let mut result: Vec<SourceBreakpoint> = vec![];
-    let map = build_breakpoint_map(&map);
+    let map = build_breakpoint_map(map);
 
     let mut line_number = 0;
     let mut input = source;
@@ -121,7 +109,7 @@ pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<Sour
             for breakpoint in breakpoints {
                 result.push(SourceBreakpoint {
                     line: line_number,
-                    pcs: breakpoint.pcs.clone()
+                    pcs: breakpoint.pcs.clone(),
                 });
             }
         }
@@ -135,7 +123,6 @@ pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<Sour
 
     result
 }
-
 
 impl Binary {
     pub fn source_breakpoints(&self, source: &str) -> Vec<SourceBreakpoint> {

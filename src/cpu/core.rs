@@ -1,7 +1,7 @@
 use crate::cpu::decoder::Decoder;
 use crate::cpu::error::Error::{CpuInvalid, CpuSyscall, CpuTrap};
-use crate::cpu::{Memory, State};
 use crate::cpu::error::Result;
+use crate::cpu::{Memory, State};
 
 impl<T: Memory> State<T> {
     fn hilo(&self) -> u64 {
@@ -56,7 +56,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
             Ok(())
         } else {
-            return self.trap()
+            self.trap()
         }
     }
 
@@ -77,7 +77,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let (lo, hi) = if b != 0 {
             (a.wrapping_div(b), a % b)
         } else {
-            return self.trap()
+            return self.trap();
         };
 
         (self.registers.lo, self.registers.hi) = (lo as u32, hi as u32);
@@ -225,8 +225,9 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
 
-        let result = a.checked_mul(b)
-            .map_or(None, |ab| ab.checked_add(self.hilo() as i64))
+        let result = a
+            .checked_mul(b)
+            .and_then(|ab| ab.checked_add(self.hilo() as i64))
             .map(|result| result as u64);
 
         self.load_hilo_or_trap(result)
@@ -257,8 +258,9 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let a = *self.register(s) as i32 as i64;
         let b = *self.register(t) as i32 as i64;
 
-        let result = a.checked_mul(b)
-            .map_or(None, |ab| (self.hilo() as i64).checked_sub(ab))
+        let result = a
+            .checked_mul(b)
+            .and_then(|ab| (self.hilo() as i64).checked_sub(ab))
             .map(|result| result as u64);
 
         self.load_hilo_or_trap(result)
@@ -346,7 +348,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     }
 
     fn sltiu(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
-        let value = (*self.register(s) as u32) < (imm as u32);
+        let value = *self.register(s) < (imm as u32);
 
         *self.register(t) = value as u32;
 

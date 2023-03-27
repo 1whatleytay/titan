@@ -1,40 +1,32 @@
+use num::FromPrimitive;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
-use num::FromPrimitive;
 use std::str::FromStr;
 use SymbolName::Owned;
 use TokenKind::{Minus, Plus};
 
-use crate::assembler::lexer::TokenKind::{
-    Comment,
-    Directive,
-    Parameter,
-    Register,
-    IntegerLiteral,
-    StringLiteral,
-    Symbol,
-    Comma,
-    Colon,
-    NewLine,
-    LeftBrace,
-    RightBrace,
+use crate::assembler::lexer::LexerReason::{
+    ImproperLiteral, InvalidString, Stuck, UnexpectedCharacter, UnknownRegister,
 };
-use crate::assembler::lexer::LexerReason::{ImproperLiteral, InvalidString, Stuck, UnexpectedCharacter, UnknownRegister};
 use crate::assembler::lexer::SymbolName::Slice;
+use crate::assembler::lexer::TokenKind::{
+    Colon, Comma, Comment, Directive, IntegerLiteral, LeftBrace, NewLine, Parameter, Register,
+    RightBrace, StringLiteral, Symbol,
+};
 use crate::assembler::registers::RegisterSlot;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
     Slice(&'a str),
-    Owned(String)
+    Owned(String),
 }
 
 impl<'a> SymbolName<'a> {
     pub fn get<'b: 'a>(&'b self) -> &'b str {
         match self {
             Slice(text) => text,
-            Owned(text) => text
+            Owned(text) => text,
         }
     }
 }
@@ -58,16 +50,16 @@ pub enum StrippedKind {
     Colon,
     NewLine,
     LeftBrace,
-    RightBrace
+    RightBrace,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind<'a> {
-    Comment(&'a str), // #*\n
-    Directive(&'a str), // .*
-    Parameter(&'a str), // %*
+    Comment(&'a str),       // #*\n
+    Directive(&'a str),     // .*
+    Parameter(&'a str),     // %*
     Register(RegisterSlot), // $*
-    IntegerLiteral(u64), // 123 -> also characters
+    IntegerLiteral(u64),    // 123 -> also characters
     StringLiteral(String),
     Symbol(SymbolName<'a>),
     Plus,
@@ -81,22 +73,26 @@ pub enum TokenKind<'a> {
 
 impl Display for StrippedKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            StrippedKind::Comment => "Comment",
-            StrippedKind::Directive => "Directive",
-            StrippedKind::Parameter => "Parameter",
-            StrippedKind::Register => "Register",
-            StrippedKind::IntegerLiteral => "Integer Literal",
-            StrippedKind::StringLiteral => "String Literal",
-            StrippedKind::Symbol => "Symbol",
-            StrippedKind::Plus => "Plus",
-            StrippedKind::Minus => "Minus",
-            StrippedKind::Comma => "Comma",
-            StrippedKind::Colon => "Colon",
-            StrippedKind::NewLine => "NewLine",
-            StrippedKind::LeftBrace => "LeftBrace",
-            StrippedKind::RightBrace => "RightBrace",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                StrippedKind::Comment => "Comment",
+                StrippedKind::Directive => "Directive",
+                StrippedKind::Parameter => "Parameter",
+                StrippedKind::Register => "Register",
+                StrippedKind::IntegerLiteral => "Integer Literal",
+                StrippedKind::StringLiteral => "String Literal",
+                StrippedKind::Symbol => "Symbol",
+                StrippedKind::Plus => "Plus",
+                StrippedKind::Minus => "Minus",
+                StrippedKind::Comma => "Comma",
+                StrippedKind::Colon => "Colon",
+                StrippedKind::NewLine => "NewLine",
+                StrippedKind::LeftBrace => "LeftBrace",
+                StrippedKind::RightBrace => "RightBrace",
+            }
+        )
     }
 }
 
@@ -116,7 +112,7 @@ impl<'a> TokenKind<'a> {
             Colon => StrippedKind::Colon,
             NewLine => StrippedKind::NewLine,
             LeftBrace => StrippedKind::LeftBrace,
-            RightBrace => StrippedKind::RightBrace
+            RightBrace => StrippedKind::RightBrace,
         }
     }
 }
@@ -124,7 +120,7 @@ impl<'a> TokenKind<'a> {
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
     pub start: usize,
-    pub kind: TokenKind<'a>
+    pub kind: TokenKind<'a>,
 }
 
 #[derive(Debug)]
@@ -140,8 +136,8 @@ impl Display for LexerReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Stuck => write!(f, "Lexer got stuck on this token. Please file an issue at https://github.com/1whatleytay/titan/issues"),
-            UnknownRegister(register) => write!(f, "Unknown register \"{}\"", register),
-            UnexpectedCharacter(c) => write!(f, "Unexpected character \"{}\"", c),
+            UnknownRegister(register) => write!(f, "Unknown register \"{register}\""),
+            UnexpectedCharacter(c) => write!(f, "Unexpected character \"{c}\""),
             InvalidString => write!(f, "String literal is incorrectly formatted. Check that you have closing quotes"),
             ImproperLiteral => write!(f, "Integer literal is incorrectly formatted or too big"),
         }
@@ -151,7 +147,7 @@ impl Display for LexerReason {
 #[derive(Debug)]
 pub struct LexerError {
     pub start: usize,
-    pub reason: LexerReason
+    pub reason: LexerReason,
 }
 
 impl Display for LexerError {
@@ -160,14 +156,17 @@ impl Display for LexerError {
     }
 }
 
-impl Error for LexerError { }
+impl Error for LexerError {}
 
-fn take_count<F>(input: &str, f: F) -> usize where F: Fn(char) -> bool {
+fn take_count<F>(input: &str, f: F) -> usize
+where
+    F: Fn(char) -> bool,
+{
     let mut size = 0;
 
     for item in input.chars() {
         if !f(item) {
-            break
+            break;
         }
 
         size += item.len_utf8()
@@ -176,11 +175,17 @@ fn take_count<F>(input: &str, f: F) -> usize where F: Fn(char) -> bool {
     size
 }
 
-fn take_while<F>(input: &str, f: F) -> &str where F: Fn(char) -> bool {
+fn take_while<F>(input: &str, f: F) -> &str
+where
+    F: Fn(char) -> bool,
+{
     &input[take_count(input, f)..]
 }
 
-fn take_split<F>(input: &str, f: F) -> (&str, &str) where F: Fn(char) -> bool {
+fn take_split<F>(input: &str, f: F) -> (&str, &str)
+where
+    F: Fn(char) -> bool,
+{
     let size = take_count(input, f);
 
     (&input[size..], &input[..size])
@@ -188,13 +193,37 @@ fn take_split<F>(input: &str, f: F) -> (&str, &str) where F: Fn(char) -> bool {
 
 // I want the ability to precompute a hash table, so this is done via match.
 fn is_explicit_hard(c: char) -> bool {
-    match c {
-        ':' | ';' | ',' | '{' | '}' | '+' | '-' | '=' |
-        '/' | '@' | '#' | '$' | '%' | '^' | '&' | '|' |
-        '*' | '(' | ')' | '!' | '?' | '<' | '>' | '~' |
-        '[' | ']' | '\\' | '\"' | '\'' => true,
-        _ => false
-    }
+    matches!(
+        c,
+        ':' | ';'
+            | ','
+            | '{'
+            | '}'
+            | '+'
+            | '-'
+            | '='
+            | '/'
+            | '@'
+            | '#'
+            | '$'
+            | '%'
+            | '^'
+            | '&'
+            | '|'
+            | '*'
+            | '('
+            | ')'
+            | '!'
+            | '?'
+            | '<'
+            | '>'
+            | '~'
+            | '['
+            | ']'
+            | '\\'
+            | '\"'
+            | '\''
+    )
 }
 
 fn is_hard(c: char) -> bool {
@@ -217,7 +246,7 @@ fn escape(c: char) -> char {
         'n' => '\n',
         'r' => '\r',
         't' => '\t',
-        _ => c
+        _ => c,
     }
 }
 
@@ -233,14 +262,12 @@ fn string_body(mut input: &str, quote: char) -> Option<(&str, String)> {
                 result += &escape(input.chars().nth(1)?).to_string();
 
                 input = &input[2..];
-            },
+            }
             _ if start == quote => {
-                break // don't consume
-            },
+                break; // don't consume
+            }
             _ => {
-                let (rest, body) = take_split(
-                    input, |c| c != quote && c != '\\'
-                );
+                let (rest, body) = take_split(input, |c| c != quote && c != '\\');
 
                 input = rest;
                 result += body;
@@ -254,7 +281,7 @@ fn string_body(mut input: &str, quote: char) -> Option<(&str, String)> {
 fn integer_decimal(input: &str) -> Option<(&str, u64)> {
     let (input, value) = take_name(input);
 
-    return Some((input, u64::from_str(value).ok()?));
+    Some((input, u64::from_str(value).ok()?))
 }
 
 fn integer_hexadecimal(input: &str) -> Option<(&str, u64)> {
@@ -263,7 +290,7 @@ fn integer_hexadecimal(input: &str) -> Option<(&str, u64)> {
 
     let (input, value) = take_name(input);
 
-    return Some((input, u64::from_str_radix(value, 16).ok()?));
+    Some((input, u64::from_str_radix(value, 16).ok()?))
 }
 
 fn integer_binary(input: &str) -> Option<(&str, u64)> {
@@ -272,7 +299,7 @@ fn integer_binary(input: &str) -> Option<(&str, u64)> {
 
     let (input, value) = take_name(input);
 
-    return Some((input, u64::from_str_radix(value, 2).ok()?));
+    Some((input, u64::from_str_radix(value, 2).ok()?))
 }
 
 fn integer_character(input: &str) -> Option<(&str, u64)> {
@@ -282,7 +309,7 @@ fn integer_character(input: &str) -> Option<(&str, u64)> {
     let (input, body) = string_body(input, '\'')?;
 
     if body.len() != 1 {
-        return None
+        return None;
     }
 
     // Should be over a quote...
@@ -293,8 +320,8 @@ fn integer_literal(input: &str) -> Option<(&str, u64)> {
     match input {
         _ if input.starts_with("0x") => integer_hexadecimal(input),
         _ if input.starts_with("0b") => integer_binary(input),
-        _ if input.starts_with("\'") => integer_character(input),
-        _ => integer_decimal(input)
+        _ if input.starts_with('\'') => integer_character(input),
+        _ => integer_decimal(input),
     }
 }
 
@@ -327,7 +354,7 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
                 .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
                 .map(|slot| Some((rest, Register(slot))))
                 .ok_or_else(|| UnknownRegister(value.to_string()))
-        },
+        }
         '+' => Ok(Some((&input[1..], Plus))),
         '-' => Ok(Some((&input[1..], Minus))),
         ',' => Ok(Some((&input[1..], Comma))),
@@ -346,7 +373,7 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
             let (rest, value) = take_name(input);
 
             Some((rest, Symbol(Slice(value))))
-        })
+        }),
     }
 }
 
@@ -364,7 +391,10 @@ pub fn lex(mut input: &str) -> Result<Vec<Token>, LexerError> {
         };
 
         if ptr::eq(trail.as_ptr(), next.as_ptr()) {
-            return Err(LexerError { start, reason: Stuck })
+            return Err(LexerError {
+                start,
+                reason: Stuck,
+            });
         }
 
         result.push(Token { start, kind });

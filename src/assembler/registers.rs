@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use num_derive::{FromPrimitive, ToPrimitive};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ToPrimitive, FromPrimitive)]
 pub enum RegisterSlot {
@@ -73,11 +73,11 @@ impl RegisterSlot {
             "fp" => RegisterSlot::FramePointer,
             "ra" => RegisterSlot::ReturnAddress,
 
-            _ => return None
+            _ => return None,
         })
     }
 
-    pub fn to_string(&self) -> &str {
+    pub fn as_string(&self) -> &str {
         match self {
             RegisterSlot::Zero => "zero",
             RegisterSlot::AssemblerTemporary => "at",
@@ -117,6 +117,6 @@ impl RegisterSlot {
 
 impl Display for RegisterSlot {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}", self.to_string())
+        write!(f, "${}", self.as_string())
     }
 }

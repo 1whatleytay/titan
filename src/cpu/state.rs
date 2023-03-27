@@ -10,7 +10,7 @@ pub struct Registers {
 
 pub struct State<Mem: Memory> {
     pub registers: Registers,
-    pub memory: Mem
+    pub memory: Mem,
 }
 
 impl Registers {
@@ -19,7 +19,7 @@ impl Registers {
             pc: entry,
             line: [0; 32],
             lo: 0,
-            hi: 0
+            hi: 0,
         }
     }
 }
@@ -28,7 +28,7 @@ impl<Mem: Memory> State<Mem> {
     pub fn new(entry: u32, memory: Mem) -> State<Mem> {
         State {
             registers: Registers::new(entry),
-            memory
+            memory,
         }
     }
 }

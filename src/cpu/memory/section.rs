@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Formatter};
-use Section::Listen;
 use crate::cpu::error::Error::MemoryUnmapped;
-use crate::cpu::Memory;
-use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::error::Result;
 use crate::cpu::memory::section::Section::{Data, Empty, Writable};
+use crate::cpu::memory::{Mountable, Region};
+use crate::cpu::Memory;
+use std::fmt::{Debug, Formatter};
+use Section::Listen;
 
 const SECTION_SELECTOR_START: u32 = 16;
 
@@ -20,7 +20,7 @@ pub trait ListenResponder {
     fn write(&mut self, address: u32, value: u8) -> Result<()>;
 }
 
-pub struct DefaultResponder { }
+pub struct DefaultResponder {}
 
 impl ListenResponder for DefaultResponder {
     fn read(&self, address: u32) -> Result<u8> {
@@ -36,22 +36,26 @@ enum Section<T: ListenResponder> {
     Empty,
     Data(Box<[u8; SECTION_SIZE]>),
     Listen(T),
-    Writable(u8)
+    Writable(u8),
 }
 
 impl<T: ListenResponder> Debug for Section<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Empty => "Section [Unmounted]",
-            Data(_) => "Section [Data Mounted]",
-            Listen(_) => "Section [Listen Mounted]",
-            Writable(_) => "Section [Writable Mounted]",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Empty => "Section [Unmounted]",
+                Data(_) => "Section [Data Mounted]",
+                Listen(_) => "Section [Listen Mounted]",
+                Writable(_) => "Section [Writable Mounted]",
+            }
+        )
     }
 }
 
 pub struct SectionMemory<T: ListenResponder> {
-    sections: Box<[Section<T>; SECTION_COUNT]>
+    sections: Box<[Section<T>; SECTION_COUNT]>,
 }
 
 impl<T: ListenResponder> SectionMemory<T> {
@@ -75,22 +79,18 @@ impl<T: ListenResponder> SectionMemory<T> {
 
         match &mut self.sections[selector] {
             Data(data) => data.as_mut(),
-            _ => panic!("Expected Data Section")
+            _ => panic!("Expected Data Section"),
         }
     }
 
     fn pick_section(&mut self, selector: usize) -> &mut [u8; SECTION_SIZE] {
         // Complicated sidestepping of capting mut.
         match &self.sections[selector] {
-            Data(_) => {
-                match &mut self.sections[selector] {
-                    Data(data) => data,
-                    _ => panic!()
-                }
-            }
-            _ => {
-                self.create_section(selector)
-            }
+            Data(_) => match &mut self.sections[selector] {
+                Data(data) => data,
+                _ => panic!(),
+            },
+            _ => self.create_section(selector),
         }
     }
 
@@ -104,6 +104,12 @@ impl<T: ListenResponder> SectionMemory<T> {
         if let Empty = self.sections[selector] {
             self.sections[selector] = Writable(value)
         }
+    }
+}
+
+impl<T: ListenResponder> Default for SectionMemory<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -122,7 +128,7 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
             Data(section) => Ok(section[index]),
             Listen(responder) => responder.read(address),
             Empty => Err(MemoryUnmapped(address)),
-            Writable(value) => Ok(*value)
+            Writable(value) => Ok(*value),
         }
     }
 
@@ -160,14 +166,20 @@ impl<T: ListenResponder> Mountable for SectionMemory<T> {
         while selector <= end_selector {
             let section = self.pick_section(selector);
 
-            let begin = if selector == start_selector { start_index } else { 0 };
-            let end = if selector == end_selector { end_index } else { SECTION_SIZE };
+            let begin = if selector == start_selector {
+                start_index
+            } else {
+                0
+            };
+            let end = if selector == end_selector {
+                end_index
+            } else {
+                SECTION_SIZE
+            };
 
-            for i in begin .. end {
-                let byte = region.data[data_index];
+            for i in section.iter_mut().take(end).skip(begin) {
+                *i = region.data[data_index];
                 data_index += 1;
-
-                section[i] = byte
             }
 
             selector += 1

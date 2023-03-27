@@ -1,10 +1,10 @@
+use crate::cpu::error::Error;
+use crate::cpu::state::Registers;
+use crate::cpu::{Memory, State};
+use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Recovered, Running};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
-use crate::cpu::{Memory, State};
-use crate::cpu::error::Error;
-use crate::cpu::state::Registers;
-use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Recovered, Running};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
@@ -23,21 +23,22 @@ pub struct Debugger<Mem: Memory> {
 
     state: State<Mem>,
     breakpoints: Breakpoints,
-    batch: usize
+    batch: usize,
 }
 
 #[derive(Debug)]
 pub struct DebugFrame {
     pub mode: DebuggerMode,
-    pub registers: Registers
+    pub registers: Registers,
 }
 
 impl<Mem: Memory> Debugger<Mem> {
     pub fn new(state: State<Mem>) -> Debugger<Mem> {
         Debugger {
-            mode: Paused, state,
+            mode: Paused,
+            state,
             breakpoints: HashSet::new(),
-            batch: 140
+            batch: 140,
         }
     }
 
@@ -47,14 +48,13 @@ impl<Mem: Memory> Debugger<Mem> {
 
         DebugFrame {
             mode: self.mode,
-            registers
+            registers,
         }
     }
 
     pub fn invalid_handled(&mut self) {
-        match self.mode {
-            Invalid(_) => self.mode = Recovered,
-            _ => { }
+        if let Invalid(_) = self.mode {
+            self.mode = Recovered
         }
     }
 
@@ -78,7 +78,7 @@ impl<Mem: Memory> Debugger<Mem> {
         if !hit_breakpoint && self.breakpoints.contains(&self.state.registers.pc) {
             self.mode = Breakpoint;
 
-            return Some(self.frame())
+            return Some(self.frame());
         }
 
         let start_pc = self.state.registers.pc;
@@ -101,7 +101,7 @@ impl<Mem: Memory> Debugger<Mem> {
             let mut value = debugger.lock().unwrap();
 
             if value.mode == Running {
-                return value.frame()
+                return value.frame();
             }
 
             let result = value.mode;
@@ -113,13 +113,13 @@ impl<Mem: Memory> Debugger<Mem> {
         loop {
             let mut value = debugger.lock().unwrap();
 
-            for _ in 0 .. value.batch {
+            for _ in 0..value.batch {
                 if value.mode != Running {
-                    return value.frame()
+                    return value.frame();
                 }
 
                 if let Some(frame) = value.cycle(hit_breakpoint) {
-                    return frame
+                    return frame;
                 }
 
                 hit_breakpoint = false

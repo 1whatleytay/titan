@@ -1,38 +1,43 @@
-use std::collections::HashMap;
-use std::io::{Seek, Write};
-use std::io::SeekFrom::Start;
 use byteorder::{LittleEndian, WriteBytesExt};
+use std::collections::HashMap;
+use std::io::SeekFrom::Start;
+use std::io::{Seek, Write};
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub enum Landmark {
-    ProgramHeaderCount,
-    ProgramHeaderStart,
-    ProgramHeaderData(usize) // index
+    Count,
+    Start,
+    Data(usize), // index
 }
 
 pub enum PointerSize {
     Bit8,
     Bit16,
     Bit32,
-    Bit64
+    Bit64,
 }
 
 pub struct Landmarks {
     landmarks: HashMap<Landmark, u64>,
-    requests: HashMap<u64, (PointerSize, Landmark)>
+    requests: HashMap<u64, (PointerSize, Landmark)>,
 }
 
 impl Landmarks {
     pub fn new() -> Landmarks {
         Landmarks {
             landmarks: HashMap::new(),
-            requests: HashMap::new()
+            requests: HashMap::new(),
         }
     }
 
-    pub fn request<T: Seek>(&mut self, size: PointerSize, landmark: Landmark, stream: &mut T)
-        -> Result<(), std::io::Error> {
-        self.requests.insert(stream.stream_position()?, (size, landmark));
+    pub fn request<T: Seek>(
+        &mut self,
+        size: PointerSize,
+        landmark: Landmark,
+        stream: &mut T,
+    ) -> Result<(), std::io::Error> {
+        self.requests
+            .insert(stream.stream_position()?, (size, landmark));
 
         Ok(())
     }
@@ -41,8 +46,11 @@ impl Landmarks {
         self.landmarks.insert(landmark, value);
     }
 
-    pub fn mark<T: Seek>(&mut self, landmark: Landmark, stream: &mut T)
-        -> Result<(), std::io::Error> {
+    pub fn mark<T: Seek>(
+        &mut self,
+        landmark: Landmark,
+        stream: &mut T,
+    ) -> Result<(), std::io::Error> {
         self.set(landmark, stream.stream_position()?);
 
         Ok(())
