@@ -28,6 +28,12 @@ impl RegionMemory {
     }
 }
 
+impl Default for RegionMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Memory for RegionMemory {
     fn get(&self, address: u32) -> Result<u8> {
         for region in &self.regions {

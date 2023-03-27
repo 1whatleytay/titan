@@ -36,7 +36,7 @@ impl Landmarks {
 
         Ok(())
     }
-    
+
     pub fn set(&mut self, landmark: Landmark, value: u64) {
         self.landmarks.insert(landmark, value);
     }
@@ -77,5 +77,11 @@ impl Landmarks {
         }
 
         Ok(())
+    }
+}
+
+impl Default for Landmarks {
+    fn default() -> Self {
+        Self::new()
     }
 }

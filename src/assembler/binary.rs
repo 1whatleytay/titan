@@ -146,7 +146,13 @@ impl Binary {
         Binary {
             entry: Text.default_address(),
             regions: vec![],
-            breakpoints: vec![]
+            breakpoints: vec![],
         }
+    }
+}
+
+impl Default for Binary {
+    fn default() -> Self {
+        Self::new()
     }
 }
