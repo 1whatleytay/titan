@@ -1,18 +1,18 @@
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use crate::assembler::assembler::assemble;
-use crate::assembler::binary::{Binary};
+use crate::assembler::assembler_util::AssemblerError;
+use crate::assembler::binary::Binary;
+use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
-use crate::assembler::assembler_util::AssemblerError;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug)]
 pub enum SourceError {
     Lexer(LexerError),
     Preprocessor(PreprocessorError),
-    Assembler(AssemblerError)
+    Assembler(AssemblerError),
 }
 
 impl SourceError {
@@ -20,7 +20,7 @@ impl SourceError {
         match self {
             Lexer(error) => Some(error.start),
             Preprocessor(error) => Some(error.start),
-            Assembler(error) => error.start
+            Assembler(error) => error.start,
         }
     }
 }
@@ -48,12 +48,12 @@ impl Display for SourceError {
         match self {
             Lexer(error) => Display::fmt(error, f),
             Preprocessor(error) => Display::fmt(error, f),
-            Assembler(error) => Display::fmt(error, f)
+            Assembler(error) => Display::fmt(error, f),
         }
     }
 }
 
-impl Error for SourceError { }
+impl Error for SourceError {}
 
 pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
     let items = lex(source)?;

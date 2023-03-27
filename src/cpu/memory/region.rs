@@ -1,8 +1,8 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use crate::cpu::error::Result;
 use crate::cpu::error::Error::{MemoryAlign, MemoryBoundary, MemoryUnmapped};
-use crate::cpu::Memory;
+use crate::cpu::error::Result;
 use crate::cpu::memory::{Mountable, Region};
+use crate::cpu::Memory;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 impl Region {
     pub fn contains(&self, address: u32) -> bool {
@@ -11,7 +11,7 @@ impl Region {
 }
 
 pub struct RegionMemory {
-    regions: Vec<Region>
+    regions: Vec<Region>,
 }
 
 type Endian = LittleEndian;
@@ -28,11 +28,17 @@ impl RegionMemory {
     }
 }
 
+impl Default for RegionMemory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Memory for RegionMemory {
     fn get(&self, address: u32) -> Result<u8> {
         for region in &self.regions {
             if region.contains(address) {
-                return Ok(region.data[(address - region.start) as usize])
+                return Ok(region.data[(address - region.start) as usize]);
             }
         }
 
@@ -44,7 +50,7 @@ impl Memory for RegionMemory {
             if region.contains(address) {
                 region.data[(address - region.start) as usize] = value;
 
-                return Ok(())
+                return Ok(());
             }
         }
 
@@ -53,15 +59,15 @@ impl Memory for RegionMemory {
 
     fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(address));
         }
 
         for region in &self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
-                let data = (&region.data[start .. start + 2]).read_u16::<Endian>();
+                let data = (&region.data[start..start + 2]).read_u16::<Endian>();
 
-                return data.map_err(|_| MemoryBoundary(address))
+                return data.map_err(|_| MemoryBoundary(address));
             }
         }
 
@@ -70,15 +76,15 @@ impl Memory for RegionMemory {
 
     fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(address));
         }
 
         for region in &self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
-                let data = (&region.data[start .. start + 4]).read_u32::<Endian>();
+                let data = (&region.data[start..start + 4]).read_u32::<Endian>();
 
-                return data.map_err(|_| MemoryBoundary(address))
+                return data.map_err(|_| MemoryBoundary(address));
             }
         }
 
@@ -87,18 +93,18 @@ impl Memory for RegionMemory {
 
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         if address % 2 != 0 {
-            panic!("Address 0x{:08x} is not aligned for u16 read.", address);
+            panic!("Address 0x{address:08x} is not aligned for u16 read.");
         }
 
         for region in &mut self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
 
-                (&mut region.data[start .. start + 2])
+                (&mut region.data[start..start + 2])
                     .write_u16::<Endian>(value)
                     .unwrap();
 
-                return Ok(())
+                return Ok(());
             }
         }
 
@@ -107,18 +113,18 @@ impl Memory for RegionMemory {
 
     fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         if address % 4 != 0 {
-            panic!("Address 0x{:08x} is not aligned for u32 read.", address);
+            panic!("Address 0x{address:08x} is not aligned for u32 read.");
         }
 
         for region in &mut self.regions {
             if region.contains(address) {
                 let start = (address - region.start) as usize;
 
-                (&mut region.data[start .. start + 4])
+                (&mut region.data[start..start + 4])
                     .write_u32::<Endian>(value)
                     .unwrap();
 
-                return Ok(())
+                return Ok(());
             }
         }
 

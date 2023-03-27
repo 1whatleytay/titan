@@ -7,7 +7,7 @@ pub struct LineDetails<'a> {
     pub line_start: usize,
     pub line_end: usize,
 
-    pub line_text: &'a str
+    pub line_text: &'a str,
 }
 
 impl<'a> LineDetails<'a> {
@@ -16,7 +16,7 @@ impl<'a> LineDetails<'a> {
 
         for (i, c) in self.line_text.chars().enumerate() {
             if i >= self.line_offset {
-                break
+                break;
             }
 
             if c.is_whitespace() {
@@ -53,7 +53,7 @@ impl<'a> LineDetails<'a> {
             let end = next.as_ptr() as usize - source_offset;
 
             if end > offset && offset >= start {
-                break
+                break;
             }
 
             if c == '\n' {
@@ -71,7 +71,7 @@ impl<'a> LineDetails<'a> {
 
         while let Some(c) = input.chars().next() {
             if c == '\n' {
-                break
+                break;
             }
 
             count += c.len_utf8();

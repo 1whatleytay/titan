@@ -1,25 +1,25 @@
-use std::io::{Read, Seek, Write};
+use crate::elf::error::Error::{
+    InvalidBinaryType, InvalidCPU, InvalidEndian, InvalidMagic, Requires32Bit,
+};
+use crate::elf::error::Result;
+use crate::elf::landmark::Landmark::{Count, Start};
+use crate::elf::landmark::Landmarks;
+use crate::elf::landmark::PointerSize::{Bit16, Bit32};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
-use crate::elf::error::Error::{
-    InvalidBinaryType, InvalidEndian, InvalidMagic, InvalidCPU, Requires32Bit
-};
-use crate::elf::error::Result;
-use crate::elf::landmark::Landmark::{ProgramHeaderStart, ProgramHeaderCount};
-use crate::elf::landmark::Landmarks;
-use crate::elf::landmark::PointerSize::{Bit16, Bit32};
+use std::io::{Read, Seek, Write};
 
 #[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
 pub enum BinaryType {
     Binary32 = 1,
-    Binary64 = 2
+    Binary64 = 2,
 }
 
 #[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
 pub enum Endian {
     Little = 1,
-    Big = 2
+    Big = 2,
 }
 
 #[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
@@ -34,7 +34,7 @@ pub enum InstructionSet {
     IA64 = 0x32,
     X64 = 0x3E,
     AArch64 = 0xB7,
-    RiscV = 0xF3
+    RiscV = 0xF3,
 }
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ pub struct Header {
     pub package: u16,
     pub cpu: InstructionSet,
     pub elf_version: u32,
-    pub program_entry: u32
+    pub program_entry: u32,
 }
 
 #[derive(Debug)]
@@ -105,7 +105,7 @@ impl Header {
         stream.write_u8(self.endian.to_u8().ok_or(InvalidBinaryType)?)?;
         stream.write_u8(self.header_version)?;
         stream.write_u8(self.abi)?;
-        stream.write(&self.padding)?;
+        stream.write_all(&self.padding)?;
         stream.write_u16::<Endian>(self.package)?;
         stream.write_u16::<Endian>(self.cpu.to_u16().ok_or(InvalidCPU)?)?;
         stream.write_u32::<Endian>(self.elf_version)?;
@@ -142,13 +142,13 @@ impl HeaderDetails {
 
         let mut landmarks = Landmarks::new();
 
-        landmarks.request(Bit32, ProgramHeaderStart, stream)?;
+        landmarks.request(Bit32, Start, stream)?;
         stream.write_u32::<Endian>(0)?; // program_table_position:
         stream.write_u32::<Endian>(0)?; // section_table_point:
         stream.write_u32::<Endian>(0)?; // flags:
         stream.write_u16::<Endian>(HEADER_SIZE)?; // header_size:
         stream.write_u16::<Endian>(PROGRAM_HEADER_SIZE)?; // program_entry_size:
-        landmarks.request(Bit16, ProgramHeaderCount, stream)?;
+        landmarks.request(Bit16, Count, stream)?;
         stream.write_u16::<Endian>(0)?; // program_entry_count:
         stream.write_u16::<Endian>(0)?; // section_entry_size:
         stream.write_u16::<Endian>(0)?; // section_entry_count:

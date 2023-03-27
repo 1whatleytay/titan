@@ -1,12 +1,12 @@
+use crate::assembler::lexer::TokenKind::{Comma, Comment, NewLine};
 use crate::assembler::lexer::{Token, TokenKind};
-use crate::assembler::lexer::TokenKind::{Comment, NewLine, Comma};
 
 pub fn is_solid_kind(kind: &TokenKind) -> bool {
     match kind {
         Comment(_) => false,
         NewLine => false,
         Comma => false, // Completely ignored by MARS.
-        _ => true
+        _ => true,
     }
 }
 
@@ -14,13 +14,13 @@ pub fn is_adjacent_kind(kind: &TokenKind) -> bool {
     match kind {
         Comment(_) => false,
         Comma => false, // Completely ignored by MARS.
-        _ => true
+        _ => true,
     }
 }
 
 pub struct LexerCursor<'a, 'b> {
     index: usize,
-    tokens: &'b [Token<'a>]
+    tokens: &'b [Token<'a>],
 }
 
 impl<'a, 'b> LexerCursor<'a, 'b> {
@@ -49,7 +49,9 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
     }
 
     pub fn collect_until<F>(&mut self, mut f: F) -> Vec<&'b Token<'a>>
-        where F: FnMut(&'b TokenKind<'a>) -> bool {
+    where
+        F: FnMut(&'b TokenKind<'a>) -> bool,
+    {
         let mut result = vec![];
 
         while let Some(value) = self.next() {
@@ -58,7 +60,7 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
             result.push(value);
 
             if do_break {
-                break
+                break;
             }
         }
 
@@ -66,10 +68,12 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
     }
 
     pub fn seek_until<F>(&mut self, mut f: F) -> Option<&'b Token<'a>>
-        where F: FnMut(&'b TokenKind<'a>) -> bool {
+    where
+        F: FnMut(&'b TokenKind<'a>) -> bool,
+    {
         while let Some(value) = self.next() {
             if f(&value.kind) {
-                return Some(value)
+                return Some(value);
             }
         }
 
@@ -81,7 +85,9 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
     }
 
     pub fn collect_without<F>(&mut self, mut f: F) -> Vec<&'b Token<'a>>
-        where F: FnMut(&'b TokenKind<'a>) -> bool {
+    where
+        F: FnMut(&'b TokenKind<'a>) -> bool,
+    {
         let mut result = vec![];
 
         while let Some(value) = self.peek() {
@@ -90,7 +96,7 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
 
                 result.push(value)
             } else {
-                break
+                break;
             }
         }
 
@@ -98,12 +104,14 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
     }
 
     pub fn seek_without<F>(&mut self, mut f: F) -> Option<&'b Token<'a>>
-        where F: FnMut(&'b TokenKind<'a>) -> bool {
+    where
+        F: FnMut(&'b TokenKind<'a>) -> bool,
+    {
         while let Some(value) = self.peek() {
             if !f(&value.kind) {
                 self.index += 1
             } else {
-                break
+                break;
             }
         }
 
@@ -120,12 +128,12 @@ impl<'a, 'b> LexerCursor<'a, 'b> {
 
         (end, result)
     }
-    
+
     pub fn consume_until(&mut self, index: usize) -> Vec<&'b Token<'a>> {
         if index < self.index {
             vec![]
         } else {
-            let result = self.tokens[self.index .. index].into_iter().collect();
+            let result = self.tokens[self.index..index].iter().collect();
 
             self.index = index;
 

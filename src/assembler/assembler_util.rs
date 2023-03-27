@@ -1,13 +1,15 @@
+use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
+use crate::assembler::binary::AddressLabel::{Constant, Label};
+use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
+use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
+use crate::assembler::lexer::TokenKind::{
+    IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol,
+};
+use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
+use crate::assembler::registers::RegisterSlot;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
-use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
-use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
-use crate::assembler::lexer::TokenKind::{IntegerLiteral, Register, StringLiteral, Symbol, LeftBrace, RightBrace, NewLine, Plus};
-use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
-use crate::assembler::registers::RegisterSlot;
-use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -20,38 +22,38 @@ pub enum AssemblerReason {
     ExpectedNewline(StrippedKind),
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
-    ConstantOutOfRange(i64, i64), // start, end
+    ConstantOutOfRange(i64, i64),    // start, end
     OverwriteEdge(u32, Option<u64>), // pc, count
     UnknownLabel(String),
     UnknownDirective(String),
     UnknownInstruction(String),
     JumpOutOfRange(u32, u32), // to, from
     MissingRegion,
-    MissingInstruction
+    MissingInstruction,
 }
 
 impl Display for AssemblerReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AssemblerReason::UnexpectedToken(kind) => write!(f, "Expected instruction or directive, but found {}", kind),
+            AssemblerReason::UnexpectedToken(kind) => write!(f, "Expected instruction or directive, but found {kind}"),
             AssemblerReason::EndOfFile => write!(f, "Assembler reached the end of the file, but requires an additional token here"),
-            AssemblerReason::ExpectedRegister(kind) => write!(f, "Expected a register, but found {}", kind),
-            AssemblerReason::ExpectedConstant(kind) => write!(f, "Expected an integer, but found {}", kind),
-            AssemblerReason::ExpectedString(kind) => write!(f, "Expected a string literal, but found {}", kind),
-            AssemblerReason::ExpectedLabel(kind) => write!(f, "Expected a label, but found {}", kind),
-            AssemblerReason::ExpectedNewline(kind) => write!(f, "Expected a newline, but found {}", kind),
-            AssemblerReason::ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {}", kind),
-            AssemblerReason::ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {}", kind),
-            AssemblerReason::ConstantOutOfRange(min, max) => write!(f, "Constant must be between {:#x} and {:#x}", min, max),
+            AssemblerReason::ExpectedRegister(kind) => write!(f, "Expected a register, but found {kind}"),
+            AssemblerReason::ExpectedConstant(kind) => write!(f, "Expected an integer, but found {kind}"),
+            AssemblerReason::ExpectedString(kind) => write!(f, "Expected a string literal, but found {kind}"),
+            AssemblerReason::ExpectedLabel(kind) => write!(f, "Expected a label, but found {kind}"),
+            AssemblerReason::ExpectedNewline(kind) => write!(f, "Expected a newline, but found {kind}"),
+            AssemblerReason::ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {kind}"),
+            AssemblerReason::ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {kind}"),
+            AssemblerReason::ConstantOutOfRange(min, max) => write!(f, "Constant must be between {min:#x} and {max:#x}"),
             AssemblerReason::OverwriteEdge(pc, count) => write!(
                 f, "Instruction pushes cursor out of boundary (from {:#x}{})",
-                pc, count.map(|v| format!(" with 0x{:x} bytes", v)).unwrap_or("".into())
+                pc, count.map(|v| format!(" with 0x{v:x} bytes")).unwrap_or("".into())
             ),
-            AssemblerReason::UnknownLabel(name) => write!(f, "Could not find a label named \"{}\", check for typos", name),
-            AssemblerReason::UnknownDirective(name) => write!(f, "There's no current support for any {} directive", name),
-            AssemblerReason::UnknownInstruction(name) => write!(f, "Unknown instruction named \"{}\", check for typos", name),
+            AssemblerReason::UnknownLabel(name) => write!(f, "Could not find a label named \"{name}\", check for typos"),
+            AssemblerReason::UnknownDirective(name) => write!(f, "There's no current support for any {name} directive"),
+            AssemblerReason::UnknownInstruction(name) => write!(f, "Unknown instruction named \"{name}\", check for typos"),
             AssemblerReason::JumpOutOfRange(to, from) => write!(
-                f, "Trying to jump to 0x{:08x} from 0x{:08x}, but this jump is too distant for this instruction", to, from),
+                f, "Trying to jump to 0x{to:08x} from 0x{from:08x}, but this jump is too distant for this instruction"),
             AssemblerReason::MissingRegion => write!(
                 f, "Assembler did not mount a binary region. Please file an issue at https://github.com/1whatleytay/titan/issues"),
             AssemblerReason::MissingInstruction => write!(
@@ -63,7 +65,7 @@ impl Display for AssemblerReason {
 #[derive(Debug)]
 pub struct AssemblerError {
     pub start: Option<usize>,
-    pub reason: AssemblerReason
+    pub reason: AssemblerReason,
 }
 
 impl Display for AssemblerError {
@@ -73,20 +75,20 @@ impl Display for AssemblerError {
 }
 
 pub fn pc_for_region(region: &RawRegion, start: Option<usize>) -> Result<u32, AssemblerError> {
-    region.pc()
-        .ok_or_else(|| {
-            let reason = AssemblerReason::OverwriteEdge(
-                region.address, Some(region.data.len() as u64)
-            );
+    region.pc().ok_or_else(|| {
+        let reason = AssemblerReason::OverwriteEdge(region.address, Some(region.data.len() as u64));
 
-            AssemblerError { start, reason }
-        })
+        AssemblerError { start, reason }
+    })
 }
 
-impl Error for AssemblerError { }
+impl Error for AssemblerError {}
 
 pub fn get_token<'a, 'b>(iter: &mut LexerCursor<'a, 'b>) -> Result<&'b Token<'a>, AssemblerError> {
-    iter.next_adjacent().ok_or(AssemblerError { start: None, reason: AssemblerReason::EndOfFile })
+    iter.next_adjacent().ok_or(AssemblerError {
+        start: None,
+        reason: AssemblerReason::EndOfFile,
+    })
 }
 
 fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
@@ -104,13 +106,16 @@ pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerErr
 
     match token.kind {
         Register(slot) => Ok(slot),
-        _ => Err(default_error(AssemblerReason::ExpectedRegister(token.kind.strip()), token))
+        _ => Err(default_error(
+            AssemblerReason::ExpectedRegister(token.kind.strip()),
+            token,
+        )),
     }
 }
 
 pub enum InstructionValue {
     Slot(RegisterSlot),
-    Literal(u64)
+    Literal(u64),
 }
 
 // first -> pointed to but NOT consumed yet, this method call will consume it
@@ -142,7 +147,7 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
 
             Some(*value)
         }
-        _ => None
+        _ => None,
     }
 }
 
@@ -150,7 +155,7 @@ pub fn get_integer_adjacent(iter: &mut LexerCursor) -> Option<u64> {
     if let Some(token) = iter.seek_without(is_adjacent_kind) {
         get_integer(token, iter, true)
     } else {
-        return None
+        None
     }
 }
 
@@ -162,26 +167,27 @@ pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerEr
     } else {
         match token.kind {
             Register(slot) => Ok(Slot(slot)),
-            _ => Err(default_error(AssemblerReason::ExpectedRegister(token.kind.strip()), token))
+            _ => Err(default_error(
+                AssemblerReason::ExpectedRegister(token.kind.strip()),
+                token,
+            )),
         }
     }
 }
 
-pub fn maybe_get_value(
-    iter: &mut LexerCursor
-) -> Option<InstructionValue> {
+pub fn maybe_get_value(iter: &mut LexerCursor) -> Option<InstructionValue> {
     let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
 
     if let Some(value) = get_integer(value, iter, true) {
-        return Some(Literal(value))
+        Some(Literal(value))
     } else {
         match value.kind {
             Register(slot) => {
                 iter.next();
 
                 Some(Slot(slot))
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 }
@@ -192,7 +198,10 @@ pub fn get_constant(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     if let Some(value) = get_integer(token, iter, false) {
         Ok(value)
     } else {
-        Err(default_error(AssemblerReason::ExpectedConstant(token.kind.strip()), token))
+        Err(default_error(
+            AssemblerReason::ExpectedConstant(token.kind.strip()),
+            token,
+        ))
     }
 }
 
@@ -201,7 +210,10 @@ pub fn get_string(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
 
     match &token.kind {
         StringLiteral(value) => Ok(value.clone()),
-        _ => Err(default_error(AssemblerReason::ExpectedString(token.kind.strip()), token))
+        _ => Err(default_error(
+            AssemblerReason::ExpectedString(token.kind.strip()),
+            token,
+        )),
     }
 }
 
@@ -226,10 +238,13 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
                 Ok(Label(NamedLabel {
                     name: value.get().to_string(),
                     start: token.start,
-                    offset
+                    offset,
                 }))
-            },
-            _ => Err(default_error(AssemblerReason::ExpectedLabel(token.kind.strip()), token))
+            }
+            _ => Err(default_error(
+                AssemblerReason::ExpectedLabel(token.kind.strip()),
+                token,
+            )),
         }
     }
 }
@@ -240,14 +255,15 @@ pub fn get_label(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError>
 
 pub enum OffsetOrLabel {
     Offset(u64, RegisterSlot),
-    Address(AddressLabel)
+    Address(AddressLabel),
 }
 
 pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let start = iter.get_position();
     let value = get_integer_adjacent(iter);
 
-    let is_offset = iter.seek_without(is_adjacent_kind)
+    let is_offset = iter
+        .seek_without(is_adjacent_kind)
         .map(|token| token.kind == LeftBrace)
         .unwrap_or(false);
 
@@ -266,7 +282,10 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
         };
 
         if right.kind != RightBrace {
-            return Err(default_error(AssemblerReason::ExpectedRightBrace(right.kind.strip()), right))
+            return Err(default_error(
+                AssemblerReason::ExpectedRightBrace(right.kind.strip()),
+                right,
+            ));
         }
 
         Ok(OffsetOrLabel::Offset(value, register))
@@ -282,7 +301,7 @@ pub fn default_start(start: usize) -> impl Fn(AssemblerError) -> AssemblerError 
         if error.start.is_none() {
             AssemblerError {
                 start: Some(start),
-                reason: error.reason
+                reason: error.reason,
             }
         } else {
             error

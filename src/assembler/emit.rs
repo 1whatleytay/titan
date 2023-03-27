@@ -1,25 +1,30 @@
-use std::collections::HashMap;
-use byteorder::{LittleEndian, WriteBytesExt};
-use num_traits::ToPrimitive;
-use Opcode::Algebra;
-use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
-use crate::assembler::instructions::{Encoding, Instruction, Opcode};
-use crate::assembler::instructions::Opcode::{Op, Func, Special};
-use crate::assembler::registers::RegisterSlot;
-use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
-use crate::assembler::assembler_util::{get_constant, get_label, get_register, get_value, get_offset_or_label, maybe_get_value, InstructionValue, OffsetOrLabel, AssemblerError, default_start, pc_for_region};
-use crate::assembler::assembler_util::AssemblerReason::{ConstantOutOfRange, MissingRegion, UnknownInstruction};
+use crate::assembler::assembler_util::AssemblerReason::{
+    ConstantOutOfRange, MissingRegion, UnknownInstruction,
+};
+use crate::assembler::assembler_util::{
+    default_start, get_constant, get_label, get_offset_or_label, get_register, get_value,
+    maybe_get_value, pc_for_region, AssemblerError, InstructionValue, OffsetOrLabel,
+};
 use crate::assembler::binary::{AddressLabel, BinaryBreakpoint};
 use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
+use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
+use crate::assembler::instructions::Opcode::{Func, Op, Special};
+use crate::assembler::instructions::{Encoding, Instruction, Opcode};
+use crate::assembler::registers::RegisterSlot;
+use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
+use byteorder::{LittleEndian, WriteBytesExt};
+use num_traits::ToPrimitive;
+use std::collections::HashMap;
+use Opcode::Algebra;
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {
         Op(key) => (*key as u32 & 0b111111) << 26,
         Func(key) => *key as u32 & 0b111111, // opcode: 0
         Special(key) => (*key as u32 & 0b111111) << 16 | (1 << 26), // opcode: 1
-        Algebra(key) => *key as u32 & 0b111111 | (28 << 26)
+        Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
     }
 }
 
@@ -86,7 +91,7 @@ fn load_immediate(constant: u64, into: RegisterSlot) -> Vec<u32> {
     let constant = constant as u32; // redefine
     let signed = constant as i32;
 
-    if signed < 0x8000 && signed >= -0x8000 {
+    if (-0x8000..0x8000).contains(&signed) {
         let add = InstructionBuilder::from_op(&Op(9)) // addiu
             .with_temp(into)
             .with_source(Zero)
@@ -135,9 +140,7 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
     let label_upper = label.clone();
     let label_lower = label;
 
-    let lui = InstructionBuilder::from_op(&Op(15))
-        .with_temp(dest)
-        .0;
+    let lui = InstructionBuilder::from_op(&Op(15)).with_temp(dest).0;
 
     let ori = InstructionBuilder::from_op(&Op(13))
         .with_temp(dest)
@@ -145,8 +148,20 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
         .0;
 
     vec![
-        (lui, Some(InstructionLabel { label: label_upper, kind: Upper })),
-        (ori, Some(InstructionLabel { label: label_lower, kind: Lower }))
+        (
+            lui,
+            Some(InstructionLabel {
+                label: label_upper,
+                kind: Upper,
+            }),
+        ),
+        (
+            ori,
+            Some(InstructionLabel {
+                label: label_lower,
+                kind: Lower,
+            }),
+        ),
     ]
 }
 
@@ -163,22 +178,31 @@ fn make_offset_or_label(offset: OffsetOrLabel) -> (u16, RegisterSlot, Vec<Instru
 
 fn unpack_value(value: InstructionValue) -> (RegisterSlot, Vec<u32>) {
     match value {
-        InstructionValue::Slot(slot) =>
-            (slot, vec![]),
-        InstructionValue::Literal(constant) =>
-            (AssemblerTemporary, load_immediate(constant, AssemblerTemporary))
+        InstructionValue::Slot(slot) => (slot, vec![]),
+        InstructionValue::Literal(constant) => (
+            AssemblerTemporary,
+            load_immediate(constant, AssemblerTemporary),
+        ),
     }
 }
 
-fn emit_unpack_value(value: InstructionValue)
-    -> (RegisterSlot, Vec<(u32, Option<InstructionLabel>)>) {
+fn emit_unpack_value(
+    value: InstructionValue,
+) -> (RegisterSlot, Vec<(u32, Option<InstructionLabel>)>) {
     let (slot, instructions) = unpack_value(value);
 
-    (slot, instructions.into_iter().map(|value| (value, None)).collect())
+    (
+        slot,
+        instructions
+            .into_iter()
+            .map(|value| (value, None))
+            .collect(),
+    )
 }
 
 fn do_register_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
@@ -198,7 +222,8 @@ fn do_register_instruction(
 }
 
 fn do_register_shift_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -216,31 +241,30 @@ fn do_register_shift_instruction(
 }
 
 fn do_source_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
-        .0;
+    let inst = InstructionBuilder::from_op(op).with_source(source).0;
 
     Ok(EmitInstruction::with(inst))
 }
 
 fn do_destination_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_dest(dest)
-        .0;
+    let inst = InstructionBuilder::from_op(op).with_dest(dest).0;
 
     Ok(EmitInstruction::with(inst))
 }
 
 fn do_inputs_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let first = get_register(iter)?;
     let second = get_register(iter)?;
@@ -272,7 +296,8 @@ fn do_inputs_instruction(
 }
 
 fn do_sham_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -288,24 +313,29 @@ fn do_sham_instruction(
 }
 
 fn do_special_branch_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
-        .0;
+    let inst = InstructionBuilder::from_op(op).with_source(source).0;
 
-    let instructions = vec![
-        (inst, Some(InstructionLabel { label, kind: Branch }))
-    ];
+    let instructions = vec![(
+        inst,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    )];
 
     Ok(EmitInstruction { instructions })
 }
 
 fn do_immediate_instruction(
-    op: &Opcode, alt: Option<&Opcode>, iter: &mut LexerCursor
+    op: &Opcode,
+    alt: Option<&Opcode>,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
     let source = get_register(iter)?;
@@ -313,7 +343,7 @@ fn do_immediate_instruction(
 
     let signed = constant as i64;
 
-    if signed >= 0x8000 || signed < -0x8000 {
+    if !(-0x8000..0x8000).contains(&signed) {
         if let Some(alt) = alt {
             let mut instructions = load_immediate(constant, AssemblerTemporary)
                 .into_iter()
@@ -332,7 +362,7 @@ fn do_immediate_instruction(
         } else {
             Err(AssemblerError {
                 start: None,
-                reason: ConstantOutOfRange(-8000, 0x7fff)
+                reason: ConstantOutOfRange(-8000, 0x7fff),
             })
         }
     } else {
@@ -347,7 +377,8 @@ fn do_immediate_instruction(
 }
 
 fn do_load_immediate_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -361,17 +392,21 @@ fn do_load_immediate_instruction(
 }
 
 fn do_jump_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
 
     let inst = InstructionBuilder::from_op(op).0;
 
-    Ok(EmitInstruction { instructions: vec![(inst, Some(InstructionLabel { label, kind: Jump }))] })
+    Ok(EmitInstruction {
+        instructions: vec![(inst, Some(InstructionLabel { label, kind: Jump }))],
+    })
 }
 
 fn do_branch_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -384,30 +419,40 @@ fn do_branch_instruction(
         .with_temp(slot)
         .0;
 
-    instructions.push((inst, Some(InstructionLabel { label, kind: Branch })));
+    instructions.push((
+        inst,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    ));
 
     Ok(EmitInstruction { instructions })
 }
 
 fn do_branch_zero_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_source(source)
-        .0;
+    let inst = InstructionBuilder::from_op(op).with_source(source).0;
 
-    let instructions = vec![
-        (inst, Some(InstructionLabel { label, kind: Branch }))
-    ];
+    let instructions = vec![(
+        inst,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    )];
 
     Ok(EmitInstruction { instructions })
 }
 
 fn do_parameterless_instruction(
-    op: &Opcode, _: &mut LexerCursor
+    op: &Opcode,
+    _: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let inst = InstructionBuilder::from_op(op).0;
 
@@ -415,7 +460,8 @@ fn do_parameterless_instruction(
 }
 
 fn do_offset_instruction(
-    op: &Opcode, iter: &mut LexerCursor
+    op: &Opcode,
+    iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
 
@@ -439,18 +485,13 @@ fn do_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_nop_instruction(
-    _: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
-    let instruction = InstructionBuilder::from_op(&Func(0))
-        .0;
+fn do_nop_instruction(_: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+    let instruction = InstructionBuilder::from_op(&Func(0)).0;
 
     Ok(EmitInstruction::with(instruction))
 }
 
-fn do_abs_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_abs_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -482,7 +523,7 @@ fn do_branch_custom_instruction(
     iter: &mut LexerCursor,
     greater_than: bool,
     result_true: bool,
-    unsigned: bool
+    unsigned: bool,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -490,7 +531,11 @@ fn do_branch_custom_instruction(
 
     let (slot, mut instructions) = emit_unpack_value(temp);
 
-    let (first, second) = if greater_than { (slot, source) } else { (source, slot) };
+    let (first, second) = if greater_than {
+        (slot, source)
+    } else {
+        (source, slot)
+    };
     let set_op = if unsigned { &Func(41) } else { &Func(42) };
     let branch_op = if result_true { &Op(5) } else { &Op(4) };
 
@@ -507,7 +552,13 @@ fn do_branch_custom_instruction(
 
     instructions.append(&mut vec![
         (compare, None),
-        (branch, Some(InstructionLabel { label, kind: Branch }))
+        (
+            branch,
+            Some(InstructionLabel {
+                label,
+                kind: Branch,
+            }),
+        ),
     ]);
 
     Ok(EmitInstruction { instructions })
@@ -517,7 +568,7 @@ fn do_set_custom_instruction(
     iter: &mut LexerCursor,
     greater_than: bool,
     result_true: bool,
-    unsigned: bool
+    unsigned: bool,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
@@ -525,7 +576,11 @@ fn do_set_custom_instruction(
 
     let (slot, mut instructions) = emit_unpack_value(temp);
 
-    let (first, second) = if greater_than { (source, slot) } else { (slot, source) };
+    let (first, second) = if greater_than {
+        (source, slot)
+    } else {
+        (slot, source)
+    };
     let set_op = if unsigned { &Func(41) } else { &Func(42) };
 
     let set = InstructionBuilder::from_op(set_op)
@@ -549,9 +604,7 @@ fn do_set_custom_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_seq_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_seq_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -581,9 +634,7 @@ fn do_seq_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_sne_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_sne_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -607,9 +658,7 @@ fn do_sne_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_neg_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_neg_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -622,9 +671,7 @@ fn do_neg_instruction(
     Ok(EmitInstruction::with(sub))
 }
 
-fn do_negu_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_negu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -637,9 +684,7 @@ fn do_negu_instruction(
     Ok(EmitInstruction::with(subu))
 }
 
-fn do_not_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_not_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -652,22 +697,19 @@ fn do_not_instruction(
     Ok(EmitInstruction::with(nor))
 }
 
-fn do_li_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_li_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    let instructions = load_immediate(constant, dest).into_iter()
+    let instructions = load_immediate(constant, dest)
+        .into_iter()
         .map(|inst| (inst, None))
         .collect();
 
     Ok(EmitInstruction { instructions })
 }
 
-fn do_la_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_la_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let label = get_label(iter)?;
 
@@ -676,9 +718,7 @@ fn do_la_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_move_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_move_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -691,9 +731,7 @@ fn do_move_instruction(
     Ok(EmitInstruction::with(addu))
 }
 
-fn do_b_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_b_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
 
     let beq = InstructionBuilder::from_op(&Op(4)) // beq
@@ -701,15 +739,19 @@ fn do_b_instruction(
         .with_temp(Zero)
         .0;
 
-    let instructions = vec![(beq, Some(InstructionLabel { label, kind: Branch }))];
+    let instructions = vec![(
+        beq,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    )];
 
     Ok(EmitInstruction { instructions })
 }
 
 // MARS seems to load the instruction itself like `li`. I'm not sure about this! Do it yourself!
-fn do_subi_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -723,9 +765,7 @@ fn do_subi_instruction(
     Ok(EmitInstruction::with(addi))
 }
 
-fn do_subiu_instruction(
-    iter: &mut LexerCursor
-) -> Result<EmitInstruction, AssemblerError> {
+fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -740,7 +780,8 @@ fn do_subiu_instruction(
 }
 
 fn dispatch_pseudo(
-    instruction: &str, iter: &mut LexerCursor
+    instruction: &str,
+    iter: &mut LexerCursor,
 ) -> Result<Option<EmitInstruction>, AssemblerError> {
     Ok(Some(match instruction {
         "nop" => do_nop_instruction(iter),
@@ -772,12 +813,14 @@ fn dispatch_pseudo(
         "b" => do_b_instruction(iter),
         "subi" => do_subi_instruction(iter),
         "subiu" => do_subiu_instruction(iter),
-        _ => return Ok(None)
+        _ => return Ok(None),
     }?))
 }
 
 fn dispatch_instruction(
-    instruction: &str, iter: &mut LexerCursor, map: &HashMap<&str, &Instruction>
+    instruction: &str,
+    iter: &mut LexerCursor,
+    map: &HashMap<&str, &Instruction>,
 ) -> Result<EmitInstruction, AssemblerError> {
     let Some(instruction) = map.get(&instruction) else {
         return dispatch_pseudo(instruction, iter)?
@@ -810,18 +853,25 @@ fn dispatch_instruction(
 }
 
 pub fn do_instruction(
-    instruction: &str, start: usize, iter: &mut LexerCursor,
-    builder: &mut BinaryBuilder, map: &HashMap<&str, &Instruction>
+    instruction: &str,
+    start: usize,
+    iter: &mut LexerCursor,
+    builder: &mut BinaryBuilder,
+    map: &HashMap<&str, &Instruction>,
 ) -> Result<(), AssemblerError> {
     let lowercase = instruction.to_lowercase();
 
-    let emit = dispatch_instruction(&lowercase, iter, map)
-        .map_err(default_start(start))?;
+    let emit = dispatch_instruction(&lowercase, iter, map).map_err(default_start(start))?;
 
-    let region = builder.region()
-        .ok_or_else(|| AssemblerError { start: Some(start), reason: MissingRegion })?;
+    let region = builder.region().ok_or(AssemblerError {
+        start: Some(start),
+        reason: MissingRegion,
+    })?;
 
-    let mut breakpoint = BinaryBreakpoint { offset: start, pcs: vec![] };
+    let mut breakpoint = BinaryBreakpoint {
+        offset: start,
+        pcs: vec![],
+    };
 
     for (word, branch) in emit.instructions {
         let pc = pc_for_region(&region.raw, Some(start))?;
@@ -831,7 +881,11 @@ pub fn do_instruction(
         let offset = region.raw.data.len();
 
         if let Some(label) = branch {
-            region.labels.push(BinaryBuilderLabel { offset, start, label });
+            region.labels.push(BinaryBuilderLabel {
+                offset,
+                start,
+                label,
+            });
         }
 
         region.raw.data.write_u32::<LittleEndian>(word).unwrap();

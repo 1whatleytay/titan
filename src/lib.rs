@@ -1,4 +1,4 @@
-pub mod cpu;
-pub mod elf;
-pub mod debug;
 pub mod assembler;
+pub mod cpu;
+pub mod debug;
+pub mod elf;

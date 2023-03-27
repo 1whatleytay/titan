@@ -1,8 +1,8 @@
-use crate::elf::{Elf, Header};
 use crate::assembler::binary::Binary;
 use crate::elf::header::{BinaryType, Endian, InstructionSet, MAGIC};
-use crate::elf::program::{ProgramHeader, ProgramHeaderFlags};
 use crate::elf::program::ProgramHeaderType::Load;
+use crate::elf::program::{ProgramHeader, ProgramHeaderFlags};
+use crate::elf::{Elf, Header};
 
 impl Binary {
     fn default_header(&self) -> Header {
@@ -24,8 +24,7 @@ impl Binary {
         let mut result = vec![];
 
         for region in &self.regions {
-            let default_flags = ProgramHeaderFlags::READABLE
-                | ProgramHeaderFlags::WRITABLE;
+            let default_flags = ProgramHeaderFlags::READABLE | ProgramHeaderFlags::WRITABLE;
 
             let flags = if region.address == self.entry {
                 default_flags | ProgramHeaderFlags::EXECUTABLE
@@ -50,11 +49,14 @@ impl Binary {
     }
 }
 
-impl Into<Elf> for Binary {
-    fn into(self) -> Elf {
-        let header = self.default_header();
-        let program_headers = self.program_headers();
+impl From<Binary> for Elf {
+    fn from(val: Binary) -> Self {
+        let header = val.default_header();
+        let program_headers = val.program_headers();
 
-        Elf { header, program_headers }
+        Elf {
+            header,
+            program_headers,
+        }
     }
 }

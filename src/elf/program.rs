@@ -1,15 +1,15 @@
-use std::io::{Read, Seek, Write};
-use std::io::SeekFrom::Start;
-use bitflags::bitflags;
-use num_derive::{ToPrimitive, FromPrimitive};
-use num_traits::{FromPrimitive, ToPrimitive};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::elf::error::Error::InvalidHeaderType;
 use crate::elf::error::Result;
-use crate::elf::landmark::Landmark::ProgramHeaderData;
+use crate::elf::landmark::Landmark::Data;
 use crate::elf::landmark::Landmarks;
 use crate::elf::landmark::PointerSize::Bit32;
 use crate::elf::program::ProgramHeaderType::Null;
+use bitflags::bitflags;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
+use std::io::SeekFrom::Start;
+use std::io::{Read, Seek, Write};
 
 #[derive(ToPrimitive, FromPrimitive, Copy, Clone, Debug)]
 pub enum ProgramHeaderType {
@@ -30,7 +30,9 @@ bitflags! {
 }
 
 impl ProgramHeaderFlags {
-    pub fn known_mask() -> u32 { 0b111 }
+    pub fn known_mask() -> u32 {
+        0b111
+    }
 }
 
 #[derive(Debug)]
@@ -41,7 +43,7 @@ pub struct ProgramHeader {
     pub memory_size: u32,
     pub flags: ProgramHeaderFlags,
     pub alignment: u32,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl ProgramHeader {
@@ -63,8 +65,7 @@ impl ProgramHeader {
         stream.seek(Start(file_offset as u64))?;
         stream.read_exact(&mut data)?;
 
-        let flags = ProgramHeaderFlags::from_bits(
-            flags & ProgramHeaderFlags::known_mask())
+        let flags = ProgramHeaderFlags::from_bits(flags & ProgramHeaderFlags::known_mask())
             .unwrap_or(ProgramHeaderFlags::empty());
 
         Ok(ProgramHeader {
@@ -79,17 +80,22 @@ impl ProgramHeader {
     }
 
     pub fn write<T: Write + Seek>(
-        &self, stream: &mut T, landmark_index: usize
+        &self,
+        stream: &mut T,
+        landmark_index: usize,
     ) -> Result<Landmarks> {
         type Endian = LittleEndian;
 
         let mut landmarks = Landmarks::new();
 
-        let raw_header_type = self.header_type.unwrap_or(Null)
-            .to_u32().ok_or(InvalidHeaderType)?;
+        let raw_header_type = self
+            .header_type
+            .unwrap_or(Null)
+            .to_u32()
+            .ok_or(InvalidHeaderType)?;
         stream.write_u32::<Endian>(raw_header_type)?;
 
-        landmarks.request(Bit32, ProgramHeaderData(landmark_index), stream)?;
+        landmarks.request(Bit32, Data(landmark_index), stream)?;
         stream.write_u32::<Endian>(0)?;
 
         stream.write_u32::<Endian>(self.virtual_address)?;

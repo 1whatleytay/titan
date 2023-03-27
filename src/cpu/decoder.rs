@@ -108,7 +108,7 @@ pub trait Decoder<T> {
             41 => self.sltu(s, t, d),
             42 => self.slt(s, t, d),
 
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -123,7 +123,7 @@ pub trait Decoder<T> {
             16 => self.bltzal(s, imm),
             17 => self.bgezal(s, imm),
 
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -141,7 +141,7 @@ pub trait Decoder<T> {
             4 => self.msub(s, t),
             5 => self.msubu(s, t),
 
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -183,7 +183,7 @@ pub trait Decoder<T> {
             41 => self.sh(s, t, imm),
             43 => self.sw(s, t, imm),
 
-            _ => return None
+            _ => return None,
         })
     }
 }

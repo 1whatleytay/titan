@@ -1,25 +1,22 @@
-use num_traits::abs;
 use crate::cpu::decoder::Decoder;
+use num_traits::abs;
 
 pub trait LabelProvider {
     fn label_for(&mut self, address: u32) -> String;
 }
 
-pub struct HexLabelProvider { }
-
-impl Default for HexLabelProvider {
-    fn default() -> Self { HexLabelProvider { } }
-}
+#[derive(Default)]
+pub struct HexLabelProvider {}
 
 impl LabelProvider for HexLabelProvider {
     fn label_for(&mut self, address: u32) -> String {
-        return format!("0x{:08x}", address);
+        format!("0x{address:08x}")
     }
 }
 
 pub struct Disassembler<Provider: LabelProvider> {
     pub pc: u32,
-    pub labels: Provider
+    pub labels: Provider,
 }
 
 fn jump_dest(pc: u32, imm: u32) -> u32 {
@@ -65,15 +62,15 @@ fn reg(value: u8) -> &'static str {
         30 => "$fp",
         31 => "$ra",
 
-        _ => "$unk"
+        _ => "$unk",
     }
 }
 
 fn uns(imm: u16) -> String {
     if imm < 10 {
-        format!("{}", imm)
+        format!("{imm}")
     } else {
-        format!("0x{:x}", imm)
+        format!("0x{imm:x}")
     }
 }
 
@@ -81,7 +78,7 @@ fn sig(imm: u16) -> String {
     let value = imm as i16;
 
     if abs(value) < 10 {
-        format!("{}", value)
+        format!("{value}")
     } else {
         let sign = if value < 0 { "-" } else { "" };
 
@@ -90,7 +87,7 @@ fn sig(imm: u16) -> String {
 }
 
 fn hex(imm: u16) -> String {
-    format!("0x{:x}", imm)
+    format!("0x{imm:x}")
 }
 
 impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
@@ -347,10 +344,10 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn trap(&mut self) -> String {
-        format!("trap")
+        "trap".to_string()
     }
 
     fn syscall(&mut self) -> String {
-        format!("syscall")
+        "syscall".to_string()
     }
 }
