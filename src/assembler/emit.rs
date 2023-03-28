@@ -619,12 +619,12 @@ fn do_seq_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
 
     let sltu = InstructionBuilder::from_op(&Func(41))
         .with_dest(dest)
-        .with_source(source)
-        .with_temp(Zero)
+        .with_source(Zero)
+        .with_temp(dest)
         .0;
 
     let xori = InstructionBuilder::from_op(&Op(14))
-        .with_dest(dest)
+        .with_temp(dest)
         .with_source(dest)
         .with_immediate(1)
         .0;
@@ -649,8 +649,8 @@ fn do_sne_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
 
     let sltu = InstructionBuilder::from_op(&Func(41))
         .with_dest(dest)
-        .with_source(source)
-        .with_temp(Zero)
+        .with_source(Zero)
+        .with_temp(dest)
         .0;
 
     instructions.extend([(subu, None), (sltu, None)]);
