@@ -75,7 +75,7 @@ fn uns(imm: u16) -> String {
 }
 
 fn sig(imm: u16) -> String {
-    let value = imm as i16;
+    let value = imm as i16 as i64;
 
     if abs(value) < 10 {
         format!("{value}")

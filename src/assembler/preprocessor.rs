@@ -134,9 +134,10 @@ fn consume_macro<'a>(iter: &mut LexerCursor<'a, '_>) -> Result<Macro<'a>, Prepro
         let Some(next) = iter.next_adjacent() else { return Err(EndOfFile) };
 
         match next.kind {
-            RightBrace => break,
+            LeftBrace => continue,
+            RightBrace => continue,
             Parameter(name) => result.parameters.push(name),
-            NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
+            NewLine => break,
             _ => return Err(ExpectedParameter(next.kind.strip())),
         }
     }
