@@ -592,10 +592,11 @@ fn do_set_custom_instruction(
     let (slot, mut instructions) = emit_unpack_value(temp);
 
     let (first, second) = if greater_than {
-        (source, slot)
-    } else {
         (slot, source)
+    } else {
+        (source, slot)
     };
+
     let set_op = if unsigned { &Func(41) } else { &Func(42) };
 
     let set = InstructionBuilder::from_op(set_op)
