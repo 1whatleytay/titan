@@ -60,8 +60,8 @@ impl<Mem: Memory> DebuggerState<Mem> {
         self.frame_with_pc(self.state.registers.pc)
     }
 
-    pub fn cycle(&mut self, hit_breakpoint: bool) -> Option<DebugFrame> {
-        if !hit_breakpoint && self.breakpoints.contains(&self.state.registers.pc) {
+    pub fn cycle(&mut self, no_breakpoints: bool) -> Option<DebugFrame> {
+        if !no_breakpoints && self.breakpoints.contains(&self.state.registers.pc) {
             self.mode = Breakpoint;
 
             return Some(self.frame());
@@ -76,10 +76,6 @@ impl<Mem: Memory> DebuggerState<Mem> {
         } else {
             None
         }
-    }
-
-    pub fn pause(&mut self) {
-        self.mode = Paused
     }
 }
 
@@ -118,6 +114,10 @@ impl<Mem: Memory> Debugger<Mem> {
         let mut lock = self.mutex.lock().unwrap();
 
         lock.breakpoints = breakpoints
+    }
+
+    pub fn cycle(&self, no_breakpoints: bool) -> Option<DebugFrame> {
+        self.mutex.lock().unwrap().cycle(no_breakpoints)
     }
 
     pub fn run(&self) -> DebugFrame {
