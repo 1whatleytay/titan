@@ -22,6 +22,7 @@ pub enum ProgramHeaderType {
 }
 
 bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct ProgramHeaderFlags: u32 {
         const EXECUTABLE = 1 << 0;
         const WRITABLE = 1 << 1;
@@ -102,7 +103,7 @@ impl ProgramHeader {
         stream.write_u32::<Endian>(self.padding)?;
         stream.write_u32::<Endian>(self.data.len() as u32)?;
         stream.write_u32::<Endian>(self.memory_size)?;
-        stream.write_u32::<Endian>(self.flags.bits)?;
+        stream.write_u32::<Endian>(self.flags.bits())?;
         stream.write_u32::<Endian>(self.alignment)?;
 
         Ok(landmarks)
