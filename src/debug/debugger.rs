@@ -37,7 +37,7 @@ pub struct DebugFrame {
 }
 
 impl<Mem: Memory> DebuggerState<Mem> {
-    pub fn new(state: State<Mem>) -> DebuggerState<Mem> {
+    fn new(state: State<Mem>) -> DebuggerState<Mem> {
         DebuggerState {
             mode: Paused,
             state,
@@ -56,26 +56,8 @@ impl<Mem: Memory> DebuggerState<Mem> {
         }
     }
 
-    pub fn invalid_handled(&mut self) {
-        if let Invalid(_) = self.mode {
-            self.mode = Recovered
-        }
-    }
-
-    pub fn set_breakpoints(&mut self, breakpoints: Breakpoints) {
-        self.breakpoints = breakpoints
-    }
-
     pub fn frame(&self) -> DebugFrame {
         self.frame_with_pc(self.state.registers.pc)
-    }
-
-    pub fn state(&mut self) -> &mut State<Mem> {
-        &mut self.state
-    }
-
-    pub fn memory(&mut self) -> &mut Mem {
-        &mut self.state.memory
     }
 
     pub fn cycle(&mut self, hit_breakpoint: bool) -> Option<DebugFrame> {
@@ -106,6 +88,36 @@ impl<Mem: Memory> Debugger<Mem> {
         Debugger {
             mutex: Mutex::new(DebuggerState::new(state))
         }
+    }
+
+    pub fn frame(&self) -> DebugFrame {
+        self.mutex.lock().unwrap().frame()
+    }
+
+    pub fn with_state<F: FnOnce (&mut State<Mem>) -> ()>(&mut self, f: F) {
+        let mut lock = self.mutex.lock().unwrap();
+
+        f(&mut lock.state);
+    }
+
+    pub fn with_memory<F: FnOnce (&mut Mem) -> ()>(&mut self, f: F) {
+        let mut lock = self.mutex.lock().unwrap();
+
+        f(&mut lock.state.memory);
+    }
+
+    pub fn invalid_handled(&mut self) {
+        let mut lock = self.mutex.lock().unwrap();
+
+        if let Invalid(_) = lock.mode {
+            lock.mode = Recovered
+        }
+    }
+
+    pub fn set_breakpoints(&mut self, breakpoints: Breakpoints) {
+        let mut lock = self.mutex.lock().unwrap();
+
+        lock.breakpoints = breakpoints
     }
 
     pub fn run(&self) -> DebugFrame {
