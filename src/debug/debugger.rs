@@ -18,12 +18,16 @@ pub enum DebuggerMode {
 // Addresses
 type Breakpoints = HashSet<u32>;
 
-pub struct Debugger<Mem: Memory> {
+pub struct DebuggerState<Mem: Memory> {
     mode: DebuggerMode,
 
     state: State<Mem>,
     breakpoints: Breakpoints,
     batch: usize,
+}
+
+pub struct Debugger<Mem: Memory> {
+    mutex: Mutex<DebuggerState<Mem>>
 }
 
 #[derive(Debug)]
@@ -32,9 +36,9 @@ pub struct DebugFrame {
     pub registers: Registers,
 }
 
-impl<Mem: Memory> Debugger<Mem> {
-    pub fn new(state: State<Mem>) -> Debugger<Mem> {
-        Debugger {
+impl<Mem: Memory> DebuggerState<Mem> {
+    pub fn new(state: State<Mem>) -> DebuggerState<Mem> {
+        DebuggerState {
             mode: Paused,
             state,
             breakpoints: HashSet::new(),
@@ -95,10 +99,18 @@ impl<Mem: Memory> Debugger<Mem> {
     pub fn pause(&mut self) {
         self.mode = Paused
     }
+}
 
-    pub fn run(debugger: &Mutex<Debugger<Mem>>) -> DebugFrame {
+impl<Mem: Memory> Debugger<Mem> {
+    pub fn new(state: State<Mem>) -> Debugger<Mem> {
+        Debugger {
+            mutex: Mutex::new(DebuggerState::new(state))
+        }
+    }
+
+    pub fn run(&self) -> DebugFrame {
         let mut hit_breakpoint = {
-            let mut value = debugger.lock().unwrap();
+            let mut value = self.mutex.lock().unwrap();
 
             if value.mode == Running {
                 return value.frame();
@@ -111,7 +123,7 @@ impl<Mem: Memory> Debugger<Mem> {
         };
 
         loop {
-            let mut value = debugger.lock().unwrap();
+            let mut value = self.mutex.lock().unwrap();
 
             for _ in 0..value.batch {
                 if value.mode != Running {
