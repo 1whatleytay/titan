@@ -94,19 +94,19 @@ impl<Mem: Memory> Debugger<Mem> {
         self.mutex.lock().unwrap().frame()
     }
 
-    pub fn with_state<F: FnOnce (&mut State<Mem>) -> ()>(&mut self, f: F) {
+    pub fn with_state<F: FnOnce (&mut State<Mem>) -> ()>(&self, f: F) {
         let mut lock = self.mutex.lock().unwrap();
 
         f(&mut lock.state);
     }
 
-    pub fn with_memory<F: FnOnce (&mut Mem) -> ()>(&mut self, f: F) {
+    pub fn with_memory<F: FnOnce (&mut Mem) -> ()>(&self, f: F) {
         let mut lock = self.mutex.lock().unwrap();
 
         f(&mut lock.state.memory);
     }
 
-    pub fn invalid_handled(&mut self) {
+    pub fn invalid_handled(&self) {
         let mut lock = self.mutex.lock().unwrap();
 
         if let Invalid(_) = lock.mode {
@@ -114,7 +114,7 @@ impl<Mem: Memory> Debugger<Mem> {
         }
     }
 
-    pub fn set_breakpoints(&mut self, breakpoints: Breakpoints) {
+    pub fn set_breakpoints(&self, breakpoints: Breakpoints) {
         let mut lock = self.mutex.lock().unwrap();
 
         lock.breakpoints = breakpoints
