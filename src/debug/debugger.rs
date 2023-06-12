@@ -90,16 +90,16 @@ impl<Mem: Memory> Debugger<Mem> {
         self.mutex.lock().unwrap().frame()
     }
 
-    pub fn with_state<F: FnOnce (&mut State<Mem>) -> ()>(&self, f: F) {
+    pub fn with_state<T, F: FnOnce (&mut State<Mem>) -> T>(&self, f: F) -> T {
         let mut lock = self.mutex.lock().unwrap();
 
-        f(&mut lock.state);
+        f(&mut lock.state)
     }
 
-    pub fn with_memory<F: FnOnce (&mut Mem) -> ()>(&self, f: F) {
+    pub fn with_memory<T, F: FnOnce (&mut Mem) -> T>(&self, f: F) -> T {
         let mut lock = self.mutex.lock().unwrap();
 
-        f(&mut lock.state.memory);
+        f(&mut lock.state.memory)
     }
 
     pub fn invalid_handled(&self) {
