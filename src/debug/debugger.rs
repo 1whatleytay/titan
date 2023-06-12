@@ -90,6 +90,10 @@ impl<Mem: Memory> Debugger<Mem> {
         self.mutex.lock().unwrap().frame()
     }
 
+    pub fn pause(&self) {
+        self.mutex.lock().unwrap().mode = Paused
+    }
+
     pub fn with_state<T, F: FnOnce (&mut State<Mem>) -> T>(&self, f: F) -> T {
         let mut lock = self.mutex.lock().unwrap();
 
