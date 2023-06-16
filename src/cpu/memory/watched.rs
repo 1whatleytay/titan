@@ -3,21 +3,31 @@ use crate::cpu::Memory;
 use crate::cpu::error::Result;
 use crate::cpu::memory::watched::BackupValue::{Byte, Short, Word, Null};
 
-enum BackupValue {
+pub enum BackupValue {
     Byte(u8),
     Short(u16),
     Word(u32),
     Null
 }
 
-struct WatchEntry {
-    address: u32,
-    previous: BackupValue
+pub struct WatchEntry {
+    pub address: u32,
+    pub previous: BackupValue
 }
 
-struct WatchedMemory<T: Memory> {
+pub struct WatchedMemory<T: Memory> {
     backing: T,
     log: SmallVec<[WatchEntry; 4]>
+}
+
+impl<T: Memory> WatchedMemory<T> {
+    pub fn new(backing: T) -> WatchedMemory<T> {
+        WatchedMemory { backing, log: SmallVec::new() }
+    }
+
+    pub fn take(&mut self) -> SmallVec<[WatchEntry; 4]> {
+        std::mem::take(&mut self.log)
+    }
 }
 
 impl<T: Memory> Memory for WatchedMemory<T> {
