@@ -1,5 +1,6 @@
 use crate::cpu::{Memory, State};
 
 pub trait Tracker<Mem: Memory> {
-    fn track(&mut self, state: &mut State<Mem>);
+    fn pre_track(&mut self, state: &mut State<Mem>);
+    fn post_track(&mut self, state: &mut State<Mem>);
 }

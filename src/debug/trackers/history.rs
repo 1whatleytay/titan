@@ -13,7 +13,8 @@ pub struct HistoryEntry {
 pub struct HistoryTracker {
     buffer: Vec<Option<HistoryEntry>>,
     next: usize,
-    count: usize
+    count: usize,
+    registers: Option<Registers>
 }
 
 impl HistoryTracker {
@@ -21,7 +22,8 @@ impl HistoryTracker {
         HistoryTracker {
             buffer: repeat_with(|| None).take(capacity).collect(),
             next: 0,
-            count: 0
+            count: 0,
+            registers: None
         }
     }
 
@@ -51,11 +53,13 @@ impl HistoryTracker {
 }
 
 impl<Mem: Memory> Tracker<WatchedMemory<Mem>> for HistoryTracker {
-    fn track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
-        let entry = HistoryEntry {
-            registers: state.registers,
-            edits: state.memory.take()
-        };
+    fn pre_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
+        self.registers = Some(state.registers.clone())
+    }
+
+    fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
+        let Some(registers) = self.registers else { return };
+        let entry = HistoryEntry { registers, edits: state.memory.take() };
 
         self.push(entry);
     }
