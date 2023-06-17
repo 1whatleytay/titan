@@ -17,6 +17,16 @@ pub struct HistoryTracker {
     registers: Option<Registers>
 }
 
+impl HistoryEntry {
+    pub fn apply<Mem: Memory>(self, state: &mut State<Mem>) {
+        state.registers = self.registers;
+
+        for entry in self.edits {
+            entry.apply(&mut state.memory).ok(); // ignore error
+        }
+    }
+}
+
 impl HistoryTracker {
     pub fn new(capacity: usize) -> HistoryTracker {
         HistoryTracker {

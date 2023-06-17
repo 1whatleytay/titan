@@ -20,6 +20,17 @@ pub struct WatchedMemory<T: Memory> {
     log: SmallVec<[WatchEntry; 4]>
 }
 
+impl WatchEntry {
+    pub fn apply<Mem: Memory>(self, memory: &mut Mem) -> Result<()> {
+        match self.previous {
+            Byte(value) => memory.set(self.address, value),
+            Short(value) => memory.set_u16(self.address, value),
+            Word(value) => memory.set_u32(self.address, value),
+            Null => { Ok(()) }
+        }
+    }
+}
+
 impl<T: Memory> WatchedMemory<T> {
     pub fn new(backing: T) -> WatchedMemory<T> {
         WatchedMemory { backing, log: SmallVec::new() }

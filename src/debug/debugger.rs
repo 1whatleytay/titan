@@ -5,6 +5,8 @@ use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Recovere
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
+use crate::debug::trackers::empty::EmptyTracker;
+use crate::debug::trackers::Tracker;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DebuggerMode {
@@ -18,16 +20,18 @@ pub enum DebuggerMode {
 // Addresses
 type Breakpoints = HashSet<u32>;
 
-pub struct DebuggerState<Mem: Memory> {
+pub struct DebuggerState<Mem: Memory, Track: Tracker<Mem>> {
     mode: DebuggerMode,
 
     state: State<Mem>,
     breakpoints: Breakpoints,
     batch: usize,
+
+    tracker: Track
 }
 
-pub struct Debugger<Mem: Memory> {
-    mutex: Mutex<DebuggerState<Mem>>
+pub struct Debugger<Mem: Memory, Track: Tracker<Mem>> {
+    mutex: Mutex<DebuggerState<Mem, Track>>,
 }
 
 #[derive(Debug)]
@@ -36,13 +40,14 @@ pub struct DebugFrame {
     pub registers: Registers,
 }
 
-impl<Mem: Memory> DebuggerState<Mem> {
-    fn new(state: State<Mem>) -> DebuggerState<Mem> {
+impl<Mem: Memory, Track: Tracker<Mem>> DebuggerState<Mem, Track> {
+    fn new(state: State<Mem>, tracker: Track) -> DebuggerState<Mem, Track> {
         DebuggerState {
             mode: Paused,
             state,
             breakpoints: HashSet::new(),
             batch: 140,
+            tracker
         }
     }
 
@@ -69,7 +74,11 @@ impl<Mem: Memory> DebuggerState<Mem> {
 
         let start_pc = self.state.registers.pc;
 
-        if let Err(err) = self.state.step() {
+        self.tracker.pre_track(&mut self.state);
+        let result = self.state.step();
+        self.tracker.post_track(&mut self.state);
+
+        if let Err(err) = result {
             self.mode = Invalid(err);
 
             Some(self.frame_with_pc(start_pc))
@@ -79,10 +88,16 @@ impl<Mem: Memory> DebuggerState<Mem> {
     }
 }
 
-impl<Mem: Memory> Debugger<Mem> {
-    pub fn new(state: State<Mem>) -> Debugger<Mem> {
+impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
+    pub fn new(state: State<Mem>, tracker: Track) -> Debugger<Mem, Track> {
         Debugger {
-            mutex: Mutex::new(DebuggerState::new(state))
+            mutex: Mutex::new(DebuggerState::new(state, tracker)),
+        }
+    }
+
+    pub fn from_state(state: State<Mem>) -> Debugger<Mem, EmptyTracker> {
+        Debugger {
+            mutex: Mutex::new(DebuggerState::new(state, EmptyTracker { }))
         }
     }
 
