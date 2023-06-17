@@ -1,4 +1,4 @@
-use crate::cpu::error::Error::MemoryUnmapped;
+use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
 use crate::cpu::error::Result;
 use crate::cpu::memory::section::Section::{Data, Empty, Writable};
 use crate::cpu::memory::{Mountable, Region};
@@ -143,9 +143,136 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
             }
             Listen(responder) => responder.write(address, value),
             Empty => Err(MemoryUnmapped(address)),
-            Writable(value) => {
-                let mut data = Self::allocate_data(*value);
-                data[index] = *value;
+            Writable(default) => {
+                let mut data = Self::allocate_data(*default);
+                data[index] = value;
+
+                self.sections[section] = Data(data);
+
+                Ok(())
+            }
+        }
+    }
+
+    fn get_u16(&self, address: u32) -> Result<u16> {
+        if address % 2 != 0 {
+            return Err(MemoryAlign(address))
+        }
+
+        let (section, index) = split(address);
+
+        fn glue(a: u8, b: u8) -> u16 {
+            a as u16 | ((b as u16) << 8)
+        }
+
+        match &self.sections[section] {
+            Data(section) =>
+                Ok(glue(section[index], section[index + 1])),
+            Listen(responder) =>
+                Ok(glue(responder.read(address)?, responder.read(address + 1)?)),
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(value) => Ok(glue(*value, *value)),
+        }
+    }
+
+    fn get_u32(&self, address: u32) -> Result<u32> {
+        if address % 4 != 0 {
+            return Err(MemoryAlign(address))
+        }
+
+        let (section, index) = split(address);
+
+        fn glue(a: u8, b: u8, c: u8, d: u8) -> u32 {
+            a as u32 | ((b as u32) << 8) | ((c as u32) << 16) | ((d as u32) << 24)
+        }
+
+        match &self.sections[section] {
+            Data(section) => Ok(glue(
+                section[index],
+                section[index + 1],
+                section[index + 2],
+                section[index + 3]
+            )),
+            Listen(responder) => Ok(glue(
+                responder.read(address)?,
+                responder.read(address + 1)?,
+                responder.read(address + 2)?,
+                responder.read(address + 3)?
+            )),
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(value) => Ok(glue(*value, *value, *value, *value)),
+        }
+    }
+
+    fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
+        if address % 2 != 0 {
+            return Err(MemoryAlign(address))
+        }
+
+        let (section, index) = split(address);
+
+        let (a, b) = ((value & 0xFF) as u8, ((value >> 8) & 0xFF) as u8);
+
+        match &mut self.sections[section] {
+            Data(section) => {
+                section[index] = a;
+                section[index + 1] = b;
+
+                Ok(())
+            }
+            Listen(responder) => {
+                responder.write(address, a)?;
+                responder.write(address + 1, b)
+            },
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(default) => {
+                let mut data = Self::allocate_data(*default);
+                data[index] = a;
+                data[index + 1] = b;
+
+                self.sections[section] = Data(data);
+
+                Ok(())
+            }
+        }
+    }
+
+    fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
+        if address % 4 != 0 {
+            return Err(MemoryAlign(address))
+        }
+
+        let (section, index) = split(address);
+
+        let (a, b, c, d) = (
+            (value & 0xFF) as u8,
+            ((value >> 8) & 0xFF) as u8,
+            ((value >> 16) & 0xFF) as u8,
+            ((value >> 24) & 0xFF) as u8
+        );
+
+        match &mut self.sections[section] {
+            Data(section) => {
+                section[index] = a;
+                section[index + 1] = b;
+                section[index + 2] = c;
+                section[index + 3] = d;
+
+                Ok(())
+            }
+            Listen(responder) => {
+                responder.write(address, a)?;
+                responder.write(address + 1, b)?;
+                responder.write(address + 2, c)?;
+                responder.write(address + 3, d)
+            },
+            Empty => Err(MemoryUnmapped(address)),
+            Writable(default) => {
+                let mut data = Self::allocate_data(*default);
+                data[index] = a;
+                data[index + 1] = b;
+                data[index + 2] = c;
+                data[index + 3] = d;
 
                 self.sections[section] = Data(data);
 
