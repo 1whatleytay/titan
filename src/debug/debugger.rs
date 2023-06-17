@@ -121,6 +121,12 @@ impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
         f(&mut lock.state.memory)
     }
 
+    pub fn with_tracker<T, F: FnOnce (&mut Track) -> T>(&self, f: F) -> T {
+        let mut lock = self.mutex.lock().unwrap();
+
+        f(&mut lock.tracker)
+    }
+
     pub fn invalid_handled(&self) {
         let mut lock = self.mutex.lock().unwrap();
 
