@@ -17,7 +17,7 @@ pub struct WatchEntry {
 }
 
 pub struct WatchedMemory<T: Memory> {
-    backing: T,
+    pub backing: T,
     log: SmallVec<[WatchEntry; 4]>
 }
 
