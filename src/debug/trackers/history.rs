@@ -49,12 +49,10 @@ impl HistoryTracker {
     }
 
     pub fn pop(&mut self) -> Option<HistoryEntry> {
-        let entry = self.buffer[self.next].take();
-
         self.next = self.next.checked_sub(1).unwrap_or(self.buffer.len() - 1);
         self.count = self.count.checked_sub(1).unwrap_or(0);
 
-        entry
+        self.buffer[self.next].take()
     }
 
     pub fn len(&self) -> usize {
