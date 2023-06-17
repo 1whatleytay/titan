@@ -1,6 +1,7 @@
 use smallvec::SmallVec;
 use crate::cpu::Memory;
 use crate::cpu::error::Result;
+use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::memory::watched::BackupValue::{Byte, Short, Word, Null};
 
 pub enum BackupValue {
@@ -76,5 +77,11 @@ impl<T: Memory> Memory for WatchedMemory<T> {
         });
 
         self.backing.set_u32(address, value)
+    }
+}
+
+impl<T: Memory + Mountable> Mountable for WatchedMemory<T> {
+    fn mount(&mut self, region: Region) {
+        self.backing.mount(region)
     }
 }
