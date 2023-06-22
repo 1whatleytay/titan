@@ -1,64 +1,85 @@
-use crate::assembler::assembler_util::AssemblerError;
-use crate::assembler::binary::Binary;
-use crate::assembler::core::assemble;
-use crate::assembler::instructions::INSTRUCTIONS;
-use crate::assembler::lexer::{lex, LexerError};
-use crate::assembler::preprocessor::{preprocess, PreprocessorError};
-use crate::assembler::source::SourceError::{Assembler, Lexer, Preprocessor};
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fs;
+use typed_arena::Arena;
+use std::path::PathBuf;
+use crate::assembler::lexer::{lex, LexerError, Token};
+use crate::assembler::source::ExtendError::{FailedToRead, LexerFailed, NotSupported};
 
-#[derive(Debug)]
-pub enum SourceError {
-    Lexer(LexerError),
-    Preprocessor(PreprocessorError),
-    Assembler(AssemblerError),
+pub enum ExtendError {
+    NotSupported,
+    FailedToRead(String),
+    LexerFailed(LexerError)
 }
 
-impl SourceError {
-    pub fn start(&self) -> Option<usize> {
-        match self {
-            Lexer(error) => Some(error.start),
-            Preprocessor(error) => Some(error.start),
-            Assembler(error) => error.start,
-        }
+pub trait TokenProvider<'a>: Sized {
+    fn get(&self) -> &[Token<'a>];
+
+    fn extend(&self, path: &str) -> Result<Self, ExtendError>;
+}
+
+pub struct HoldingProvider<'a> {
+    tokens: Vec<Token<'a>>
+}
+
+impl<'a> HoldingProvider<'a> {
+    pub fn new(tokens: Vec<Token<'a>>) -> HoldingProvider {
+        HoldingProvider { tokens }
+    }
+
+    pub fn from_source(source: &str) -> Result<HoldingProvider, LexerError> {
+        Ok(HoldingProvider { tokens: lex(source)? })
     }
 }
 
-impl From<LexerError> for SourceError {
-    fn from(value: LexerError) -> Self {
-        Lexer(value)
+impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
+    fn get(&self) -> &[Token<'a>] {
+        &self.tokens
+    }
+
+    fn extend(&self, _: &str) -> Result<Self, ExtendError> {
+        Err(NotSupported)
     }
 }
 
-impl From<PreprocessorError> for SourceError {
-    fn from(value: PreprocessorError) -> Self {
-        Preprocessor(value)
+pub struct FileProviderPool(Arena<Box<String>>);
+
+impl FileProviderPool {
+    pub fn new() -> FileProviderPool {
+        FileProviderPool(Arena::new())
+    }
+
+    pub fn provider(&self, path: PathBuf) -> Result<FileProvider, ExtendError> {
+        let source = fs::read_to_string(&path)
+            .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
+
+        let tokens = {
+            let item = self.0.alloc(Box::new(source));
+
+            lex(&**item).map_err(|e| LexerFailed(e))?
+        };
+
+        Ok(FileProvider {
+            pool: self,
+            tokens,
+            path
+        })
     }
 }
 
-impl From<AssemblerError> for SourceError {
-    fn from(value: AssemblerError) -> Self {
-        Assembler(value)
-    }
+pub struct FileProvider<'a> {
+    pool: &'a FileProviderPool,
+    tokens: Vec<Token<'a>>,
+    path: PathBuf
 }
 
-impl Display for SourceError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Lexer(error) => Display::fmt(error, f),
-            Preprocessor(error) => Display::fmt(error, f),
-            Assembler(error) => Display::fmt(error, f),
-        }
+
+impl<'a> TokenProvider<'a> for FileProvider<'a> {
+    fn get(&self) -> &[Token<'a>] {
+        &self.tokens
     }
-}
 
-impl Error for SourceError {}
+    fn extend(&self, path: &str) -> Result<Self, ExtendError> {
+        let file = self.path.with_extension(path);
 
-pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
-    let items = lex(source)?;
-    let items = preprocess(&items)?;
-    let binary = assemble(&items, &INSTRUCTIONS)?;
-
-    Ok(binary)
+        self.pool.provider(file)
+    }
 }
