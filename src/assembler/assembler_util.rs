@@ -5,7 +5,7 @@ use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{
     IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol,
 };
-use crate::assembler::lexer::{StrippedKind, Token, TokenKind};
+use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::RegisterSlot;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -64,7 +64,7 @@ impl Display for AssemblerReason {
 
 #[derive(Debug)]
 pub struct AssemblerError {
-    pub start: Option<usize>,
+    pub location: Option<Location>,
     pub reason: AssemblerReason,
 }
 
@@ -74,11 +74,11 @@ impl Display for AssemblerError {
     }
 }
 
-pub fn pc_for_region(region: &RawRegion, start: Option<usize>) -> Result<u32, AssemblerError> {
+pub fn pc_for_region(region: &RawRegion, location: Option<Location>) -> Result<u32, AssemblerError> {
     region.pc().ok_or_else(|| {
         let reason = AssemblerReason::OverwriteEdge(region.address, Some(region.data.len() as u64));
 
-        AssemblerError { start, reason }
+        AssemblerError { location, reason }
     })
 }
 
@@ -86,19 +86,19 @@ impl Error for AssemblerError {}
 
 pub fn get_token<'a, 'b>(iter: &mut LexerCursor<'a, 'b>) -> Result<&'b Token<'a>, AssemblerError> {
     iter.next_adjacent().ok_or(AssemblerError {
-        start: None,
+        location: None,
         reason: AssemblerReason::EndOfFile,
     })
 }
 
 fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
-    let start = if token.kind == NewLine {
+    let location = if token.kind == NewLine {
         None
     } else {
-        Some(token.start)
+        Some(token.location)
     };
 
-    AssemblerError { start, reason }
+    AssemblerError { location, reason }
 }
 
 pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
@@ -237,7 +237,7 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
 
                 Ok(Label(NamedLabel {
                     name: value.get().to_string(),
-                    start: token.start,
+                    location: token.location,
                     offset,
                 }))
             }
@@ -276,7 +276,7 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
 
         let Some(right) = iter.next_adjacent() else {
             return Err(AssemblerError {
-                start: None,
+                location: None,
                 reason: AssemblerReason::EndOfFile
             })
         };
@@ -296,11 +296,11 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
     }
 }
 
-pub fn default_start(start: usize) -> impl Fn(AssemblerError) -> AssemblerError {
+pub fn default_start(location: Location) -> impl Fn(AssemblerError) -> AssemblerError {
     move |error| {
-        if error.start.is_none() {
+        if error.location.is_none() {
             AssemblerError {
-                start: Some(start),
+                location: Some(location),
                 reason: error.reason,
             }
         } else {

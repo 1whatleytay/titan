@@ -117,9 +117,15 @@ impl<'a> TokenKind<'a> {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct Location {
+    pub source: usize,
+    pub index: usize
+}
+
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
-    pub start: usize,
+    pub location: Location,
     pub kind: TokenKind<'a>,
 }
 
@@ -146,7 +152,7 @@ impl Display for LexerReason {
 
 #[derive(Debug)]
 pub struct LexerError {
-    pub start: usize,
+    pub location: Location,
     pub reason: LexerReason,
 }
 
@@ -378,29 +384,34 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     }
 }
 
-pub fn lex(mut input: &str) -> Result<Vec<Token>, LexerError> {
+pub fn lex_with_source(mut input: &str, source: usize) -> Result<Vec<Token>, LexerError> {
     let begin = input;
     let mut result = vec![];
 
     while !input.is_empty() {
         let trail = input;
         let start = offset_from_start(begin, trail);
+        let location = Location { source, index: start };
 
         let Some((next, kind)) = lex_item(input)
-            .map_err(|reason| LexerError { start, reason })? else {
+            .map_err(|reason| LexerError { location, reason })? else {
             break
         };
 
         if ptr::eq(trail.as_ptr(), next.as_ptr()) {
             return Err(LexerError {
-                start,
+                location,
                 reason: Stuck,
             });
         }
 
-        result.push(Token { start, kind });
+        result.push(Token { location, kind });
         input = next;
     }
 
     Ok(result)
+}
+
+pub fn lex(input: &str) -> Result<Vec<Token>, LexerError> {
+    lex_with_source(input, 0)
 }

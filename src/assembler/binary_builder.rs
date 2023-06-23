@@ -8,6 +8,7 @@ use crate::assembler::binary_builder::BinarySection::Text;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
+use crate::assembler::lexer::Location;
 
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerError> {
     match label {
@@ -17,7 +18,7 @@ fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, A
             .copied()
             .map(|value| value.wrapping_add(name.offset as u32))
             .ok_or(AssemblerError {
-                start: Some(name.start),
+                location: Some(name.location),
                 reason: UnknownLabel(name.name),
             }),
     }
@@ -26,12 +27,12 @@ fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, A
 fn add_label(
     instruction: u32,
     pc: u32,
-    start: usize,
+    location: Location,
     label: InstructionLabel,
     map: &HashMap<String, u32>,
 ) -> Result<u32, AssemblerError> {
     let make_out_of_range = |destination: u32| AssemblerError {
-        start: Some(start),
+        location: Some(location),
         reason: JumpOutOfRange(destination, pc),
     };
 
@@ -75,7 +76,7 @@ fn add_label(
 
 pub struct BinaryBuilderLabel {
     pub offset: usize,
-    pub start: usize,
+    pub location: Location,
     pub label: InstructionLabel,
 }
 
@@ -176,7 +177,7 @@ impl BinaryBuilder {
         let mut binary = Binary::new();
 
         const MISSING: AssemblerError = AssemblerError {
-            start: None,
+            location: None,
             reason: MissingInstruction,
         };
 
@@ -194,7 +195,7 @@ impl BinaryBuilder {
                     return Err(MISSING)
                 };
 
-                let result = add_label(instruction, pc, label.start, label.label, &self.labels)?;
+                let result = add_label(instruction, pc, label.location, label.label, &self.labels)?;
 
                 let mut_bytes = &mut raw.data[label.offset..label.offset + 4];
 

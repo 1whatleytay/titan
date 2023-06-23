@@ -18,6 +18,7 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
+use crate::assembler::lexer::Location;
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {
@@ -381,7 +382,7 @@ fn do_immediate_instruction(
             Ok(EmitInstruction { instructions })
         } else {
             Err(AssemblerError {
-                start: None,
+                location: None,
                 reason: ConstantOutOfRange(-8000, 0x7fff),
             })
         }
@@ -841,7 +842,7 @@ fn dispatch_instruction(
     let Some(instruction) = map.get(&instruction) else {
         return dispatch_pseudo(instruction, iter)?
             .ok_or_else(|| AssemblerError {
-                start: None,
+                location: None,
                 reason: UnknownInstruction(instruction.to_string())
             });
     };
@@ -870,27 +871,25 @@ fn dispatch_instruction(
 
 pub fn do_instruction(
     instruction: &str,
-    start: usize,
+    location: Location,
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
     map: &HashMap<&str, &Instruction>,
 ) -> Result<(), AssemblerError> {
     let lowercase = instruction.to_lowercase();
 
-    let emit = dispatch_instruction(&lowercase, iter, map).map_err(default_start(start))?;
+    let emit = dispatch_instruction(&lowercase, iter, map)
+        .map_err(default_start(location))?;
 
     let region = builder.region().ok_or(AssemblerError {
-        start: Some(start),
+        location: Some(location),
         reason: MissingRegion,
     })?;
 
-    let mut breakpoint = BinaryBreakpoint {
-        offset: start,
-        pcs: vec![],
-    };
+    let mut breakpoint = BinaryBreakpoint { location, pcs: vec![] };
 
     for (word, branch) in emit.instructions {
-        let pc = pc_for_region(&region.raw, Some(start))?;
+        let pc = pc_for_region(&region.raw, Some(location))?;
 
         breakpoint.pcs.push(pc);
 
@@ -899,7 +898,7 @@ pub fn do_instruction(
         if let Some(label) = branch {
             region.labels.push(BinaryBuilderLabel {
                 offset,
-                start,
+                location,
                 label,
             });
         }

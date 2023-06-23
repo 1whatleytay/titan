@@ -1,6 +1,7 @@
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use std::collections::HashMap;
 use std::hash::Hash;
+use crate::assembler::lexer::Location;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinarySection {
@@ -32,7 +33,7 @@ impl BinarySection {
 #[derive(Clone, Debug)]
 pub struct NamedLabel {
     pub name: String,
-    pub start: usize,
+    pub location: Location,
     pub offset: u64,
 }
 
@@ -60,7 +61,7 @@ impl RawRegion {
 
 #[derive(Debug)]
 pub struct BinaryBreakpoint {
-    pub offset: usize,
+    pub location: Location,
     pub pcs: Vec<u32>,
 }
 
@@ -72,17 +73,20 @@ pub struct Binary {
 }
 
 fn build_breakpoint_map(
-    breakpoints: &Vec<BinaryBreakpoint>,
+    breakpoints: &Vec<BinaryBreakpoint>, id: usize
 ) -> HashMap<usize, Vec<&BinaryBreakpoint>> {
     // offset -> breakpoints
     let mut result: HashMap<usize, Vec<&BinaryBreakpoint>> = HashMap::new();
 
     for breakpoint in breakpoints {
-        if let Some(list) = result.get_mut(&breakpoint.offset) {
-            list.push(breakpoint);
-        } else {
-            result.insert(breakpoint.offset, vec![breakpoint]);
+        if breakpoint.location.source != id {
+            continue
         }
+
+        let offset = breakpoint.location.index;
+        let list = result.entry(offset).or_default();
+
+        list.push(breakpoint);
     }
 
     result
@@ -94,9 +98,9 @@ pub struct SourceBreakpoint {
     pub pcs: Vec<u32>, // anchor breakpoint is the first in the list
 }
 
-pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<SourceBreakpoint> {
+pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str, id: usize) -> Vec<SourceBreakpoint> {
     let mut result: Vec<SourceBreakpoint> = vec![];
-    let map = build_breakpoint_map(map);
+    let map = build_breakpoint_map(map, id);
 
     let mut line_number = 0;
     let mut input = source;
@@ -125,8 +129,8 @@ pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str) -> Vec<Sour
 }
 
 impl Binary {
-    pub fn source_breakpoints(&self, source: &str) -> Vec<SourceBreakpoint> {
-        source_breakpoints(&self.breakpoints, source)
+    pub fn source_breakpoints(&self, source: &str, id: usize) -> Vec<SourceBreakpoint> {
+        source_breakpoints(&self.breakpoints, source, id)
     }
 
     pub fn new() -> Binary {

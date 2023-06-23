@@ -2,7 +2,7 @@ use crate::assembler::assembler_util::AssemblerError;
 use crate::assembler::binary::Binary;
 use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
-use crate::assembler::lexer::{lex, LexerError};
+use crate::assembler::lexer::{lex, LexerError, Location};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
 use std::error::Error;
@@ -17,11 +17,11 @@ pub enum SourceError {
 }
 
 impl SourceError {
-    pub fn start(&self) -> Option<usize> {
+    pub fn start(&self) -> Option<Location> {
         match self {
-            Lexer(error) => Some(error.start),
-            Preprocessor(error) => Some(error.start),
-            Assembler(error) => error.start,
+            Lexer(error) => Some(error.location),
+            Preprocessor(error) => Some(error.location),
+            Assembler(error) => error.location,
         }
     }
 }

@@ -9,7 +9,7 @@ use crate::assembler::emit::do_instruction;
 use crate::assembler::instructions::instructions_map;
 use crate::assembler::instructions::Instruction;
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, Minus, Plus, Symbol};
-use crate::assembler::lexer::{Token, TokenKind};
+use crate::assembler::lexer::{Location, Token, TokenKind};
 use std::collections::HashMap;
 
 enum SymbolType {
@@ -19,7 +19,7 @@ enum SymbolType {
 
 fn do_symbol(
     name: &str,
-    start: usize,
+    location: Location,
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
     map: &HashMap<&str, &Instruction>,
@@ -27,7 +27,7 @@ fn do_symbol(
     // We need this region!
 
     let region = builder.region().ok_or(AssemblerError {
-        start: Some(start),
+        location: Some(location),
         reason: MissingRegion,
     })?;
 
@@ -35,13 +35,13 @@ fn do_symbol(
         Some(token) if token.kind == TokenKind::Colon => {
             iter.next(); // consume
 
-            let pc = pc_for_region(&region.raw, Some(start))?;
+            let pc = pc_for_region(&region.raw, Some(location))?;
             builder.labels.insert(name.to_string(), pc);
 
             Ok(SymbolType::Label)
         }
         _ => {
-            do_instruction(name, start, iter, builder, map)?;
+            do_instruction(name, location, iter, builder, map)?;
 
             Ok(SymbolType::Instruction)
         }
@@ -56,14 +56,14 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
     let mut builder = BinaryBuilder::new();
     builder.seek_mode(Text);
 
-    let mut last_directive = Option::<(&str, usize)>::None;
+    let mut last_directive = Option::<(&str, Location)>::None;
 
     while let Some(token) = cursor.seek_without(is_solid_kind) {
         match &token.kind {
             Plus | Minus | IntegerLiteral(_) => {
                 let Some((directive, start)) = last_directive else {
                     return Err(AssemblerError {
-                        start: Some(token.start),
+                        location: Some(token.location),
                         reason: UnexpectedToken(token.kind.strip())
                     })
                 };
@@ -77,12 +77,12 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
 
         match &token.kind {
             Directive(directive) => {
-                last_directive = Some((directive, token.start));
+                last_directive = Some((directive, token.location));
 
-                do_directive(directive, token.start, &mut cursor, &mut builder)?
+                do_directive(directive, token.location, &mut cursor, &mut builder)?
             }
             Symbol(name) => {
-                let result = do_symbol(name.get(), token.start, &mut cursor, &mut builder, &map)?;
+                let result = do_symbol(name.get(), token.location, &mut cursor, &mut builder, &map)?;
 
                 if let SymbolType::Instruction = result {
                     last_directive = None;
@@ -90,7 +90,7 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
             }
             _ => {
                 return Err(AssemblerError {
-                    start: Some(token.start),
+                    location: Some(token.location),
                     reason: UnexpectedToken(token.kind.strip()),
                 })
             }

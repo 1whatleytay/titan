@@ -13,12 +13,12 @@ use crate::assembler::binary_builder::{
 };
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
-use crate::assembler::lexer::{Token, TokenKind};
+use crate::assembler::lexer::{Location, Token, TokenKind};
 use byteorder::{ByteOrder, LittleEndian};
 use TokenKind::LeftBrace;
 
 const MISSING_REGION: AssemblerError = AssemblerError {
-    start: None,
+    location: None,
     reason: MissingRegion,
 };
 
@@ -81,7 +81,7 @@ fn do_align_directive(
 
     if !(0..=16).contains(&shift) {
         return Err(AssemblerError {
-            start: None,
+            location: None,
             reason: ConstantOutOfRange(0, 16),
         });
     }
@@ -120,7 +120,7 @@ fn do_space_directive(
     if byte_count > MAX_ZERO {
         let Some(target) = pc.checked_add(byte_count as u32) else {
             return Err(AssemblerError {
-                start: None,
+                location: None,
                 reason: OverwriteEdge(pc, Some(byte_count as u64))
             })
         };
@@ -162,19 +162,19 @@ fn grab_value(
         iter.next();
 
         let Some(token) = iter.next_adjacent() else {
-            return Err(AssemblerError { start: None, reason: EndOfFile });
+            return Err(AssemblerError { location: None, reason: EndOfFile });
         };
 
         let Some(value) = get_integer(token, iter, false) else {
             return Err(AssemblerError {
-                start: Some(token.start),
+                location: Some(token.location),
                 reason: ExpectedConstant(token.kind.strip())
             })
         };
 
         if value > REPEAT_LIMIT {
             return Err(AssemblerError {
-                start: Some(token.start),
+                location: Some(token.location),
                 reason: ConstantOutOfRange(0, REPEAT_LIMIT as i64),
             });
         }
@@ -215,7 +215,7 @@ fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>
 
             let address = NamedLabel {
                 name: name.get().to_string(),
-                start: value.start,
+                location: value.location,
                 offset: 0,
             };
 
@@ -321,7 +321,7 @@ fn do_word_directive(
                 region.raw.data.extend_from_slice(&[0u8; 4]);
                 region.labels.push(BinaryBuilderLabel {
                     offset,
-                    start: label.start,
+                    location: label.location,
                     label: InstructionLabel {
                         kind: InstructionLabelKind::Full,
                         label: Label(label),
@@ -351,14 +351,14 @@ fn do_word_directive(
 // Don't want to deal with this until coprocessor
 fn do_float_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
     Err(AssemblerError {
-        start: None,
+        location: None,
         reason: UnknownDirective("float".to_string()),
     })
 }
 
 fn do_double_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
     Err(AssemblerError {
-        start: None,
+        location: None,
         reason: UnknownDirective("double".to_string()),
     })
 }
@@ -375,7 +375,7 @@ fn do_extern_directive(
 
 pub fn do_directive(
     directive: &str,
-    start: usize,
+    location: Location,
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
@@ -401,9 +401,9 @@ pub fn do_directive(
 
         "extern" => do_extern_directive(iter, builder),
         _ => Err(AssemblerError {
-            start: Some(start),
+            location: Some(location),
             reason: UnknownDirective(directive.to_string()),
         }),
     }
-    .map_err(default_start(start))
+    .map_err(default_start(location))
 }

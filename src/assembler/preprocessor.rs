@@ -3,7 +3,7 @@ use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
 };
-use crate::assembler::lexer::{LexerError, StrippedKind, SymbolName, Token, TokenKind};
+use crate::assembler::lexer::{LexerError, Location, StrippedKind, SymbolName, Token, TokenKind};
 use crate::assembler::preprocessor::PreprocessorReason::{
     EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol,
     MacroParameterCount, MacroUnknown, MacroUnknownParameter, RecursiveExpansion,
@@ -65,7 +65,7 @@ impl Display for PreprocessorReason {
 
 #[derive(Debug)]
 pub struct PreprocessorError {
-    pub start: usize,
+    pub location: Location,
     pub reason: PreprocessorReason,
 }
 
@@ -270,7 +270,7 @@ fn expand_macro<'a, P: TokenProvider<'a>>(
         };
 
         result.push(Token {
-            start: token.start,
+            location: token.location,
             kind: mapped_kind,
         });
     }
@@ -285,7 +285,7 @@ fn expand_macro<'a, P: TokenProvider<'a>>(
 
 fn handle_symbol<'a, P: TokenProvider<'a>>(
     name: &SymbolName<'a>,
-    start: usize,
+    location: Location,
     iter: &mut LexerCursor<'a, '_>,
     provider: &P,
     cache: &mut Cache<'a>,
@@ -294,7 +294,7 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
         return Ok(tokens
             .iter()
             .map(|kind| Token {
-                start,
+                location,
                 kind: kind.clone(),
             })
             .collect());
@@ -304,7 +304,7 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
     let (position, token) = iter.peek_adjacent();
 
     let Some(last) = token else {
-        return Ok(vec![Token { start, kind: Symbol(name.clone()) }])
+        return Ok(vec![Token { location, kind: Symbol(name.clone()) }])
     };
 
     match last.kind {
@@ -313,7 +313,7 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
         }
         _ => {
             return Ok(vec![Token {
-                start,
+                location,
                 kind: Symbol(name.clone()),
             }])
         }
@@ -355,7 +355,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
 
     while let Some(element) = iter.next() {
         let fail = |reason: PreprocessorReason| PreprocessorError {
-            start: element.start,
+            location: element.location,
             reason,
         };
 
@@ -380,7 +380,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
                 _ => panic!(),
             },
             Symbol(name) => {
-                let mut elements = handle_symbol(name, element.start, &mut iter, provider, cache)
+                let mut elements = handle_symbol(name, element.location, &mut iter, provider, cache)
                     .map_err(fail)?;
 
                 result.append(&mut elements)
