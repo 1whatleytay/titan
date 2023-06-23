@@ -3,15 +3,17 @@ use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
 };
-use crate::assembler::lexer::{StrippedKind, SymbolName, Token, TokenKind};
+use crate::assembler::lexer::{LexerError, StrippedKind, SymbolName, Token, TokenKind};
 use crate::assembler::preprocessor::PreprocessorReason::{
     EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol,
     MacroParameterCount, MacroUnknown, MacroUnknownParameter, RecursiveExpansion,
+    IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile
 };
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use crate::assembler::source::{ExtendError, TokenProvider};
 
 #[derive(Debug)]
 pub enum PreprocessorReason {
@@ -20,10 +22,14 @@ pub enum PreprocessorReason {
     ExpectedParameter(StrippedKind),
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
+    ExpectedString(StrippedKind),
     RecursiveExpansion,
     MacroUnknown(String),
     MacroParameterCount(usize, usize), // expected, actual
     MacroUnknownParameter(String),
+    IncludeUnsupported,
+    FailedToFindFile(String),
+    FailedToLexFile(LexerError)
 }
 
 impl Display for PreprocessorReason {
@@ -39,6 +45,7 @@ impl Display for PreprocessorReason {
             }
             ExpectedLeftBrace(kind) => write!(f, "Expected a left brace, but found {kind}"),
             ExpectedRightBrace(kind) => write!(f, "Expected a right brace, but found {kind}"),
+            ExpectedString(kind) => write!(f, "Expected a string brace, but found {kind}"),
             RecursiveExpansion => write!(
                 f,
                 "Macro recursively calls itself, so preprocessor has stopped expanding"
@@ -49,6 +56,9 @@ impl Display for PreprocessorReason {
                 "Expected {expected} macro parameters, but passed {actual}"
             ),
             MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{name}\""),
+            IncludeUnsupported => write!(f, "Include is not supported in this file"),
+            FailedToFindFile(name) => write!(f, "Failed to find file \"{name}\""),
+            FailedToLexFile(error) => write!(f, "File has invalid format, {error}")
         }
     }
 }
@@ -180,9 +190,30 @@ fn consume_macro<'a>(iter: &mut LexerCursor<'a, '_>) -> Result<Macro<'a>, Prepro
     Ok(result)
 }
 
-fn expand_macro<'a>(
+fn consume_include<'a, P: TokenProvider<'a>>(
+    iter: &mut LexerCursor<'a, '_>, provider: &P, cache: &mut Cache<'a>
+) -> Result<Vec<Token<'a>>, PreprocessorReason> {
+    let next = iter.next().ok_or(EndOfFile)?;
+
+    let TokenKind::StringLiteral(path) = &next.kind else {
+        return Err(ExpectedString(next.kind.strip()))
+    };
+
+    let new_provider = provider.extend(path)
+        .map_err(|e| match e {
+            ExtendError::NotSupported => IncludeUnsupported,
+            ExtendError::FailedToRead(f) => FailedToFindFile(f),
+            ExtendError::LexerFailed(e) => FailedToLexFile(e)
+        })?;
+
+    preprocess_cached(&new_provider, new_provider.get(), cache)
+        .map_err(|e| e.reason) // strip any location info ATM
+}
+
+fn expand_macro<'a, P: TokenProvider<'a>>(
     macro_info: Rc<Macro<'a>>,
     parameters: Vec<Token<'a>>,
+    provider: &P,
     cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if cache.expanding.contains(&macro_info.name) {
@@ -244,17 +275,19 @@ fn expand_macro<'a>(
         });
     }
 
-    let result = preprocess_cached(&result, cache).map_err(|err| err.reason)?;
+    let result = preprocess_cached(provider, &result, cache)
+        .map_err(|err| err.reason)?;
 
     cache.expanding.remove(&macro_info.name);
 
     Ok(result)
 }
 
-fn handle_symbol<'a>(
+fn handle_symbol<'a, P: TokenProvider<'a>>(
     name: &SymbolName<'a>,
     start: usize,
     iter: &mut LexerCursor<'a, '_>,
+    provider: &P,
     cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     if let Some(tokens) = cache.tokens.get(name.get()) {
@@ -305,10 +338,11 @@ fn handle_symbol<'a>(
         }
     }
 
-    expand_macro(macro_info.clone(), parameters, cache)
+    expand_macro(macro_info.clone(), parameters, provider, cache)
 }
 
-fn preprocess_cached<'a>(
+fn preprocess_cached<'a, P: TokenProvider<'a>>(
+    provider: &P,
     items: &[Token<'a>],
     cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
@@ -337,11 +371,17 @@ fn preprocess_cached<'a>(
 
                     cache.macros.insert(value.name.clone(), Rc::new(value));
                 }
+                "include" => {
+                    let tokens = consume_include(&mut iter, provider, cache)
+                        .map_err(fail)?;
+
+                    result.extend(tokens);
+                }
                 _ => panic!(),
             },
             Symbol(name) => {
-                let mut elements =
-                    handle_symbol(name, element.start, &mut iter, cache).map_err(fail)?;
+                let mut elements = handle_symbol(name, element.start, &mut iter, provider, cache)
+                    .map_err(fail)?;
 
                 result.append(&mut elements)
             }
@@ -353,8 +393,10 @@ fn preprocess_cached<'a>(
     Ok(result)
 }
 
-pub fn preprocess<'a>(items: &[Token<'a>]) -> Result<Vec<Token<'a>>, PreprocessorError> {
+pub fn preprocess<'a, P: TokenProvider<'a>>(
+    provider: &P
+) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut cache = Cache::new();
 
-    preprocess_cached(items, &mut cache)
+    preprocess_cached(provider, provider.get(), &mut cache)
 }
