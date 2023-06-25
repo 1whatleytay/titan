@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::fs;
 use typed_arena::Arena;
 use std::path::PathBuf;
+use std::rc::Rc;
 use crate::assembler::lexer::{lex, lex_with_source, LexerError, Token};
 use crate::assembler::source::ExtendError::{FailedToRead, LexerFailed, NotSupported};
 
@@ -43,9 +44,15 @@ impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
     }
 }
 
+pub struct FileProviderSource {
+    pub id: usize,
+    pub path: PathBuf,
+    pub source: Rc<String>
+}
+
 pub struct FileProviderPool {
-    arena: Arena<Box<String>>,
-    sources: RefCell<Vec<PathBuf>>
+    arena: Arena<Rc<String>>,
+    sources: RefCell<Vec<FileProviderSource>>
 }
 
 impl FileProviderPool {
@@ -57,22 +64,22 @@ impl FileProviderPool {
     }
 
     pub fn provider(&self, path: PathBuf) -> Result<FileProvider, ExtendError> {
-        let id = {
-            let mut items = self.sources.borrow_mut();
-            let id = items.len();
-
-            items.push(path.clone());
-
-            id
-        };
-
         let source = fs::read_to_string(&path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
-        let tokens = {
-            let item = self.arena.alloc(Box::new(source));
+        let (id, tokens) = {
+            let source = Rc::new(source);
 
-            lex_with_source(&**item, id).map_err(|e| LexerFailed(e))?
+            let mut items = self.sources.borrow_mut();
+            let id = items.len();
+
+            items.push(FileProviderSource {
+                id, path: path.clone(), source: source.clone()
+            });
+
+            let item = self.arena.alloc(source);
+
+            (id, lex_with_source(&**item, id).map_err(|e| LexerFailed(e))?)
         };
 
         Ok(FileProvider {
