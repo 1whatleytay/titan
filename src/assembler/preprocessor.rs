@@ -56,7 +56,7 @@ impl Display for PreprocessorReason {
                 "Expected {expected} macro parameters, but passed {actual}"
             ),
             MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{name}\""),
-            IncludeUnsupported => write!(f, "Include is not supported in this file"),
+            IncludeUnsupported => write!(f, "Include is unsupported. Please save the file."),
             FailedToFindFile(name) => write!(f, "Failed to find file \"{name}\""),
             FailedToLexFile(error) => write!(f, "File has invalid format, {error}")
         }
