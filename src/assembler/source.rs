@@ -112,7 +112,7 @@ impl<'a> TokenProvider<'a> for FileProvider<'a> {
     fn extend(&self, path: &str) -> Result<Self, ExtendError> {
         let file = self.path.parent()
             .unwrap_or(&self.path)
-            .with_extension(path);
+            .join(path);
 
         self.pool.provider(file)
     }

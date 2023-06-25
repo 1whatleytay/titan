@@ -351,7 +351,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
 
     result.reserve(items.len());
 
-    let watched_directives = HashSet::from(["eqv", "macro"]);
+    let watched_directives = HashSet::from(["eqv", "macro", "include"]);
 
     while let Some(element) = iter.next() {
         let fail = |reason: PreprocessorReason| PreprocessorError {
