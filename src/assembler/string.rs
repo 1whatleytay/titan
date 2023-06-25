@@ -7,7 +7,8 @@ use crate::assembler::preprocessor::{preprocess, PreprocessorError};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use crate::assembler::source::HoldingProvider;
+use std::path::PathBuf;
+use crate::assembler::source::{FileProviderPool, HoldingProvider};
 
 #[derive(Debug)]
 pub enum SourceError {
@@ -59,6 +60,17 @@ impl Error for SourceError {}
 pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
     let items = lex(source)?;
     let provider = HoldingProvider::new(items);
+
+    let items = preprocess(&provider)?;
+    let binary = assemble(&items, &INSTRUCTIONS)?;
+
+    Ok(binary)
+}
+
+pub fn assemble_from_path(source: String, path: PathBuf) -> Result<Binary, SourceError> {
+    let pool = FileProviderPool::new();
+
+    let provider = pool.provider_sourced(source, path)?;
 
     let items = preprocess(&provider)?;
     let binary = assemble(&items, &INSTRUCTIONS)?;

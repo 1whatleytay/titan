@@ -63,7 +63,7 @@ impl FileProviderPool {
         }
     }
 
-    pub fn provider_sourced(&self, source: String, path: PathBuf) -> Result<FileProvider, ExtendError> {
+    pub fn provider_sourced(&self, source: String, path: PathBuf) -> Result<FileProvider, LexerError> {
         let (id, tokens) = {
             let source = Rc::new(source);
 
@@ -76,7 +76,7 @@ impl FileProviderPool {
 
             let item = self.arena.alloc(source);
 
-            (id, lex_with_source(&**item, id).map_err(|e| LexerFailed(e))?)
+            (id, lex_with_source(&**item, id)?)
         };
 
         Ok(FileProvider {
@@ -91,7 +91,7 @@ impl FileProviderPool {
         let source = fs::read_to_string(&path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
-        self.provider_sourced(source, path)
+        self.provider_sourced(source, path).map_err(|e| LexerFailed(e))
     }
 }
 
