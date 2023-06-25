@@ -63,10 +63,7 @@ impl FileProviderPool {
         }
     }
 
-    pub fn provider(&self, path: PathBuf) -> Result<FileProvider, ExtendError> {
-        let source = fs::read_to_string(&path)
-            .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
-
+    pub fn provider_sourced(&self, source: String, path: PathBuf) -> Result<FileProvider, ExtendError> {
         let (id, tokens) = {
             let source = Rc::new(source);
 
@@ -89,6 +86,13 @@ impl FileProviderPool {
             path
         })
     }
+
+    pub fn provider(&self, path: PathBuf) -> Result<FileProvider, ExtendError> {
+        let source = fs::read_to_string(&path)
+            .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
+
+        self.provider_sourced(source, path)
+    }
 }
 
 pub struct FileProvider<'a> {
@@ -106,7 +110,9 @@ impl<'a> TokenProvider<'a> for FileProvider<'a> {
     }
 
     fn extend(&self, path: &str) -> Result<Self, ExtendError> {
-        let file = self.path.with_extension(path);
+        let file = self.path.parent()
+            .unwrap_or(&self.path)
+            .with_extension(path);
 
         self.pool.provider(file)
     }
