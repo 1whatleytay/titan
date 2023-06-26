@@ -4,11 +4,7 @@ use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
 };
 use crate::assembler::lexer::{LexerError, Location, StrippedKind, SymbolName, Token, TokenKind};
-use crate::assembler::preprocessor::PreprocessorReason::{
-    EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol,
-    MacroParameterCount, MacroUnknown, MacroUnknownParameter, RecursiveExpansion,
-    IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile
-};
+use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol, MacroParameterCount, MacroUnknown, MacroUnknownParameter, RecursiveExpansion, IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile, RecursiveInclude};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -29,7 +25,8 @@ pub enum PreprocessorReason {
     MacroUnknownParameter(String),
     IncludeUnsupported,
     FailedToFindFile(String),
-    FailedToLexFile(LexerError)
+    FailedToLexFile(LexerError),
+    RecursiveInclude
 }
 
 impl Display for PreprocessorReason {
@@ -58,7 +55,8 @@ impl Display for PreprocessorReason {
             MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{name}\""),
             IncludeUnsupported => write!(f, "Include is unsupported. Please save the file."),
             FailedToFindFile(name) => write!(f, "Failed to find file \"{name}\""),
-            FailedToLexFile(error) => write!(f, "File has invalid format, {error}")
+            FailedToLexFile(error) => write!(f, "File has invalid format, {error}"),
+            RecursiveInclude => write!(f, "Include is recursive (includes itself), this is not allowed")
         }
     }
 }
@@ -203,7 +201,8 @@ fn consume_include<'a, P: TokenProvider<'a>>(
         .map_err(|e| match e {
             ExtendError::NotSupported => IncludeUnsupported,
             ExtendError::FailedToRead(f) => FailedToFindFile(f),
-            ExtendError::LexerFailed(e) => FailedToLexFile(e)
+            ExtendError::LexerFailed(e) => FailedToLexFile(e),
+            ExtendError::RecursiveInclude => RecursiveInclude
         })?;
 
     preprocess_cached(&new_provider, new_provider.get(), cache)

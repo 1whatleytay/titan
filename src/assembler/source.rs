@@ -1,15 +1,17 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::fs;
 use typed_arena::Arena;
 use std::path::PathBuf;
 use std::rc::Rc;
 use crate::assembler::lexer::{lex, lex_with_source, LexerError, Token};
-use crate::assembler::source::ExtendError::{FailedToRead, LexerFailed, NotSupported};
+use crate::assembler::source::ExtendError::{FailedToRead, LexerFailed, NotSupported, RecursiveInclude};
 
 pub enum ExtendError {
     NotSupported,
     FailedToRead(String),
-    LexerFailed(LexerError)
+    LexerFailed(LexerError),
+    RecursiveInclude
 }
 
 pub trait TokenProvider<'a>: Sized {
@@ -46,7 +48,7 @@ impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
 
 pub struct FileProviderSource {
     pub id: usize,
-    pub path: PathBuf,
+    pub path: Rc<PathBuf>,
     pub source: Rc<String>
 }
 
@@ -63,7 +65,7 @@ impl FileProviderPool {
         }
     }
 
-    pub fn provider_sourced(&self, source: String, path: PathBuf) -> Result<FileProvider, LexerError> {
+    pub fn provider_sourced(&self, source: String, path: Rc<PathBuf>) -> Result<FileInfo, LexerError> {
         let (id, tokens) = {
             let source = Rc::new(source);
 
@@ -79,7 +81,7 @@ impl FileProviderPool {
             (id, lex_with_source(&**item, id)?)
         };
 
-        Ok(FileProvider {
+        Ok(FileInfo {
             pool: self,
             source: id,
             tokens,
@@ -87,33 +89,63 @@ impl FileProviderPool {
         })
     }
 
-    pub fn provider(&self, path: PathBuf) -> Result<FileProvider, ExtendError> {
-        let source = fs::read_to_string(&path)
+    pub fn provider(&self, path: Rc<PathBuf>) -> Result<FileInfo, ExtendError> {
+        let source = fs::read_to_string(&*path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
         self.provider_sourced(source, path).map_err(|e| LexerFailed(e))
     }
 }
 
-pub struct FileProvider<'a> {
+pub struct FileInfo<'a> {
     pool: &'a FileProviderPool,
     source: usize,
     tokens: Vec<Token<'a>>,
-    path: PathBuf
+    path: Rc<PathBuf>
 }
 
+impl<'a> FileInfo<'a> {
+    pub fn to_provider(self) -> FileProvider<'a> {
+        // Don't canonicalize.
+        let path = self.path.clone();
+
+        FileProvider {
+            info: self,
+            history: HashSet::from([path]),
+        }
+    }
+}
+
+pub struct FileProvider<'a> {
+    info: FileInfo<'a>,
+    history: HashSet<Rc<PathBuf>>
+}
 
 impl<'a> TokenProvider<'a> for FileProvider<'a> {
-    fn id(&self) -> usize { self.source }
+    fn id(&self) -> usize { self.info.source }
     fn get(&self) -> &[Token<'a>] {
-        &self.tokens
+        &self.info.tokens
     }
 
     fn extend(&self, path: &str) -> Result<Self, ExtendError> {
-        let file = self.path.parent()
-            .unwrap_or(&self.path)
+        let file = self.info.path.parent()
+            .unwrap_or(&self.info.path)
             .join(path);
 
-        self.pool.provider(file)
+        let file = fs::canonicalize(&file)
+            .map_err(|_| FailedToRead(file.to_string_lossy().to_string()))?;
+
+        let file = Rc::new(file);
+
+        let mut history = self.history.clone();
+
+        if !history.insert(file.clone()) {
+            return Err(RecursiveInclude)
+        }
+
+        Ok(FileProvider {
+            info: self.info.pool.provider(file)?,
+            history
+        })
     }
 }

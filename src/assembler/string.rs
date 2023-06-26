@@ -70,7 +70,7 @@ pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
 pub fn assemble_from_path(source: String, path: PathBuf) -> Result<Binary, SourceError> {
     let pool = FileProviderPool::new();
 
-    let provider = pool.provider_sourced(source, path)?;
+    let provider = pool.provider_sourced(source, path.into())?.to_provider();
 
     let items = preprocess(&provider)?;
     let binary = assemble(&items, &INSTRUCTIONS)?;
