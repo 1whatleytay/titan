@@ -77,17 +77,3 @@ pub fn assemble_from_path(source: String, path: PathBuf) -> Result<Binary, Sourc
 
     Ok(binary)
 }
-
-#[cfg(test)]
-mod test {
-    use std::fs;
-    use std::path::PathBuf;
-    use crate::assembler::string::assemble_from_path;
-
-    #[test]
-    fn test() {
-        let text = fs::read_to_string("/Users/desgroup/Desktop/benchmarks/test.asm").unwrap();
-
-        assemble_from_path(text, PathBuf::from("/Users/desgroup/Desktop/benchmarks/test.asm")).unwrap();
-    }
-}
