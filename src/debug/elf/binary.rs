@@ -47,12 +47,10 @@ impl Binary {
 
         result
     }
-}
 
-impl From<Binary> for Elf {
-    fn from(val: Binary) -> Self {
-        let header = val.default_header();
-        let program_headers = val.program_headers();
+    pub fn create_elf(&self) -> Elf {
+        let header = self.default_header();
+        let program_headers = self.program_headers();
 
         Elf {
             header,
