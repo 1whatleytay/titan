@@ -3,7 +3,7 @@ use smallvec::SmallVec;
 use crate::cpu::{Memory, State};
 use crate::cpu::memory::watched::{WatchedMemory, WatchEntry};
 use crate::cpu::state::Registers;
-use crate::debug::trackers::Tracker;
+use crate::execution::trackers::Tracker;
 
 pub struct HistoryEntry {
     pub registers: Registers,

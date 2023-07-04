@@ -213,6 +213,7 @@ impl BinaryBuilder {
         }
 
         binary.breakpoints = self.breakpoints;
+        binary.labels = self.labels;
 
         Ok(binary)
     }

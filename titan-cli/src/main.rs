@@ -9,9 +9,9 @@ use anyhow::Result;
 use titan::assembler::string::assemble_from_path;
 use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
 use titan::cpu::State;
-use titan::debug::Debugger;
-use titan::debug::elf::setup::create_simple_state;
-use titan::debug::trackers::empty::EmptyTracker;
+use titan::execution::Executor;
+use titan::execution::elf::setup::create_simple_state;
+use titan::execution::trackers::empty::EmptyTracker;
 
 #[derive(Subcommand, Debug)]
 enum Command {
@@ -64,7 +64,7 @@ fn run(args: Args) -> Result<()> {
             let instant = Instant::now();
 
             let state: State<SectionMemory<DefaultResponder>> = create_simple_state(&elf, 0x100000);
-            let debugger = Debugger::new(state, EmptyTracker { });
+            let debugger = Executor::new(state, EmptyTracker { });
 
             let frame = debugger.run();
 

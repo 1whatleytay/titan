@@ -1,5 +1,5 @@
 use crate::cpu::{Memory, State};
-use crate::debug::trackers::Tracker;
+use crate::execution::trackers::Tracker;
 
 pub struct EmptyTracker { }
 

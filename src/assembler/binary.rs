@@ -70,6 +70,7 @@ pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
     pub breakpoints: Vec<BinaryBreakpoint>, // pc -> offset
+    pub labels: HashMap<String, u32>
 }
 
 fn build_breakpoint_map(
@@ -138,6 +139,7 @@ impl Binary {
             entry: Text.default_address(),
             regions: vec![],
             breakpoints: vec![],
+            labels: HashMap::new()
         }
     }
 }

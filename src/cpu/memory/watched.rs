@@ -4,6 +4,7 @@ use crate::cpu::error::Result;
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::memory::watched::BackupValue::{Byte, Short, Word, Null};
 
+#[derive(Clone)]
 pub enum BackupValue {
     Byte(u8),
     Short(u16),
@@ -11,11 +12,13 @@ pub enum BackupValue {
     Null
 }
 
+#[derive(Clone)]
 pub struct WatchEntry {
     pub address: u32,
     pub previous: BackupValue
 }
 
+#[derive(Clone)]
 pub struct WatchedMemory<T: Memory> {
     pub backing: T,
     log: SmallVec<[WatchEntry; 4]>

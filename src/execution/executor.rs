@@ -1,15 +1,15 @@
 use crate::cpu::error::Error;
 use crate::cpu::state::Registers;
 use crate::cpu::{Memory, State};
-use crate::debug::debugger::DebuggerMode::{Breakpoint, Invalid, Paused, Recovered, Running};
+use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Recovered, Running};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
-use crate::debug::trackers::empty::EmptyTracker;
-use crate::debug::trackers::Tracker;
+use crate::execution::trackers::empty::EmptyTracker;
+use crate::execution::trackers::Tracker;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum DebuggerMode {
+pub enum ExecutorMode {
     Running,
     Recovered, // Recovery State after Invalid(CpuSyscall)
     Invalid(Error),
@@ -20,8 +20,8 @@ pub enum DebuggerMode {
 // Addresses
 type Breakpoints = HashSet<u32>;
 
-pub struct DebuggerState<Mem: Memory, Track: Tracker<Mem>> {
-    mode: DebuggerMode,
+pub struct ExecutorState<Mem: Memory, Track: Tracker<Mem>> {
+    mode: ExecutorMode,
 
     state: State<Mem>,
     breakpoints: Breakpoints,
@@ -30,19 +30,19 @@ pub struct DebuggerState<Mem: Memory, Track: Tracker<Mem>> {
     tracker: Track
 }
 
-pub struct Debugger<Mem: Memory, Track: Tracker<Mem>> {
-    mutex: Mutex<DebuggerState<Mem, Track>>,
+pub struct Executor<Mem: Memory, Track: Tracker<Mem>> {
+    mutex: Mutex<ExecutorState<Mem, Track>>,
 }
 
 #[derive(Debug)]
 pub struct DebugFrame {
-    pub mode: DebuggerMode,
+    pub mode: ExecutorMode,
     pub registers: Registers,
 }
 
-impl<Mem: Memory, Track: Tracker<Mem>> DebuggerState<Mem, Track> {
-    fn new(state: State<Mem>, tracker: Track) -> DebuggerState<Mem, Track> {
-        DebuggerState {
+impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
+    fn new(state: State<Mem>, tracker: Track) -> ExecutorState<Mem, Track> {
+        ExecutorState {
             mode: Paused,
             state,
             breakpoints: HashSet::new(),
@@ -88,16 +88,16 @@ impl<Mem: Memory, Track: Tracker<Mem>> DebuggerState<Mem, Track> {
     }
 }
 
-impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
-    pub fn new(state: State<Mem>, tracker: Track) -> Debugger<Mem, Track> {
-        Debugger {
-            mutex: Mutex::new(DebuggerState::new(state, tracker)),
+impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
+    pub fn new(state: State<Mem>, tracker: Track) -> Executor<Mem, Track> {
+        Executor {
+            mutex: Mutex::new(ExecutorState::new(state, tracker)),
         }
     }
 
-    pub fn from_state(state: State<Mem>) -> Debugger<Mem, EmptyTracker> {
-        Debugger {
-            mutex: Mutex::new(DebuggerState::new(state, EmptyTracker { }))
+    pub fn from_state(state: State<Mem>) -> Executor<Mem, EmptyTracker> {
+        Executor {
+            mutex: Mutex::new(ExecutorState::new(state, EmptyTracker { }))
         }
     }
 
@@ -145,7 +145,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
         self.mutex.lock().unwrap().cycle(no_breakpoints)
     }
 
-    pub fn run(&self) -> DebugFrame {
+    pub fn run_limited<const BREAK_BATCH: bool>(&self, batch: usize) -> DebugFrame {
         let mut hit_breakpoint = {
             let mut value = self.mutex.lock().unwrap();
 
@@ -162,7 +162,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
         loop {
             let mut value = self.mutex.lock().unwrap();
 
-            for _ in 0..value.batch {
+            for _ in 0..batch {
                 if value.mode != Running {
                     return value.frame();
                 }
@@ -173,6 +173,18 @@ impl<Mem: Memory, Track: Tracker<Mem>> Debugger<Mem, Track> {
 
                 hit_breakpoint = false
             }
+
+            if BREAK_BATCH {
+                value.mode = Breakpoint;
+
+                return value.frame();
+            }
         }
+    }
+
+    pub fn run(&self) -> DebugFrame {
+        let batch = self.mutex.lock().unwrap().batch;
+
+        self.run_limited::<false>(batch)
     }
 }

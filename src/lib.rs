@@ -1,4 +1,5 @@
 pub mod assembler;
 pub mod cpu;
-pub mod debug;
+pub mod execution;
 pub mod elf;
+pub mod unit;

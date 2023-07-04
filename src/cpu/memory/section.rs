@@ -20,6 +20,7 @@ pub trait ListenResponder {
     fn write(&mut self, address: u32, value: u8) -> Result<()>;
 }
 
+#[derive(Clone)]
 pub struct DefaultResponder {}
 
 impl ListenResponder for DefaultResponder {
@@ -32,6 +33,7 @@ impl ListenResponder for DefaultResponder {
     }
 }
 
+#[derive(Clone)]
 enum Section<T: ListenResponder> {
     Empty,
     Data(Box<[u8; SECTION_SIZE]>),
@@ -56,6 +58,18 @@ impl<T: ListenResponder> Debug for Section<T> {
 
 pub struct SectionMemory<T: ListenResponder> {
     sections: Box<[Section<T>; SECTION_COUNT]>,
+}
+
+impl<T: ListenResponder + Clone> Clone for SectionMemory<T> {
+    fn clone(&self) -> Self {
+        let sections = (0 .. SECTION_COUNT)
+            .map(|i| self.sections[i].clone())
+            .collect::<Vec<Section<T>>>()
+            .try_into()
+            .unwrap();
+
+        SectionMemory { sections }
+    }
 }
 
 impl<T: ListenResponder> SectionMemory<T> {

@@ -8,6 +8,7 @@ pub struct Registers {
     pub hi: u32,
 }
 
+#[derive(Clone)]
 pub struct State<Mem: Memory> {
     pub registers: Registers,
     pub memory: Mem,
