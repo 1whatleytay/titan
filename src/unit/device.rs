@@ -346,7 +346,9 @@ impl UnitDevice {
             return false
         };
 
-        self.executor.with_state(|state| entry.apply(state));
+        self.executor.with_state(|state| {
+            entry.apply(&mut state.registers, &mut state.memory.backing);
+        });
 
         true
     }

@@ -18,11 +18,11 @@ pub struct HistoryTracker {
 }
 
 impl HistoryEntry {
-    pub fn apply<Mem: Memory>(self, state: &mut State<Mem>) {
-        state.registers = self.registers;
+    pub fn apply<Mem: Memory>(self, registers: &mut Registers, memory: &mut Mem) {
+        *registers = self.registers;
 
         for entry in self.edits {
-            entry.apply(&mut state.memory).ok(); // ignore error
+            entry.apply(memory).ok(); // ignore error
         }
     }
 }
