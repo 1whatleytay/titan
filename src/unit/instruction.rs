@@ -3,7 +3,7 @@ use crate::unit::register::RegisterName;
 use num::FromPrimitive;
 
 #[allow(dead_code)]
-enum Instruction {
+pub enum Instruction {
     Add { s: RegisterName, t: RegisterName, d: RegisterName },
     Addu { s: RegisterName, t: RegisterName, d: RegisterName },
     And { s: RegisterName, t: RegisterName, d: RegisterName },
@@ -73,8 +73,14 @@ impl From<u8> for RegisterName {
     }
 }
 
-struct InstructionDecoder {
+pub struct InstructionDecoder {
+    address: u32
+}
 
+impl InstructionDecoder {
+    pub fn decode(address: u32, instruction: u32) -> Option<Instruction> {
+        InstructionDecoder { address }.dispatch(instruction)
+    }
 }
 
 impl Decoder<Instruction> for InstructionDecoder {
