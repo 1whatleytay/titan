@@ -18,11 +18,12 @@ use crate::execution::trackers::history::HistoryTracker;
 use crate::unit::device::MakeUnitDeviceError::{CompileFailed, FileMissing};
 use crate::unit::device::UnitDeviceError::{ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted};
 use num::{ToPrimitive, FromPrimitive};
-use num_derive::{ToPrimitive, FromPrimitive};
+use StopCondition::{Label, MaybeLabel};
 use crate::execution::executor::ExecutorMode::Invalid;
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
 use crate::cpu::error::Error as CpuError;
-use crate::unit::device::RegisterName::{A0, RA, V0};
+use crate::unit::register::RegisterName;
+use crate::unit::register::RegisterName::{A0, RA, V0};
 
 pub type MemoryType = WatchedMemory<SectionMemory<DefaultResponder>>;
 pub type TrackerType = HistoryTracker;
@@ -108,7 +109,7 @@ impl StopConditionParameters {
 
         if let Some(failed) = conditions.iter()
             .filter_map(|c| {
-                if let StopCondition::Label(identifier) = c {
+                if let Label(identifier) = c {
                     if get_label(&identifier.name).is_none() {
                         return Some(identifier.name.clone())
                     }
@@ -122,9 +123,9 @@ impl StopConditionParameters {
         let breakpoints = conditions.iter()
             .filter_map(|c| {
                 match c {
-                    StopCondition::Address(pc) => Some(*pc),
-                    StopCondition::MaybeLabel(identifier)
-                        | StopCondition::Label(identifier) => {
+                    Address(pc) => Some(*pc),
+                    MaybeLabel(identifier)
+                        | Label(identifier) => {
                         get_label(&identifier.name)
                             .map(|x| (x as i64 + identifier.offset) as u32)
                     }
@@ -186,30 +187,6 @@ fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<
 }
 
 impl Error for UnitDeviceError { }
-
-#[derive(ToPrimitive, FromPrimitive)]
-pub enum RegisterName {
-    Zero = 0, AT = 1,
-    V0 = 2, V1 = 3, A0 = 4, A1 = 5, A2 = 6, A3 = 7,
-    T0 = 8, T1 = 9, T2 = 10, T3 = 11, T4 = 12, T5 = 13, T6 = 14, T7 = 15,
-    S0 = 16, S1 = 17, S2 = 18, S3 = 19, S4 = 20, S5 = 21, S6 = 22, S7 = 23,
-    T8 = 24, T9 = 25, K0 = 26, K1 = 27,
-    GP = 28, SP = 29, FP = 30, RA = 31,
-}
-
-impl Registers {
-    pub fn get(&self, name: RegisterName) -> u32 {
-        let index = ToPrimitive::to_usize(&name).unwrap();
-
-        self.line[index]
-    }
-
-    pub fn set(&mut self, name: RegisterName, value: u32) {
-        let index = ToPrimitive::to_usize(&name).unwrap();
-
-        self.line[index] = value
-    }
-}
 
 impl UnitDevice {
     pub fn make(path: PathBuf) -> Result<UnitDevice, MakeUnitDeviceError> {
