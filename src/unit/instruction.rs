@@ -3,6 +3,7 @@ use crate::unit::register::RegisterName;
 use num::FromPrimitive;
 
 #[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub enum Instruction {
     Add { s: RegisterName, t: RegisterName, d: RegisterName },
     Addu { s: RegisterName, t: RegisterName, d: RegisterName },
@@ -41,16 +42,16 @@ pub enum Instruction {
     Llo { t: RegisterName, imm: u16 },
     Slti { s: RegisterName, t: RegisterName, imm: u16 },
     Sltiu { s: RegisterName, t: RegisterName, imm: u16 },
-    Beq { s: RegisterName, t: RegisterName, imm: u16 },
-    Bne { s: RegisterName, t: RegisterName, imm: u16 },
-    Bgtz { s: RegisterName, imm: u16 },
-    Blez { s: RegisterName, imm: u16 },
-    Bltz { s: RegisterName, imm: u16 },
-    Bgez { s: RegisterName, imm: u16 },
-    Bltzal { s: RegisterName, imm: u16 },
-    Bgezal { s: RegisterName, imm: u16 },
-    J { imm: u32 },
-    Jal { imm: u32 },
+    Beq { s: RegisterName, t: RegisterName, address: u32 },
+    Bne { s: RegisterName, t: RegisterName, address: u32 },
+    Bgtz { s: RegisterName, address: u32 },
+    Blez { s: RegisterName, address: u32 },
+    Bltz { s: RegisterName, address: u32 },
+    Bgez { s: RegisterName, address: u32 },
+    Bltzal { s: RegisterName, address: u32 },
+    Bgezal { s: RegisterName, address: u32 },
+    J { address: u32 },
+    Jal { address: u32 },
     Lb { s: RegisterName, t: RegisterName, imm: u16 },
     Lbu { s: RegisterName, t: RegisterName, imm: u16 },
     Lh { s: RegisterName, t: RegisterName, imm: u16 },
@@ -65,6 +66,14 @@ pub enum Instruction {
     Mtlo { s: RegisterName },
     Trap,
     Syscall,
+}
+
+fn jump_dest(pc: u32, imm: u32) -> u32 {
+    ((pc + 4) & 0xFC000000) | (imm << 2)
+}
+
+fn rel_dest(pc: u32, imm: u16) -> u32 {
+    ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
 }
 
 impl From<u8> for RegisterName {
@@ -233,43 +242,43 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
 
     fn beq(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Beq { s: s.into(), t: t.into(), imm }
+        Instruction::Beq { s: s.into(), t: t.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bne(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Bne { s: s.into(), t: t.into(), imm }
+        Instruction::Bne { s: s.into(), t: t.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bgtz(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgtz { s: s.into(), imm }
+        Instruction::Bgtz { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn blez(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Blez { s: s.into(), imm }
+        Instruction::Blez { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bltz(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bltz { s: s.into(), imm }
+        Instruction::Bltz { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bgez(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgez { s: s.into(), imm }
+        Instruction::Bgez { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bltzal(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bltzal { s: s.into(), imm }
+        Instruction::Bltzal { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn bgezal(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgezal { s: s.into(), imm }
+        Instruction::Bgezal { s: s.into(), address: rel_dest(self.address, imm) }
     }
 
     fn j(&mut self, imm: u32) -> Instruction {
-        Instruction::J { imm }
+        Instruction::J { address: jump_dest(self.address, imm) }
     }
 
     fn jal(&mut self, imm: u32) -> Instruction {
-        Instruction::Jal { imm }
+        Instruction::Jal { address: jump_dest(self.address, imm) }
     }
 
     fn lb(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
