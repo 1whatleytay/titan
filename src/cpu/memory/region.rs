@@ -1,4 +1,4 @@
-use crate::cpu::error::Error::{MemoryAlign, MemoryBoundary, MemoryUnmapped};
+use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
 use crate::cpu::error::Result;
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::Memory;
@@ -67,7 +67,7 @@ impl Memory for RegionMemory {
                 let start = (address - region.start) as usize;
                 let data = (&region.data[start..start + 2]).read_u16::<Endian>();
 
-                return data.map_err(|_| MemoryBoundary(address));
+                return data.map_err(|_| MemoryAlign(address));
             }
         }
 
@@ -84,11 +84,11 @@ impl Memory for RegionMemory {
                 let start = (address - region.start) as usize;
                 let data = (&region.data[start..start + 4]).read_u32::<Endian>();
 
-                return data.map_err(|_| MemoryBoundary(address));
+                return data.map_err(|_| MemoryAlign(address));
             }
         }
 
-        Err(MemoryBoundary(address))
+        Err(MemoryAlign(address))
     }
 
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {

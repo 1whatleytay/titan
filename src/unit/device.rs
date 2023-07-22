@@ -22,7 +22,6 @@ use StopCondition::{Label, MaybeLabel};
 use crate::execution::executor::ExecutorMode::Invalid;
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
 use crate::cpu::error::Error as CpuError;
-use crate::unit::instruction::Instruction;
 use crate::unit::register::RegisterName;
 use crate::unit::register::RegisterName::{A0, RA, V0};
 

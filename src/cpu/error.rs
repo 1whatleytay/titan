@@ -4,7 +4,6 @@ use std::fmt::{Display, Formatter};
 pub enum Error {
     MemoryAlign(u32),
     MemoryUnmapped(u32),
-    MemoryBoundary(u32),
     CpuInvalid(u32),
     CpuTrap,
     CpuSyscall, // Intended to be caught by higher level.
@@ -19,10 +18,6 @@ impl Display for Error {
             Error::MemoryUnmapped(address) => {
                 write!(f, "Unmapped memory region for address 0x{address:08x}")
             }
-            Error::MemoryBoundary(address) => write!(
-                f,
-                "Invalid memory access across region boundary at 0x{address:08x}"
-            ),
             Error::CpuInvalid(instruction) => {
                 write!(f, "Invalid CPU instruction 0x{instruction:08x}")
             }
