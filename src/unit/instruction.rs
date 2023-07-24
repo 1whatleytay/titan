@@ -1,7 +1,7 @@
+use std::fmt::{Display, Formatter};
 use crate::cpu::decoder::Decoder;
 use crate::unit::register::RegisterName;
 use num::FromPrimitive;
-use num_traits::Signed;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -69,8 +69,20 @@ pub enum Instruction {
     Syscall,
 }
 
-fn sig(imm: u16) -> String {
+pub fn sig(imm: u16) -> String {
     let value = imm as i16 as i64;
+
+    if value.abs() < 10 {
+        format!("{value}")
+    } else {
+        let sign = if value < 0 { "-" } else { "" };
+
+        format!("{}0x{:x}", sign, value.abs())
+    }
+}
+
+pub fn sig_u32(imm: u32) -> String {
+    let value = imm as i32 as i64;
 
     if value.abs() < 10 {
         format!("{value}")
@@ -351,70 +363,70 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
 }
 
-impl ToString for Instruction {
-    fn to_string(&self) -> String {
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Instruction::Add { s, t, d } => format!("add {}, {}, {}", d, s, t),
-            Instruction::Addu { s, t, d } => format!("addu {}, {}, {}", d, s, t),
-            Instruction::And { s, t, d } => format!("and {}, {}, {}", d, s, t),
-            Instruction::Div { s, t } => format!("div {}, {}", s, t),
-            Instruction::Divu { s, t } => format!("divu {}, {}", s, t),
-            Instruction::Mult { s, t } => format!("mult {}, {}", s, t),
-            Instruction::Multu { s, t } => format!("multu {}, {}", s, t),
-            Instruction::Nor { s, t, d } => format!("nor {}, {}, {}", d, s, t),
-            Instruction::Or { s, t, d } => format!("or {}, {}, {}", d, s, t),
-            Instruction::Sll { t, d, sham } => format!("sll {}, {}, {}", d, t, sham),
-            Instruction::Sllv { s, t, d } => format!("sllv {}, {}, {}", d, t, s),
-            Instruction::Sra { t, d, sham } => format!("sra {}, {}, {}", d, t, sham),
-            Instruction::Srav { s, t, d } => format!("srav {}, {}, {}", d, t, s),
-            Instruction::Srl { t, d, sham } => format!("srl {}, {}, {}", d, t, sham),
-            Instruction::Srlv { s, t, d } => format!("srlv {}, {}, {}", d, t, s),
-            Instruction::Sub { s, t, d } => format!("sub {}, {}, {}", s, t, d),
-            Instruction::Subu { s, t, d } => format!("subu {}, {}, {}", s, t, d),
-            Instruction::Xor { s, t, d } => format!("xor {}, {}, {}", s, t, d),
-            Instruction::Slt { s, t, d } => format!("slt {}, {}, {}", s, t, d),
-            Instruction::Sltu { s, t, d } => format!("sltu {}, {}, {}", s, t, d),
-            Instruction::Jr { s } => format!("jr {}", s),
-            Instruction::Jalr { s } => format!("jalr {}", s),
-            Instruction::Madd { s, t } => format!("madd {}, {}", s, t),
-            Instruction::Maddu { s, t } => format!("maddu {}, {}", s, t),
-            Instruction::Mul { s, t, d } => format!("mul {}, {}, {}", d, s, t),
-            Instruction::Msub { s, t } => format!("msub {}, {}", s, t),
-            Instruction::Msubu { s, t } => format!("msubu {}, {}", s, t),
-            Instruction::Addi { s, t, imm } => format!("addi {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Addiu { s, t, imm } => format!("addiu {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Andi { s, t, imm } => format!("andi {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Ori { s, t, imm } => format!("ori {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Xori { s, t, imm } => format!("xori {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Lui { s, imm } => format!("lui {}, {}", s, sig(*imm)),
-            Instruction::Lhi { t, imm } => format!("lhi {}, {}", t, sig(*imm)),
-            Instruction::Llo { t, imm } => format!("llo {}, {}", t, sig(*imm)),
-            Instruction::Slti { s, t, imm } => format!("slti {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Sltiu { s, t, imm } => format!("sltiu {}, {}, {}", t, s, sig(*imm)),
-            Instruction::Beq { s, t, address } => format!("beq {}, {}, 0x{:x}", s, t, address),
-            Instruction::Bne { s, t, address } => format!("bne {}, {}, 0x{:x}", s, t, address),
-            Instruction::Bgtz { s, address } => format!("bgtz {}, 0x{:x}", s, address),
-            Instruction::Blez { s, address } => format!("blez {}, 0x{:x}", s, address),
-            Instruction::Bltz { s, address } => format!("bltz {}, 0x{:x}", s, address),
-            Instruction::Bgez { s, address } => format!("bgez {}, 0x{:x}", s, address),
-            Instruction::Bltzal { s, address } => format!("bltzal {}, 0x{:x}", s, address),
-            Instruction::Bgezal { s, address } => format!("bgezal {}, 0x{:x}", s, address),
-            Instruction::J { address } => format!("j 0x{:x}", address),
-            Instruction::Jal { address } => format!("jal 0x{:x}", address),
-            Instruction::Lb { s, t, imm } => format!("lb {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Lbu { s, t, imm } => format!("lbu {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Lh { s, t, imm } => format!("lh {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Lhu { s, t, imm } => format!("lhu {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Lw { s, t, imm } => format!("lw {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Sb { s, t, imm } => format!("sb {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Sh { s, t, imm } => format!("sh {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Sw { s, t, imm } => format!("sw {}, {}, {}", s, t, sig(*imm)),
-            Instruction::Mfhi { d } => format!("mfhi {}", d),
-            Instruction::Mflo { d } => format!("mflo {}", d),
-            Instruction::Mthi { s } => format!("mthi {}", s),
-            Instruction::Mtlo { s } => format!("mtlo {}", s),
-            Instruction::Trap => "trap".to_string(),
-            Instruction::Syscall => "syscall".to_string(),
+            Instruction::Add { s, t, d } => write!(f, "add {}, {}, {}", d, s, t),
+            Instruction::Addu { s, t, d } => write!(f, "addu {}, {}, {}", d, s, t),
+            Instruction::And { s, t, d } => write!(f, "and {}, {}, {}", d, s, t),
+            Instruction::Div { s, t } => write!(f, "div {}, {}", s, t),
+            Instruction::Divu { s, t } => write!(f, "divu {}, {}", s, t),
+            Instruction::Mult { s, t } => write!(f, "mult {}, {}", s, t),
+            Instruction::Multu { s, t } => write!(f, "multu {}, {}", s, t),
+            Instruction::Nor { s, t, d } => write!(f, "nor {}, {}, {}", d, s, t),
+            Instruction::Or { s, t, d } => write!(f, "or {}, {}, {}", d, s, t),
+            Instruction::Sll { t, d, sham } => write!(f, "sll {}, {}, {}", d, t, sham),
+            Instruction::Sllv { s, t, d } => write!(f, "sllv {}, {}, {}", d, t, s),
+            Instruction::Sra { t, d, sham } => write!(f, "sra {}, {}, {}", d, t, sham),
+            Instruction::Srav { s, t, d } => write!(f, "srav {}, {}, {}", d, t, s),
+            Instruction::Srl { t, d, sham } => write!(f, "srl {}, {}, {}", d, t, sham),
+            Instruction::Srlv { s, t, d } => write!(f, "srlv {}, {}, {}", d, t, s),
+            Instruction::Sub { s, t, d } => write!(f, "sub {}, {}, {}", s, t, d),
+            Instruction::Subu { s, t, d } => write!(f, "subu {}, {}, {}", s, t, d),
+            Instruction::Xor { s, t, d } => write!(f, "xor {}, {}, {}", s, t, d),
+            Instruction::Slt { s, t, d } => write!(f, "slt {}, {}, {}", s, t, d),
+            Instruction::Sltu { s, t, d } => write!(f, "sltu {}, {}, {}", s, t, d),
+            Instruction::Jr { s } => write!(f, "jr {}", s),
+            Instruction::Jalr { s } => write!(f, "jalr {}", s),
+            Instruction::Madd { s, t } => write!(f, "madd {}, {}", s, t),
+            Instruction::Maddu { s, t } => write!(f, "maddu {}, {}", s, t),
+            Instruction::Mul { s, t, d } => write!(f, "mul {}, {}, {}", d, s, t),
+            Instruction::Msub { s, t } => write!(f, "msub {}, {}", s, t),
+            Instruction::Msubu { s, t } => write!(f, "msubu {}, {}", s, t),
+            Instruction::Addi { s, t, imm } => write!(f, "addi {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Addiu { s, t, imm } => write!(f, "addiu {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Andi { s, t, imm } => write!(f, "andi {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Ori { s, t, imm } => write!(f, "ori {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Xori { s, t, imm } => write!(f, "xori {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Lui { s, imm } => write!(f, "lui {}, {}", s, sig(*imm)),
+            Instruction::Lhi { t, imm } => write!(f, "lhi {}, {}", t, sig(*imm)),
+            Instruction::Llo { t, imm } => write!(f, "llo {}, {}", t, sig(*imm)),
+            Instruction::Slti { s, t, imm } => write!(f, "slti {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Sltiu { s, t, imm } => write!(f, "sltiu {}, {}, {}", t, s, sig(*imm)),
+            Instruction::Beq { s, t, address } => write!(f, "beq {}, {}, 0x{:x}", s, t, address),
+            Instruction::Bne { s, t, address } => write!(f, "bne {}, {}, 0x{:x}", s, t, address),
+            Instruction::Bgtz { s, address } => write!(f, "bgtz {}, 0x{:x}", s, address),
+            Instruction::Blez { s, address } => write!(f, "blez {}, 0x{:x}", s, address),
+            Instruction::Bltz { s, address } => write!(f, "bltz {}, 0x{:x}", s, address),
+            Instruction::Bgez { s, address } => write!(f, "bgez {}, 0x{:x}", s, address),
+            Instruction::Bltzal { s, address } => write!(f, "bltzal {}, 0x{:x}", s, address),
+            Instruction::Bgezal { s, address } => write!(f, "bgezal {}, 0x{:x}", s, address),
+            Instruction::J { address } => write!(f, "j 0x{:x}", address),
+            Instruction::Jal { address } => write!(f, "jal 0x{:x}", address),
+            Instruction::Lb { s, t, imm } => write!(f, "lb {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Lbu { s, t, imm } => write!(f, "lbu {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Lh { s, t, imm } => write!(f, "lh {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Lhu { s, t, imm } => write!(f, "lhu {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Lw { s, t, imm } => write!(f, "lw {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Sb { s, t, imm } => write!(f, "sb {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Sh { s, t, imm } => write!(f, "sh {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Sw { s, t, imm } => write!(f, "sw {}, {}, {}", s, t, sig(*imm)),
+            Instruction::Mfhi { d } => write!(f, "mfhi {}", d),
+            Instruction::Mflo { d } => write!(f, "mflo {}", d),
+            Instruction::Mthi { s } => write!(f, "mthi {}", s),
+            Instruction::Mtlo { s } => write!(f, "mtlo {}", s),
+            Instruction::Trap => write!(f, "trap"),
+            Instruction::Syscall => write!(f, "syscall"),
         }
     }
 }

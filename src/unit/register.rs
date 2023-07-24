@@ -13,48 +13,48 @@ pub enum RegisterName {
     GP = 28, SP = 29, FP = 30, RA = 31,
 }
 
-impl ToString for RegisterName {
-    fn to_string(&self) -> String {
+impl RegisterName {
+    fn to_str(&self) -> &str {
         match self {
-            RegisterName::Zero => "zero".to_string(),
-            RegisterName::AT => "at".to_string(),
-            RegisterName::V0 => "v0".to_string(),
-            RegisterName::V1 => "v1".to_string(),
-            RegisterName::A0 => "a0".to_string(),
-            RegisterName::A1 => "a1".to_string(),
-            RegisterName::A2 => "a2".to_string(),
-            RegisterName::A3 => "a3".to_string(),
-            RegisterName::T0 => "t0".to_string(),
-            RegisterName::T1 => "t1".to_string(),
-            RegisterName::T2 => "t2".to_string(),
-            RegisterName::T3 => "t3".to_string(),
-            RegisterName::T4 => "t4".to_string(),
-            RegisterName::T5 => "t5".to_string(),
-            RegisterName::T6 => "t6".to_string(),
-            RegisterName::T7 => "t7".to_string(),
-            RegisterName::S0 => "s0".to_string(),
-            RegisterName::S1 => "s1".to_string(),
-            RegisterName::S2 => "s2".to_string(),
-            RegisterName::S3 => "s3".to_string(),
-            RegisterName::S4 => "s4".to_string(),
-            RegisterName::S5 => "s5".to_string(),
-            RegisterName::S6 => "s6".to_string(),
-            RegisterName::S7 => "s7".to_string(),
-            RegisterName::T8 => "t8".to_string(),
-            RegisterName::T9 => "t9".to_string(),
-            RegisterName::K0 => "k0".to_string(),
-            RegisterName::K1 => "k1".to_string(),
-            RegisterName::GP => "gp".to_string(),
-            RegisterName::SP => "sp".to_string(),
-            RegisterName::FP => "fp".to_string(),
-            RegisterName::RA => "ra".to_string(),
+            RegisterName::Zero => "zero",
+            RegisterName::AT => "at",
+            RegisterName::V0 => "v0",
+            RegisterName::V1 => "v1",
+            RegisterName::A0 => "a0",
+            RegisterName::A1 => "a1",
+            RegisterName::A2 => "a2",
+            RegisterName::A3 => "a3",
+            RegisterName::T0 => "t0",
+            RegisterName::T1 => "t1",
+            RegisterName::T2 => "t2",
+            RegisterName::T3 => "t3",
+            RegisterName::T4 => "t4",
+            RegisterName::T5 => "t5",
+            RegisterName::T6 => "t6",
+            RegisterName::T7 => "t7",
+            RegisterName::S0 => "s0",
+            RegisterName::S1 => "s1",
+            RegisterName::S2 => "s2",
+            RegisterName::S3 => "s3",
+            RegisterName::S4 => "s4",
+            RegisterName::S5 => "s5",
+            RegisterName::S6 => "s6",
+            RegisterName::S7 => "s7",
+            RegisterName::T8 => "t8",
+            RegisterName::T9 => "t9",
+            RegisterName::K0 => "k0",
+            RegisterName::K1 => "k1",
+            RegisterName::GP => "gp",
+            RegisterName::SP => "sp",
+            RegisterName::FP => "fp",
+            RegisterName::RA => "ra",
         }
     }
 }
 
 impl Display for RegisterName {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}", self.to_string())
+        write!(f, "${}", self.to_str())
     }
 }
 
