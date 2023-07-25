@@ -10,8 +10,15 @@ pub struct RegisterValue {
     pub value: u32
 }
 
+pub enum MemoryErrorReason {
+    Unmapped,
+    Alignment
+}
+
 pub struct MemoryErrorDescription {
     pub instruction: Instruction,
+    pub reason: MemoryErrorReason,
+    pub alignment: u32,
     pub source: RegisterValue,
     pub immediate: u16
 }
@@ -46,10 +53,12 @@ pub struct TrapErrorDescription {
 
 impl MemoryErrorDescription {
     fn new(
-        instruction: Instruction, source: RegisterName, immediate: u16, registers: &Registers
+        instruction: Instruction, reason: MemoryErrorReason, alignment: u32, source: RegisterName, immediate: u16, registers: &Registers
     ) -> MemoryErrorDescription {
         MemoryErrorDescription {
             instruction,
+            reason,
+            alignment,
             source: registers.value(source),
             immediate
         }
@@ -82,17 +91,19 @@ impl TrapErrorDescription {
 
 // Keeping error suggestions separate from interpreting to avoid potential performance impacts.
 impl Instruction {
-    pub fn describe_memory_error(&self, registers: &Registers) -> Option<MemoryErrorDescription> {
+    pub fn describe_memory_error(&self, reason: MemoryErrorReason, registers: &Registers) -> Option<MemoryErrorDescription> {
         Some(match self {
             Lb { s, imm, .. }
                 | Lbu { s, imm, .. }
-                | Lh { s, imm, .. }
+                | Sb { s, imm, .. } =>
+                MemoryErrorDescription::new(self.clone(), reason, 1, *s, *imm, registers),
+            Lh { s, imm, .. }
                 | Lhu { s, imm, .. }
-                | Lw { s, imm, .. }
-                | Sb { s, imm, ..}
-                | Sh { s, imm, ..}
-                | Sw { s, imm, ..} =>
-                MemoryErrorDescription::new(self.clone(), *s, *imm, registers),
+                | Sh { s, imm, .. } =>
+                MemoryErrorDescription::new(self.clone(), reason, 2, *s, *imm, registers),
+            Lw { s, imm, .. }
+                | Sw { s, imm, .. } =>
+                MemoryErrorDescription::new(self.clone(), reason, 4, *s, *imm, registers),
             _ => return None
         })
     }
@@ -144,9 +155,18 @@ impl RegisterImmediate {
 
 impl Display for MemoryErrorDescription {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Memory access to 0x{:08x} is prohibited,", self.address())?;
-        write!(f, " > {} ({} + {} = 0x{:08x} is unmapped)", self.instruction, self.source.hex_string(), sig(self.immediate), self.address())?;
-        write!(f, "Double check to make sure you meant to access this location.")
+        match self.reason {
+            MemoryErrorReason::Unmapped => {
+                write!(f, "Memory access to 0x{:08x} is prohibited,", self.address())?;
+                write!(f, " > {} ({} + {} = 0x{:08x} is unmapped)", self.instruction, self.source.hex_string(), sig(self.immediate), self.address())?;
+                write!(f, "Double check to make sure you meant to access this location.")
+            },
+            MemoryErrorReason::Alignment => {
+                write!(f, "Memory access to 0x{:08x} must be a multiple of {} for this instruction.", self.address(), self.alignment)?;
+                write!(f, " > {} ({} + {} = 0x{:08x} is not a multiple of {})", self.instruction, self.source.hex_string(), sig(self.immediate), self.address(), self.alignment)?;
+                write!(f, "Ensure that the data you are accessing is aligned by {}, or use lb/sb to load/store unaligned bytes.", self.alignment)
+            }
+        }
     }
 }
 
