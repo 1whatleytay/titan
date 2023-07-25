@@ -157,14 +157,14 @@ impl Display for MemoryErrorDescription {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.reason {
             MemoryErrorReason::Unmapped => {
-                write!(f, "Memory access to 0x{:08x} is prohibited,", self.address())?;
-                write!(f, " > {} ({} + {} = 0x{:08x} is unmapped)", self.instruction, self.source.hex_string(), sig(self.immediate), self.address())?;
-                write!(f, "Double check to make sure you meant to access this location.")
+                writeln!(f, "Memory access to 0x{:08x} is prohibited,", self.address())?;
+                writeln!(f, " > {} ({} + {} = 0x{:08x} is unmapped)", self.instruction, self.source.hex_string(), sig(self.immediate), self.address())?;
+                writeln!(f, "Double check to make sure you meant to access this location.")
             },
             MemoryErrorReason::Alignment => {
-                write!(f, "Memory access to 0x{:08x} must be a multiple of {} for this instruction.", self.address(), self.alignment)?;
-                write!(f, " > {} ({} + {} = 0x{:08x} is not a multiple of {})", self.instruction, self.source.hex_string(), sig(self.immediate), self.address(), self.alignment)?;
-                write!(f, "Ensure that the data you are accessing is aligned by {}, or use lb/sb to load/store unaligned bytes.", self.alignment)
+                writeln!(f, "Memory access to 0x{:08x} must be a multiple of {} for this instruction.", self.address(), self.alignment)?;
+                writeln!(f, " > {} ({} + {} = 0x{:08x} is not a multiple of {})", self.instruction, self.source.hex_string(), sig(self.immediate), self.address(), self.alignment)?;
+                writeln!(f, "Ensure that the data you are accessing is aligned by {}, or use lb/sb to load/store unaligned bytes.", self.alignment)
             }
         }
     }
@@ -174,23 +174,23 @@ impl Display for TrapErrorDescription {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.reason {
             OverflowAdd => {
-                write!(f, "Encountered integer overflow during addition, which is prohibited.")?;
-                write!(f, " > {} ({} + {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
+                writeln!(f, "Encountered integer overflow during addition, which is prohibited.")?;
+                writeln!(f, " > {} ({} + {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
             }
             OverflowSub => {
-                write!(f, "Encountered integer overflow during subtraction, which is prohibited.")?;
-                write!(f, " > {} ({} - {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
+                writeln!(f, "Encountered integer overflow during subtraction, which is prohibited.")?;
+                writeln!(f, " > {} ({} - {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
             }
             OverflowOther => {
-                write!(f, "Encountered integer overflow occurred, which is prohibited.")?;
-                write!(f, " > {} ({} with {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
+                writeln!(f, "Encountered integer overflow occurred, which is prohibited.")?;
+                writeln!(f, " > {} ({} with {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
             }
             DivByZero => {
-                write!(f, "Encountered division by zero, which is prohibited.")?;
-                write!(f, " > {} ({} / {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
+                writeln!(f, "Encountered division by zero, which is prohibited.")?;
+                writeln!(f, " > {} ({} / {} overflows)", self.instruction, self.source.signed_string(), self.temp.signed_string())?;
             }
         }
 
-        write!(f, "If you expected overflow behaviour, use unsigned instructions (addu, subu, multu, etc.)")
+        writeln!(f, "If you expected overflow behaviour, use unsigned instructions (addu, subu, multu, etc.)")
     }
 }
