@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter};
 use crate::cpu::decoder::Decoder;
 use crate::unit::register::RegisterName;
 use num::FromPrimitive;
+use crate::unit::instruction::InstructionParameter::{Address, Immediate, Register};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -360,6 +361,86 @@ impl Decoder<Instruction> for InstructionDecoder {
 
     fn syscall(&mut self) -> Instruction {
         Instruction::Syscall
+    }
+}
+
+enum InstructionParameter {
+    Register(RegisterName),
+    Immediate(u16),
+    Address(u32)
+}
+
+impl From<RegisterName> for InstructionParameter {
+    fn from(value: RegisterName) -> Self {
+        Register(value)
+    }
+}
+
+impl Instruction {
+    fn registers(self) -> Vec<InstructionParameter> {
+        match self {
+            Instruction::Add { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Addu { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::And { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Div { s, t } => vec![s.into(), t.into()],
+            Instruction::Divu { s, t } => vec![s.into(), t.into()],
+            Instruction::Mult { s, t } => vec![s.into(), t.into()],
+            Instruction::Multu { s, t } => vec![s.into(), t.into()],
+            Instruction::Nor { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Or { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Sll { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],
+            Instruction::Sllv { s, t, d } =>  vec![d.into(), s.into(), t.into()],
+            Instruction::Sra { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],
+            Instruction::Srav { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Srl { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],
+            Instruction::Srlv { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Sub { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Subu { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Xor { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Slt { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Sltu { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Jr { s } => vec![s.into()],
+            Instruction::Jalr { s } => vec![s.into()],
+            Instruction::Madd { s, t } => vec![s.into(), t.into()],
+            Instruction::Maddu { s, t } => vec![s.into(), t.into()],
+            Instruction::Mul { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::Msub { s, t } => vec![s.into(), t.into()],
+            Instruction::Msubu { s, t } => vec![s.into(), t.into()],
+            Instruction::Addi { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Addiu { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Andi { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Ori { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Xori { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Lui { s, imm } => vec![s.into(), Immediate(imm)],
+            Instruction::Lhi { t, imm } => vec![t.into(), Immediate(imm)],
+            Instruction::Llo { t, imm } => vec![t.into(), Immediate(imm)],
+            Instruction::Slti { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Sltiu { s, t, imm } => vec![t.into(), s.into(), Immediate(imm)],
+            Instruction::Beq { s, t, address } => vec![s.into(), t.into(), Address(address)],
+            Instruction::Bne { s, t, address } => vec![s.into(), t.into(), Address(address)],
+            Instruction::Bgtz { s, address } => vec![s.into(), Address(address)],
+            Instruction::Blez { s, address } => vec![s.into(), Address(address)],
+            Instruction::Bltz { s, address } => vec![s.into(), Address(address)],
+            Instruction::Bgez { s, address } => vec![s.into(), Address(address)],
+            Instruction::Bltzal { s, address } => vec![s.into(), Address(address)],
+            Instruction::Bgezal { s, address } => vec![s.into(), Address(address)],
+            Instruction::J { address } => vec![Address(address)],
+            Instruction::Jal { address } => vec![Address(address)],
+            Instruction::Lb { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Lbu { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Lh { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Lhu { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Lw { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Sb { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Sh { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Sw { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Mfhi { d } => vec![d.into()],
+            Instruction::Mflo { d } => vec![d.into()],
+            Instruction::Mthi { s } => vec![s.into()],
+            Instruction::Mtlo { s } => vec![s.into()],
+            Instruction::Trap => vec![],
+            Instruction::Syscall => vec![],
+        }
     }
 }
 

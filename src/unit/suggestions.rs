@@ -5,11 +5,6 @@ use crate::unit::instruction::Instruction::{Add, Addi, Div, Divu, Lb, Lbu, Lh, L
 use crate::unit::register::RegisterName;
 use crate::unit::suggestions::TrapErrorReason::{DivByZero, OverflowAdd, OverflowOther, OverflowSub};
 
-pub struct RegisterValue {
-    pub name: RegisterName,
-    pub value: u32
-}
-
 pub enum MemoryErrorReason {
     Unmapped,
     Alignment
@@ -21,6 +16,11 @@ pub struct MemoryErrorDescription {
     pub alignment: u32,
     pub source: RegisterValue,
     pub immediate: u16
+}
+
+pub struct RegisterValue {
+    pub name: RegisterName,
+    pub value: u32
 }
 
 impl Registers {
