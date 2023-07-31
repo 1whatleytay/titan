@@ -377,7 +377,7 @@ impl From<RegisterName> for InstructionParameter {
 }
 
 impl Instruction {
-    pub fn name(self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         match self {
             Instruction::Add { .. } => "add",
             Instruction::Addu { .. } => "addu",
