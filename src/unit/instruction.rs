@@ -364,7 +364,7 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
 }
 
-enum InstructionParameter {
+pub enum InstructionParameter {
     Register(RegisterName),
     Immediate(u16),
     Address(u32)
@@ -377,7 +377,7 @@ impl From<RegisterName> for InstructionParameter {
 }
 
 impl Instruction {
-    fn name(self) -> &str {
+    pub fn name(self) -> &'static str {
         match self {
             Instruction::Add { .. } => "add",
             Instruction::Addu { .. } => "addu",
@@ -443,7 +443,7 @@ impl Instruction {
         }
     }
 
-    fn registers(self) -> Vec<InstructionParameter> {
+    pub fn registers(self) -> Vec<InstructionParameter> {
         match self {
             Instruction::Add { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Addu { s, t, d } => vec![d.into(), s.into(), t.into()],
