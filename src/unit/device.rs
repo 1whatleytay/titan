@@ -11,7 +11,7 @@ use crate::assembler::string::{assemble_from_path, SourceError};
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::memory::watched::WatchedMemory;
-use crate::cpu::State;
+use crate::cpu::{Memory, State};
 use crate::cpu::state::Registers;
 use crate::execution::executor::{DebugFrame, Executor};
 use crate::execution::trackers::history::HistoryTracker;
@@ -246,6 +246,18 @@ impl UnitDevice {
         self.binary.labels.contains_key(name)
     }
 
+    pub fn label_for(&self, address: u32) -> Option<&String> {
+        self.binary.labels.iter()
+            .filter_map(|(label, other)| {
+                if *other == address {
+                    Some(label)
+                } else {
+                    None
+                }
+            })
+            .next()
+    }
+
     pub fn arrived_at_label(&self, name: &str) -> bool {
         self.binary.labels.get(name).map(
             |v| self.executor.with_state(|s| s.registers.pc == *v)
@@ -417,5 +429,17 @@ impl UnitDevice {
 
     pub fn execute_until<const N: usize>(&self, conditions: [StopCondition; N]) -> Result<(), UnitDeviceError> {
         self.execute_until_slice(&conditions)
+    }
+
+    pub fn data(&self, address: u32, count: u32) -> Result<Vec<u8>, crate::cpu::error::Error> {
+        self.executor.with_memory(|memory| {
+            let mut result = vec![];
+
+            for i in 0 .. count {
+                result.push(memory.get(address.wrapping_add(i))?)
+            }
+
+            Ok(result)
+        })
     }
 }
