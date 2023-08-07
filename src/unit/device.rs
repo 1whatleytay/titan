@@ -22,6 +22,8 @@ use StopCondition::{Label, MaybeLabel};
 use crate::execution::executor::ExecutorMode::Invalid;
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
 use crate::cpu::error::Error as CpuError;
+use crate::unit::instruction::{Instruction, InstructionDecoder};
+use crate::unit::instruction::Instruction::Add;
 use crate::unit::register::RegisterName;
 use crate::unit::register::RegisterName::{A0, RA, V0};
 
@@ -262,6 +264,37 @@ impl UnitDevice {
         self.binary.labels.get(name).map(
             |v| self.executor.with_state(|s| s.registers.pc == *v)
         ).unwrap_or(false)
+    }
+
+    pub fn instruction_at(&self, address: u32) -> Option<Instruction> {
+        self.executor.with_memory(|memory| {
+            memory.get_u32(address).ok()
+                .map_or(None, |value| InstructionDecoder::decode(address, value))
+        })
+    }
+
+    pub fn addresses_for<F: FnMut(Instruction) -> bool>(&self, mut matching: F) -> Vec<u32> {
+        self.executor.with_memory(|memory| {
+            let mut result = vec![];
+
+            for region in self.binary.regions {
+                for address in (region.address .. region.address + region.data.len() as u32).step_by(4) {
+                    let Some(instruction) =  else {
+                        continue
+                    };
+
+                    if matching(instruction) {
+                        result.push(address)
+                    }
+                }
+            }
+
+            result
+        })
+    }
+
+    pub fn conditions_for_matching<F: FnMut(Instruction) -> bool>(&self, matching: F) -> Vec<StopCondition> {
+        self.addresses_for(matching).into_iter().map(|x| Address(x)).collect()
     }
 
     pub fn jump_to(&self, pc: u32) {
