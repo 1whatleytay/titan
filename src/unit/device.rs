@@ -227,11 +227,15 @@ impl UnitDevice {
         UnitDevice { executor, binary, handlers: HashMap::new(), finished_pcs }
     }
 
-    pub fn make(path: PathBuf) -> Result<UnitDevice, MakeUnitDeviceError> {
+    pub fn binary(path: PathBuf) -> Result<Binary, MakeUnitDeviceError> {
         let source = fs::read_to_string(&path).map_err(FileMissing)?;
         let binary = assemble_from_path(source, path).map_err(CompileFailed)?;
 
-        Ok(Self::new(binary))
+        Ok(binary)
+    }
+
+    pub fn make(path: PathBuf) -> Result<UnitDevice, MakeUnitDeviceError> {
+        Ok(Self::new(Self::binary(path)?))
     }
 
     pub fn registers(&self) -> Registers {
@@ -271,7 +275,7 @@ impl UnitDevice {
     pub fn instruction_at(&self, address: u32) -> Option<Instruction> {
         self.executor.with_memory(|memory| {
             memory.get_u32(address).ok()
-                .map_or(None, |value| InstructionDecoder::decode(address, value))
+                .and_then(|value| InstructionDecoder::decode(address, value))
         })
     }
 
@@ -279,9 +283,10 @@ impl UnitDevice {
         self.executor.with_memory(|memory| {
             let mut result = vec![];
 
-            for region in self.binary.regions {
+            for region in &self.binary.regions {
                 for address in (region.address .. region.address + region.data.len() as u32).step_by(4) {
-                    let Some(instruction) =  else {
+                    let Some(instruction) = memory.get_u32(address).ok()
+                        .and_then(|value| InstructionDecoder::decode(address, value)) else {
                         continue
                     };
 
