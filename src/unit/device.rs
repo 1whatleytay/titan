@@ -23,7 +23,6 @@ use crate::execution::executor::ExecutorMode::Invalid;
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
 use crate::cpu::error::Error as CpuError;
 use crate::unit::instruction::{Instruction, InstructionDecoder};
-use crate::unit::instruction::Instruction::Add;
 use crate::unit::register::RegisterName;
 use crate::unit::register::RegisterName::{A0, RA, V0};
 
@@ -189,10 +188,7 @@ fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<
 impl Error for UnitDeviceError { }
 
 impl UnitDevice {
-    pub fn make(path: PathBuf) -> Result<UnitDevice, MakeUnitDeviceError> {
-        let source = fs::read_to_string(&path).map_err(FileMissing)?;
-        let binary = assemble_from_path(source, path).map_err(CompileFailed)?;
-
+    pub fn new(binary: Binary) -> UnitDevice {
         let mut memory = WatchedMemory::new(SectionMemory::new());
 
         let heap_size = 0x100000;
@@ -222,14 +218,20 @@ impl UnitDevice {
 
         let executor = Arc::new(Executor::new(state, tracker));
 
-
         let finished_pcs = binary
             .regions
             .iter()
             .map(|region| region.address + region.data.len() as u32)
             .collect();
 
-        Ok(UnitDevice { executor, binary, handlers: HashMap::new(), finished_pcs })
+        UnitDevice { executor, binary, handlers: HashMap::new(), finished_pcs }
+    }
+
+    pub fn make(path: PathBuf) -> Result<UnitDevice, MakeUnitDeviceError> {
+        let source = fs::read_to_string(&path).map_err(FileMissing)?;
+        let binary = assemble_from_path(source, path).map_err(CompileFailed)?;
+
+        Ok(Self::new(binary))
     }
 
     pub fn registers(&self) -> Registers {

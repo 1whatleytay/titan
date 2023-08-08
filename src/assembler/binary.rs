@@ -43,7 +43,7 @@ pub enum AddressLabel {
     Label(NamedLabel), // usize -> start, offset
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RawRegion {
     pub address: u32,
     pub data: Vec<u8>,
@@ -59,13 +59,13 @@ impl RawRegion {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BinaryBreakpoint {
     pub location: Location,
     pub pcs: Vec<u32>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
