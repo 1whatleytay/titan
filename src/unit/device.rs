@@ -521,7 +521,7 @@ impl UnitDevice {
         }
     }
 
-    pub fn call_slice(&self, label: &str, params: &[u32], timeout: Option<Duration>) -> Result<(), UnitDeviceError> {
+    pub fn call_with_conditions(&self, label: &str, params: &[u32], conditions: &[StopCondition]) -> Result<(), UnitDeviceError> {
         self.jump_to_label(label)?;
 
         let last_ra = self.registers().get(RA);
@@ -531,20 +531,22 @@ impl UnitDevice {
 
         self.load_params(params);
 
-        if let Some(duration) = timeout {
-            self.execute_until([
-                Address(return_address),
-                Timeout(duration)
-            ])?;
-        } else {
-            self.execute_until([
-                Address(return_address)
-            ])?;
-        }
+        let mut execution_conditions = vec![Address(return_address)];
+        execution_conditions.extend_from_slice(conditions);
+
+        self.execute_until_slice(&execution_conditions)?;
 
         self.executor.with_state(|s| s.registers.set(RA, last_ra));
 
         Ok(())
+    }
+
+    pub fn call_slice(&self, label: &str, params: &[u32], timeout: Option<Duration>) -> Result<(), UnitDeviceError> {
+        if let Some(duration) = timeout {
+            self.call_with_conditions(label, params, &[Timeout(duration)])
+        } else {
+            self.call_with_conditions(label, params, &[])
+        }
     }
 
     pub fn call<const N: usize>(&self, label: &str, params: [u32; N], timeout: Option<Duration>) -> Result<(), UnitDeviceError> {
