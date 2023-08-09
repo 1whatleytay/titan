@@ -207,6 +207,10 @@ impl Binary {
         self.mount(0x10008000, 0x8000)
     }
 
+    pub fn mount_keyboard(&mut self) {
+        self.mount(0xFFFF0000, 0x100)
+    }
+
     pub fn with_mount_data(mut self, address: u32, data: Vec<u8>) -> Self {
         self.mount_data(address, data);
 
@@ -227,6 +231,12 @@ impl Binary {
 
     pub fn with_mount_display(mut self) -> Self {
         self.mount_display();
+
+        self
+    }
+
+    pub fn with_mount_keyboard(mut self) -> Self {
+        self.mount_keyboard();
 
         self
     }
