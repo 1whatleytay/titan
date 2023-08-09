@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use crate::assembler::binary::Binary;
+use crate::assembler::binary::{Binary, RawRegion};
 use crate::assembler::string::{assemble_from_path, SourceError};
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
@@ -186,6 +186,51 @@ fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<
 }
 
 impl Error for UnitDeviceError { }
+
+impl Binary {
+    pub fn mount_data(&mut self, address: u32, data: Vec<u8>) {
+        self.regions.push(RawRegion {
+            address,
+            data
+        })
+    }
+
+    pub fn mount_constant(&mut self, address: u32, count: usize, constant: u8) {
+        self.mount_data(address, vec![constant; count])
+    }
+
+    pub fn mount(&mut self, address: u32, count: usize) {
+        self.mount_constant(address, count, 0)
+    }
+
+    pub fn mount_display(&mut self) {
+        self.mount(0x10008000, 0x8000)
+    }
+
+    pub fn with_mount_data(mut self, address: u32, data: Vec<u8>) -> Self {
+        self.mount_data(address, data);
+
+        self
+    }
+
+    pub fn with_mount_constant(mut self, address: u32, count: usize, constant: u8) -> Self {
+        self.mount_constant(address, count, constant);
+
+        self
+    }
+
+    pub fn with_mount(mut self, address: u32, count: usize) -> Self {
+        self.mount(address, count);
+
+        self
+    }
+
+    pub fn with_mount_display(mut self) -> Self {
+        self.mount_display();
+
+        self
+    }
+}
 
 impl UnitDevice {
     pub fn new(binary: Binary) -> UnitDevice {
@@ -471,7 +516,7 @@ impl UnitDevice {
         self.execute_until_slice(&conditions)
     }
 
-    pub fn data(&self, address: u32, count: u32) -> Result<Vec<u8>, crate::cpu::error::Error> {
+    pub fn get_data(&self, address: u32, count: u32) -> Result<Vec<u8>, crate::cpu::error::Error> {
         self.executor.with_memory(|memory| {
             let mut result = vec![];
 
@@ -480,6 +525,15 @@ impl UnitDevice {
             }
 
             Ok(result)
+        })
+    }
+
+    pub fn mount_data(&mut self, address: u32, data: Vec<u8>) {
+        self.executor.with_memory(|memory| {
+            memory.mount(Region {
+                start: address,
+                data
+            })
         })
     }
 }
