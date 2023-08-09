@@ -50,6 +50,7 @@ pub struct UnitDevice {
     pub executor: Arc<Executor<MemoryType, TrackerType>>,
     pub binary: Binary,
     pub finished_pcs: Vec<u32>,
+    pub syscall_handler: Option<Box<dyn Fn()>>,
     handlers: HashMap<u32, Box<dyn Fn ()>>,
 }
 
@@ -279,7 +280,13 @@ impl UnitDevice {
             .map(|region| region.address + region.data.len() as u32)
             .collect();
 
-        UnitDevice { executor, binary, handlers: HashMap::new(), finished_pcs }
+        UnitDevice {
+            executor,
+            binary,
+            syscall_handler: None,
+            handlers: HashMap::new(),
+            finished_pcs
+        }
     }
 
     pub fn binary(path: PathBuf) -> Result<Binary, MakeUnitDeviceError> {
@@ -385,6 +392,10 @@ impl UnitDevice {
         self.handlers.insert(v0, Box::new(f));
     }
 
+    pub fn handle_any_syscall<F: Fn() + 'static>(&mut self, f: F) {
+        self.syscall_handler = Some(Box::new(f))
+    }
+
     pub fn handle_frame(&self, frame: &DebugFrame, complete_error: bool) -> Result<bool, UnitDeviceError> {
         match frame.mode {
             Invalid(error) => match error {
@@ -392,6 +403,12 @@ impl UnitDevice {
                     let v0 = self.executor.with_state(|s| s.registers.get(V0));
 
                     if let Some(handler) = self.handlers.get(&v0) {
+                        handler();
+
+                        self.executor.invalid_handled();
+
+                        Ok(false)
+                    } else if let Some(handler) = &self.syscall_handler {
                         handler();
 
                         self.executor.invalid_handled();
