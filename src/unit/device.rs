@@ -243,6 +243,61 @@ impl Binary {
     }
 }
 
+impl Registers {
+    pub fn temporary(&self) -> [u32; 10] {
+        [
+            self.get(RegisterName::T0),
+            self.get(RegisterName::T1),
+            self.get(RegisterName::T2),
+            self.get(RegisterName::T3),
+            self.get(RegisterName::T4),
+            self.get(RegisterName::T5),
+            self.get(RegisterName::T6),
+            self.get(RegisterName::T7),
+            self.get(RegisterName::T8),
+            self.get(RegisterName::T9),
+        ]
+    }
+
+    pub fn saved(&self) -> [u32; 8] {
+        [
+            self.get(RegisterName::S0),
+            self.get(RegisterName::S1),
+            self.get(RegisterName::S2),
+            self.get(RegisterName::S3),
+            self.get(RegisterName::S4),
+            self.get(RegisterName::S5),
+            self.get(RegisterName::S6),
+            self.get(RegisterName::S7),
+        ]
+    }
+
+    pub fn parameters(&self) -> [u32; 4] {
+        [
+            self.get(A0),
+            self.get(RegisterName::A1),
+            self.get(RegisterName::A2),
+            self.get(RegisterName::A3),
+        ]
+    }
+
+    pub fn values(&self) -> [u32; 2] {
+        [
+            self.get(V0),
+            self.get(RegisterName::V1),
+        ]
+    }
+
+    pub fn other(&self) -> [u32; 4] {
+        [
+            self.get(RegisterName::SP),
+            self.get(RegisterName::GP),
+            self.get(RegisterName::K0),
+            self.get(RegisterName::K1),
+        ]
+    }
+}
+
 impl UnitDevice {
     pub fn new(binary: Binary) -> UnitDevice {
         let mut memory = WatchedMemory::new(SectionMemory::new());
