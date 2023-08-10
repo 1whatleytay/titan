@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::{fs, thread};
+use std::panic::{catch_unwind, RefUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -297,6 +298,8 @@ impl Registers {
         ]
     }
 }
+
+pub type UnitTest = fn (UnitDevice) -> ();
 
 impl UnitDevice {
     pub fn new(binary: Binary) -> UnitDevice {
@@ -645,5 +648,17 @@ impl UnitDevice {
                 data
             })
         })
+    }
+
+    pub fn test<F: RefUnwindSafe + Fn() -> UnitDevice>(configure: F, tests: &[UnitTest]) -> thread::Result<()> {
+        for test in tests {
+            catch_unwind(|| {
+                let device = configure();
+
+                test(device)
+            })?
+        }
+
+        Ok(())
     }
 }
