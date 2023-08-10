@@ -612,6 +612,32 @@ impl UnitDevice {
         })
     }
 
+    pub fn get_display_data(
+        &self,
+        line_byte_length: u32,
+        address: u32,
+        x: u32, y: u32,
+        width: u32, height: u32
+    ) -> Result<Vec<u32>, crate::cpu::error::Error> {
+        self.executor.with_memory(|memory| {
+            let mut result = vec![];
+
+            result.reserve((width as usize) * (height as usize));
+
+            for v in y .. (y + height) {
+                for h in x .. (x + width) {
+                    let point = address + line_byte_length
+                        .wrapping_mul(v)
+                        .wrapping_add(h.wrapping_mul(4));
+
+                    result.push(memory.get_u32(point)?)
+                }
+            }
+
+            Ok(result)
+        })
+    }
+
     pub fn mount_data(&mut self, address: u32, data: Vec<u8>) {
         self.executor.with_memory(|memory| {
             memory.mount(Region {
