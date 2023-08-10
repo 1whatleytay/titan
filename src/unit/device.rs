@@ -615,6 +615,16 @@ impl UnitDevice {
         })
     }
 
+    pub fn set_data(&self, address: u32, data: Vec<u8>) -> Result<(), crate::cpu::error::Error> {
+        self.executor.with_memory(|memory| {
+            for (i, value) in data.iter().enumerate() {
+                memory.set(address.wrapping_add(i as u32), *value)?
+            }
+
+            Ok(())
+        })
+    }
+
     pub fn get_display_data(
         &self,
         line_byte_length: u32,
