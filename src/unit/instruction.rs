@@ -5,7 +5,7 @@ use num::FromPrimitive;
 use crate::unit::instruction::InstructionParameter::{Address, Immediate, Register};
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
     Add { s: RegisterName, t: RegisterName, d: RegisterName },
     Addu { s: RegisterName, t: RegisterName, d: RegisterName },

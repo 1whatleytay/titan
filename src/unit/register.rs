@@ -3,7 +3,7 @@ use crate::cpu::state::Registers;
 use num_derive::{ToPrimitive, FromPrimitive};
 use num_traits::ToPrimitive;
 
-#[derive(Copy, Clone, Debug, ToPrimitive, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, ToPrimitive, FromPrimitive)]
 pub enum RegisterName {
     Zero = 0, AT = 1,
     V0 = 2, V1 = 3, A0 = 4, A1 = 5, A2 = 6, A3 = 7,
