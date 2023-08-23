@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use crate::cpu::decoder::Decoder;
 use crate::unit::register::RegisterName;
 use num::FromPrimitive;
-use crate::unit::instruction::InstructionParameter::{Address, Immediate, Register};
+use crate::unit::instruction::InstructionParameter::{Address, Immediate, Offset, Register};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -367,7 +367,8 @@ impl Decoder<Instruction> for InstructionDecoder {
 pub enum InstructionParameter {
     Register(RegisterName),
     Immediate(u16),
-    Address(u32)
+    Address(u32),
+    Offset(u16, RegisterName)
 }
 
 impl From<RegisterName> for InstructionParameter {
@@ -443,7 +444,7 @@ impl Instruction {
         }
     }
 
-    pub fn registers(self) -> Vec<InstructionParameter> {
+    pub fn parameters(self) -> Vec<InstructionParameter> {
         match self {
             Instruction::Add { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Addu { s, t, d } => vec![d.into(), s.into(), t.into()],
@@ -492,14 +493,14 @@ impl Instruction {
             Instruction::Bgezal { s, address } => vec![s.into(), Address(address)],
             Instruction::J { address } => vec![Address(address)],
             Instruction::Jal { address } => vec![Address(address)],
-            Instruction::Lb { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Lbu { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Lh { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Lhu { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Lw { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Sb { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Sh { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Sw { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Lb { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Lbu { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Lh { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Lhu { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Lw { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Sb { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Sh { s, t, imm } => vec![t.into(), Offset(imm, s)],
+            Instruction::Sw { s, t, imm } => vec![t.into(), Offset(imm, s)],
             Instruction::Mfhi { d } => vec![d.into()],
             Instruction::Mflo { d } => vec![d.into()],
             Instruction::Mthi { s } => vec![s.into()],
