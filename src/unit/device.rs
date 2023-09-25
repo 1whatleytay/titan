@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use crate::assembler::binary::{Binary, RawRegion};
+use crate::assembler::binary::{Binary, RawRegion, RegionFlags};
 use crate::assembler::string::{assemble_from_path, SourceError};
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
@@ -192,6 +192,7 @@ impl Error for UnitDeviceError { }
 impl Binary {
     pub fn mount_data(&mut self, address: u32, data: Vec<u8>) {
         self.regions.push(RawRegion {
+            flags: RegionFlags::all(),
             address,
             data
         })

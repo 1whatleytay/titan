@@ -1,6 +1,7 @@
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use std::collections::HashMap;
 use std::hash::Hash;
+use bitflags::bitflags;
 use crate::assembler::lexer::Location;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -43,8 +44,29 @@ pub enum AddressLabel {
     Label(NamedLabel), // usize -> start, offset
 }
 
+bitflags! {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct RegionFlags: u32 {
+        const EXECUTABLE = 1 << 0;
+        const WRITABLE = 1 << 1;
+        const READABLE = 1 << 2;
+    }
+}
+
+impl From<BinarySection> for RegionFlags {
+    fn from(value: BinarySection) -> Self {
+        match value {
+            Text => RegionFlags::EXECUTABLE | RegionFlags::READABLE,
+            Data => RegionFlags::WRITABLE | RegionFlags::READABLE,
+            KernelText => RegionFlags::EXECUTABLE | RegionFlags::READABLE,
+            KernelData => RegionFlags::WRITABLE | RegionFlags::READABLE,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RawRegion {
+    pub flags: RegionFlags,
     pub address: u32,
     pub data: Vec<u8>,
 }

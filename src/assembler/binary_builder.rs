@@ -3,7 +3,7 @@ use crate::assembler::assembler_util::AssemblerReason::{
     JumpOutOfRange, MissingInstruction, UnknownLabel,
 };
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::binary::{AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion};
+use crate::assembler::binary::{AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags};
 use crate::assembler::binary_builder::BinarySection::Text;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
@@ -135,11 +135,12 @@ impl BinaryBuilder {
         }
     }
 
-    fn seek(&mut self, address: u32) -> usize {
+    fn seek(&mut self, address: u32, flags: RegionFlags) -> usize {
         let index = self.regions.len();
 
         self.regions.push(BinaryBuilderRegion {
             raw: RawRegion {
+                flags,
                 address,
                 data: vec![],
             },
@@ -155,7 +156,7 @@ impl BinaryBuilder {
         let index = self
             .state
             .index()
-            .unwrap_or_else(|| self.seek(mode.default_address()));
+            .unwrap_or_else(|| self.seek(mode.default_address(), mode.into()));
 
         self.state.indices.insert(mode, index);
     }
@@ -163,7 +164,7 @@ impl BinaryBuilder {
     pub fn seek_mode_address(&mut self, mode: BinarySection, address: u32) {
         self.state.mode = mode;
 
-        let index = self.seek(address);
+        let index = self.seek(address, mode.into());
         self.state.indices.insert(mode, index);
     }
 
