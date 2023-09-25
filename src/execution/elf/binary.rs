@@ -1,8 +1,22 @@
-use crate::assembler::binary::Binary;
+use crate::assembler::binary::{Binary, RegionFlags};
 use crate::elf::header::{BinaryType, Endian, InstructionSet, MAGIC};
 use crate::elf::program::ProgramHeaderType::Load;
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags};
 use crate::elf::{Elf, Header};
+
+impl From<RegionFlags> for ProgramHeaderFlags {
+    fn from(value: RegionFlags) -> Self {
+        value.iter()
+            .map(|item| match item {
+                RegionFlags::EXECUTABLE => ProgramHeaderFlags::EXECUTABLE,
+                RegionFlags::READABLE => ProgramHeaderFlags::READABLE,
+                RegionFlags::WRITABLE => ProgramHeaderFlags::WRITABLE,
+                _ => ProgramHeaderFlags::empty(),
+            })
+            .reduce(|x, y| x | y)
+            .unwrap_or(ProgramHeaderFlags::empty())
+    }
+}
 
 impl Binary {
     fn default_header(&self) -> Header {
@@ -24,20 +38,12 @@ impl Binary {
         let mut result = vec![];
 
         for region in &self.regions {
-            let default_flags = ProgramHeaderFlags::READABLE | ProgramHeaderFlags::WRITABLE;
-
-            let flags = if region.address == self.entry {
-                default_flags | ProgramHeaderFlags::EXECUTABLE
-            } else {
-                default_flags
-            };
-
             let header = ProgramHeader {
                 header_type: Some(Load),
                 virtual_address: region.address,
                 padding: 0,
                 memory_size: region.data.len() as u32,
-                flags,
+                flags: region.flags.into(),
                 alignment: 1,
                 data: region.data.clone(),
             };
