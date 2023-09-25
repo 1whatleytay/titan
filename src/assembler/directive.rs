@@ -1,10 +1,7 @@
 use crate::assembler::assembler_util::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::assembler_util::{
-    default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region,
-    AssemblerError,
-};
+use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label};
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::binary::{BinarySection, NamedLabel};
@@ -363,6 +360,14 @@ fn do_double_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(),
     })
 }
 
+fn do_entry_directive(iter: &mut LexerCursor, builder: &mut BinaryBuilder) -> Result<(), AssemblerError> {
+    let label = get_label(iter)?;
+
+    builder.entry = Some(label);
+
+    Ok(())
+}
+
 fn do_extern_directive(
     iter: &mut LexerCursor,
     _: &mut BinaryBuilder,
@@ -393,6 +398,7 @@ pub fn do_directive(
         "word" => do_word_directive(iter, builder),
         "float" => do_float_directive(iter, builder),
         "double" => do_double_directive(iter, builder),
+        "entry" => do_entry_directive(iter, builder),
 
         "text" => do_seek_directive(Text, iter, builder),
         "data" => do_seek_directive(Data, iter, builder),

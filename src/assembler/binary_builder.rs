@@ -106,6 +106,7 @@ pub struct BinaryBuilderState {
 }
 
 pub struct BinaryBuilder {
+    pub entry: Option<AddressLabel>,
     pub state: BinaryBuilderState,
     pub regions: Vec<BinaryBuilderRegion>,
     pub labels: HashMap<String, u32>,
@@ -128,6 +129,7 @@ impl BinaryBuilderState {
 impl BinaryBuilder {
     pub fn new() -> BinaryBuilder {
         BinaryBuilder {
+            entry: None,
             state: BinaryBuilderState::new(),
             regions: vec![],
             labels: HashMap::new(),
@@ -181,6 +183,12 @@ impl BinaryBuilder {
             location: None,
             reason: MissingInstruction,
         };
+
+        if let Some(entry) = self.entry {
+            let address = get_address(entry, &self.labels)?;
+
+            binary.entry = address;
+        }
 
         for region in self.regions {
             let mut raw = region.raw;
