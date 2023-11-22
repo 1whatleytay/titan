@@ -50,10 +50,10 @@ pub struct Inspection {
 
 impl Inspection {
     fn program_header_flags(flags: ProgramHeaderFlags) -> String {
-        let entries = vec![
+        let entries = [
             (ProgramHeaderFlags::READABLE, "R"),
             (ProgramHeaderFlags::WRITABLE, "W"),
-            (ProgramHeaderFlags::EXECUTABLE, "E"),
+            (ProgramHeaderFlags::EXECUTABLE, "E")
         ];
 
         entries
