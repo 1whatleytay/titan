@@ -55,8 +55,18 @@ impl HistoryTracker {
         self.buffer[self.next].take()
     }
 
+    pub fn last(&mut self) -> &Option<HistoryEntry> {
+        let last = self.next.checked_sub(1).unwrap_or(self.buffer.len() - 1);
+
+        &self.buffer[last]
+    }
+
     pub fn len(&self) -> usize {
         self.count
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
