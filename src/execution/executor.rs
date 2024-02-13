@@ -76,13 +76,16 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
 
         self.tracker.pre_track(&mut self.state);
         let result = self.state.step();
-        self.tracker.post_track(&mut self.state);
 
         if let Err(err) = result {
             self.mode = Invalid(err);
 
             Some(self.frame_with_pc(start_pc))
         } else {
+            // Only track the instruction if it did not fail.
+            // This means back-stepping will not go back to your instruction.
+            self.tracker.post_track(&mut self.state);
+
             None
         }
     }
