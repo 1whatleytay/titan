@@ -151,7 +151,7 @@ pub trait Decoder<T> {
         let s = ((instruction >> 21) & 0x1F) as u8;
         let t = ((instruction >> 16) & 0x1F) as u8;
         let imm = (instruction & 0xFFFF) as u16;
-        let address = instruction & 0x003FFFFF;
+        let address = instruction & 0x03FFFFFF;
 
         Some(match opcode {
             0 => return self.dispatch_rtype(instruction),
