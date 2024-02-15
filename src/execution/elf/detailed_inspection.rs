@@ -41,7 +41,7 @@ impl LabelManager {
     }
 }
 
-fn disassemble(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<InstructionInfo> {
+fn disassemble(mut address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<InstructionInfo> {
     let mut instructions = Cursor::new(data);
 
     let mut result = vec![];
@@ -73,6 +73,8 @@ fn disassemble(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<
                 parameters: vec![]
             })
         }
+
+        address += 4;
     }
 
     result
