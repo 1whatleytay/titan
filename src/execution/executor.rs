@@ -5,6 +5,7 @@ use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Reco
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Mutex;
+use std::time::Duration;
 use crate::execution::trackers::empty::EmptyTracker;
 use crate::execution::trackers::Tracker;
 
@@ -163,25 +164,30 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         };
 
         loop {
-            let mut value = self.mutex.lock().unwrap();
+            {
+                let mut value = self.mutex.lock().unwrap();
 
-            for _ in 0..batch {
-                if value.mode != Running {
+                for _ in 0..batch {
+                    if value.mode != Running {
+                        return value.frame();
+                    }
+
+                    if let Some(frame) = value.cycle(hit_breakpoint) {
+                        return frame;
+                    }
+
+                    hit_breakpoint = false
+                }
+
+                if BREAK_BATCH {
+                    value.mode = Breakpoint;
+
                     return value.frame();
                 }
-
-                if let Some(frame) = value.cycle(hit_breakpoint) {
-                    return frame;
-                }
-
-                hit_breakpoint = false
             }
 
-            if BREAK_BATCH {
-                value.mode = Breakpoint;
-
-                return value.frame();
-            }
+            // Ensure the lock stays released for a bit.
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
 
