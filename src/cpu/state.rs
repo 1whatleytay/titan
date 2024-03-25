@@ -12,6 +12,8 @@ pub struct Registers {
 pub struct State<Mem: Memory> {
     pub registers: Registers,
     pub memory: Mem,
+    
+    pub zero: u32, // temporary value to overwrite zero, always zero
 }
 
 impl Registers {
@@ -30,6 +32,7 @@ impl<Mem: Memory> State<Mem> {
         State {
             registers: Registers::new(entry),
             memory,
+            zero: 0,
         }
     }
 }

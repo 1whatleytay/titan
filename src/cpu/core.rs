@@ -22,7 +22,13 @@ impl<T: Memory> State<T> {
 
 impl<Mem: Memory> State<Mem> {
     fn register(&mut self, index: u8) -> &mut u32 {
-        &mut self.registers.line[index as usize]
+        if index == 0 {
+            self.zero = 0;
+            
+            &mut self.zero
+        } else {
+            &mut self.registers.line[index as usize]
+        }
     }
 
     fn skip(&mut self, imm: u16) {
