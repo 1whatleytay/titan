@@ -211,7 +211,7 @@ fn consume_include<'a, P: TokenProvider<'a>>(
 
 fn expand_macro<'a, P: TokenProvider<'a>>(
     macro_info: Rc<Macro<'a>>,
-    parameters: Vec<Token<'a>>,
+    parameters: Vec<Vec<Token<'a>>>,
     provider: &P,
     cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
@@ -242,22 +242,33 @@ fn expand_macro<'a, P: TokenProvider<'a>>(
         })
         .collect();
 
-    let mut parameter_map: HashMap<&'a str, TokenKind> = HashMap::new();
+    let mut parameter_map: HashMap<&'a str, Vec<TokenKind>> = HashMap::new();
 
     for (index, value) in parameters.into_iter().enumerate() {
         let name = macro_info.parameters[index];
 
-        parameter_map.insert(name, value.kind);
+        parameter_map.insert(name, value.into_iter().map(|token| token.kind).collect());
     }
 
     let mut result = vec![];
 
     for token in &macro_info.items {
         let mapped_kind = match &token.kind {
-            Parameter(name) => parameter_map
-                .get(name)
-                .cloned()
-                .ok_or_else(|| MacroUnknownParameter(name.to_string()))?,
+            Parameter(name) => {
+                let kinds = parameter_map
+                    .get(name)
+                    .ok_or_else(|| MacroUnknownParameter(name.to_string()))?;
+                
+                for kind in kinds {
+                    result.push(Token {
+                        location: token.location,
+                        kind: kind.clone(),
+                    });
+                }
+                
+                // isolate dealing with vectors to this branch
+                continue
+            },
             Symbol(name) => {
                 if let Some(new_name) = label_names.get(name.get()) {
                     Symbol(Owned(new_name.clone()))
@@ -333,7 +344,21 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
         match next.kind {
             RightBrace => break,
             NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
-            _ => parameters.push(next.clone()),
+            TokenKind::Plus | TokenKind::Minus => {
+                let mut result = vec![next.clone()];
+                
+                if let (position, Some(number)) = iter.peek_adjacent() {
+                    if let TokenKind::IntegerLiteral(_) = number.kind {
+                        iter.set_position(position);
+                        iter.next();
+                        
+                        result.push(number.clone());
+                    }
+                }
+                
+                parameters.push(result);
+            }
+            _ => parameters.push(vec![next.clone()]),
         }
     }
 
