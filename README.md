@@ -1,6 +1,6 @@
 # Titan - MIPS Backend
 
-Titan provides a MIPS assembler, interpret and debugger.
+Titan provides a MIPS assembler, interpreter and debugger.
 
 It is the backend for the [Saturn](https://github.com/1whatleytay/saturn) Modern MIPS IDE.
 
