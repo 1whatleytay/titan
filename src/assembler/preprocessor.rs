@@ -34,7 +34,7 @@ impl Display for PreprocessorReason {
         match self {
             EndOfFile => write!(
                 f,
-                "A required token is missing for the preprocessor, nstead got end-of-file"
+                "A required token is missing for the preprocessor, instead got end-of-file"
             ),
             ExpectedSymbol(kind) => write!(f, "Expected a symbol (name) token, but found {kind}"),
             ExpectedParameter(kind) => {
@@ -346,9 +346,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
     cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut iter = LexerCursor::new(items);
-    let mut result: Vec<Token> = vec![];
-
-    result.reserve(items.len());
+    let mut result: Vec<Token> = Vec::with_capacity(items.len());
 
     let watched_directives = HashSet::from(["eqv", "macro", "include"]);
 
@@ -392,10 +390,24 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
     Ok(result)
 }
 
+pub fn mark_parameters_as_error(result: Vec<Token>) -> Result<Vec<Token>, PreprocessorError> {
+    for token in &result {
+        if let Parameter(name) = token.kind {
+            return Err(PreprocessorError {
+                location: token.location,
+                reason: MacroUnknownParameter(name.to_string()),
+            })
+        }
+    }
+    
+    Ok(result)
+}
+
 pub fn preprocess<'a, P: TokenProvider<'a>>(
     provider: &P
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut cache = Cache::new();
 
     preprocess_cached(provider, provider.get(), &mut cache)
+        .and_then(mark_parameters_as_error)
 }
