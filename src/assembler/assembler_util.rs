@@ -254,13 +254,14 @@ pub fn get_label(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError>
 }
 
 pub enum OffsetOrLabel {
-    Offset(u64, RegisterSlot),
-    Address(AddressLabel),
+    Label(AddressLabel),
+    Offset(AddressLabel, RegisterSlot),
 }
 
 pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let start = iter.get_position();
-    let value = get_integer_adjacent(iter);
+
+    let label = to_label(get_token(iter)?, iter);
 
     let is_offset = iter
         .seek_without(is_adjacent_kind)
@@ -268,8 +269,6 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
         .unwrap_or(false);
 
     if is_offset {
-        let value = value.unwrap_or(0);
-
         iter.next(); // left brace
 
         let register = get_register(iter)?;
@@ -288,11 +287,9 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
             ));
         }
 
-        Ok(OffsetOrLabel::Offset(value, register))
+        Ok(OffsetOrLabel::Offset(label.unwrap_or(AddressLabel::Constant(0)), register))
     } else {
-        iter.set_position(start); // unconsume the integer
-
-        Ok(OffsetOrLabel::Address(to_label(get_token(iter)?, iter)?))
+        Ok(OffsetOrLabel::Label(label?))
     }
 }
 

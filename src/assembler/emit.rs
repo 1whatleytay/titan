@@ -168,28 +168,20 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
 
 fn make_offset_or_label(offset: OffsetOrLabel) -> (u16, RegisterSlot, Vec<InstructionPair>) {
     match offset {
-        OffsetOrLabel::Offset(value, register) => {
-            if (-0x8000..0x8000).contains(&(value as i64)) {
-                (value as u16, register, vec![])
-            } else {
-                let mut instructions = load_immediate(value, AssemblerTemporary);
+        OffsetOrLabel::Offset(label, register) => {
+            let mut instructions = make_label(label, AssemblerTemporary);
 
-                let add = InstructionBuilder::from_op(&Func(32))
-                    .with_dest(AssemblerTemporary)
-                    .with_source(AssemblerTemporary)
-                    .with_temp(register)
-                    .0;
+            let add = InstructionBuilder::from_op(&Func(32))
+                .with_dest(AssemblerTemporary)
+                .with_source(AssemblerTemporary)
+                .with_temp(register)
+                .0;
 
-                instructions.push(add);
+            instructions.push((add, None));
 
-                let instructions = instructions.into_iter()
-                    .map(|x| (x, None))
-                    .collect();
-
-                (0, AssemblerTemporary, instructions)
-            }
-        },
-        OffsetOrLabel::Address(label) => {
+            (0, AssemblerTemporary, instructions)
+        }
+        OffsetOrLabel::Label(label) => {
             let instructions = make_label(label, AssemblerTemporary);
 
             (0, AssemblerTemporary, instructions)
