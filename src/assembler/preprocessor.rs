@@ -4,7 +4,7 @@ use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
 };
 use crate::assembler::lexer::{LexerError, Location, StrippedKind, SymbolName, Token, TokenKind};
-use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol, MacroParameterCount, MacroUnknown, MacroUnknownParameter, RecursiveExpansion, IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile, RecursiveInclude};
+use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion, IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile, RecursiveInclude};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -20,7 +20,6 @@ pub enum PreprocessorReason {
     ExpectedRightBrace(StrippedKind),
     ExpectedString(StrippedKind),
     RecursiveExpansion,
-    MacroUnknown(String),
     MacroParameterCount(usize, usize), // expected, actual
     MacroUnknownParameter(String),
     IncludeUnsupported,
@@ -47,7 +46,6 @@ impl Display for PreprocessorReason {
                 f,
                 "Macro recursively calls itself, so preprocessor has stopped expanding"
             ),
-            MacroUnknown(name) => write!(f, "Could not find a macro named \"{name}\""),
             MacroParameterCount(expected, actual) => write!(
                 f,
                 "Expected {expected} macro parameters, but passed {actual}"
@@ -317,6 +315,8 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
         return Ok(vec![Token { location, kind: Symbol(name.clone()) }])
     };
 
+    let start = iter.get_position();
+
     match last.kind {
         LeftBrace => {
             iter.next(); /* pop */
@@ -333,7 +333,11 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
     iter.consume_until(position); // includes the item
 
     let Some(macro_info) = cache.macros.get(name.get()) else {
-        return Err(MacroUnknown(name.get().to_string()))
+        iter.set_position(start);
+        return Ok(vec![Token {
+            location,
+            kind: Symbol(name.clone()),
+        }]);
     };
 
     let mut parameters = vec![];
