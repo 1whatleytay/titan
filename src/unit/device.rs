@@ -14,7 +14,7 @@ use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::memory::watched::WatchedMemory;
 use crate::cpu::{Memory, State};
 use crate::cpu::state::Registers;
-use crate::execution::executor::{DebugFrame, Executor};
+use crate::execution::executor::{DebugFrame, Executor, ExecutorMode};
 use crate::execution::trackers::history::HistoryTracker;
 use crate::unit::device::MakeUnitDeviceError::{CompileFailed, FileMissing};
 use crate::unit::device::UnitDeviceError::{ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted};
@@ -464,13 +464,13 @@ impl UnitDevice {
                     if let Some(handler) = self.handlers.get(&v0) {
                         handler();
 
-                        self.executor.invalid_handled();
+                        self.executor.syscall_handled();
 
                         Ok(false)
                     } else if let Some(handler) = &self.syscall_handler {
                         handler();
 
-                        self.executor.invalid_handled();
+                        self.executor.syscall_handled();
 
                         Ok(false)
                     } else {
@@ -579,7 +579,13 @@ impl UnitDevice {
 
         loop {
             let frame = if let Some(count) = parameters.steps {
-                self.executor.run_limited::<true>(count)
+                let result = self.executor.run_batched(count, self.executor.should_skip_first_breakpoint());
+                
+                if !result {
+                    self.executor.override_mode(ExecutorMode::Breakpoint)
+                }
+                
+                self.executor.frame()
             } else {
                 self.executor.run()
             };

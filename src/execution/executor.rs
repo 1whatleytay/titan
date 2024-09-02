@@ -4,7 +4,6 @@ use crate::cpu::{Memory, State};
 use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Recovered, Running};
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::sync::Mutex;
 use crate::execution::trackers::empty::EmptyTracker;
 use crate::execution::trackers::Tracker;
 
@@ -31,7 +30,7 @@ pub struct ExecutorState<Mem: Memory, Track: Tracker<Mem>> {
 }
 
 pub struct Executor<Mem: Memory, Track: Tracker<Mem>> {
-    mutex: Mutex<ExecutorState<Mem, Track>>,
+    mutex: parking_lot::Mutex<ExecutorState<Mem, Track>>,
 }
 
 #[derive(Debug)]
@@ -51,28 +50,21 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
         }
     }
 
-    fn frame_with_pc(&self, pc: u32) -> DebugFrame {
-        let mut registers = self.state.registers;
-        registers.pc = pc;
-
+    pub fn frame(&self) -> DebugFrame {
         DebugFrame {
             mode: self.mode,
-            registers,
+            registers: self.state.registers,
         }
     }
 
-    pub fn frame(&self) -> DebugFrame {
-        self.frame_with_pc(self.state.registers.pc)
-    }
-
-    pub fn cycle(&mut self, no_breakpoints: bool) -> Option<DebugFrame> {
+    // Returns true if the CPU was interrupted.
+    // If true, see self.frame() for details (ex. the mode)
+    pub fn cycle(&mut self, no_breakpoints: bool) -> bool {
         if !no_breakpoints && self.breakpoints.contains(&self.state.registers.pc) {
             self.mode = Breakpoint;
 
-            return Some(self.frame());
+            return true
         }
-
-        let start_pc = self.state.registers.pc;
 
         self.tracker.pre_track(&mut self.state);
         let result = self.state.step();
@@ -80,13 +72,13 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
         if let Err(err) = result {
             self.mode = Invalid(err);
 
-            Some(self.frame_with_pc(start_pc))
+            true
         } else {
             // Only track the instruction if it did not fail.
             // This means back-stepping will not go back to your instruction.
             self.tracker.post_track(&mut self.state);
 
-            None
+            false
         }
     }
 }
@@ -94,100 +86,109 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
 impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     pub fn new(state: State<Mem>, tracker: Track) -> Executor<Mem, Track> {
         Executor {
-            mutex: Mutex::new(ExecutorState::new(state, tracker)),
+            mutex: parking_lot::Mutex::new(ExecutorState::new(state, tracker)),
         }
     }
 
     pub fn from_state(state: State<Mem>) -> Executor<Mem, EmptyTracker> {
         Executor {
-            mutex: Mutex::new(ExecutorState::new(state, EmptyTracker { }))
+            mutex: parking_lot::Mutex::new(ExecutorState::new(state, EmptyTracker { }))
         }
     }
 
     pub fn frame(&self) -> DebugFrame {
-        self.mutex.lock().unwrap().frame()
+        self.mutex.lock().frame()
     }
 
     pub fn pause(&self) {
-        self.mutex.lock().unwrap().mode = Paused
+        self.mutex.lock().mode = Paused
+    }
+    
+    pub fn override_mode(&self, mode: ExecutorMode) {
+        self.mutex.lock().mode = mode
     }
 
     pub fn with_state<T, F: FnOnce (&mut State<Mem>) -> T>(&self, f: F) -> T {
-        let mut lock = self.mutex.lock().unwrap();
+        let mut lock = self.mutex.lock();
 
         f(&mut lock.state)
     }
 
     pub fn with_memory<T, F: FnOnce (&mut Mem) -> T>(&self, f: F) -> T {
-        let mut lock = self.mutex.lock().unwrap();
+        let mut lock = self.mutex.lock();
 
         f(&mut lock.state.memory)
     }
 
     pub fn with_tracker<T, F: FnOnce (&mut Track) -> T>(&self, f: F) -> T {
-        let mut lock = self.mutex.lock().unwrap();
+        let mut lock = self.mutex.lock();
 
         f(&mut lock.tracker)
     }
 
-    pub fn invalid_handled(&self) {
-        let mut lock = self.mutex.lock().unwrap();
+    pub fn syscall_handled(&self) {
+        let mut lock = self.mutex.lock();
 
         if let Invalid(_) = lock.mode {
             lock.mode = Recovered
         }
+        
+        lock.state.registers.pc += 4;
     }
 
     pub fn set_breakpoints(&self, breakpoints: Breakpoints) {
-        let mut lock = self.mutex.lock().unwrap();
+        let mut lock = self.mutex.lock();
 
         lock.breakpoints = breakpoints
     }
 
-    pub fn cycle(&self, no_breakpoints: bool) -> Option<DebugFrame> {
-        self.mutex.lock().unwrap().cycle(no_breakpoints)
+    // Returns true if CPU was interrupted.
+    pub fn cycle(&self, no_breakpoints: bool) -> bool {
+        self.mutex.lock().cycle(no_breakpoints)
     }
+    
+    pub fn should_skip_first_breakpoint(&self) -> bool {
+        let mut value = self.mutex.lock();
 
-    pub fn run_limited<const BREAK_BATCH: bool>(&self, batch: usize) -> DebugFrame {
-        let mut hit_breakpoint = {
-            let mut value = self.mutex.lock().unwrap();
+        // Commenting this spooky line out... no idea what problems removing this causes.
+        // if value.mode == Running {
+        //     return value.frame();
+        // }
 
-            if value.mode == Running {
-                return value.frame();
+        let result = value.mode;
+        value.mode = Running;
+
+        result == Breakpoint
+    }
+    
+    // Returns true if the CPU was interrupted.
+    pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool) -> bool {
+        let mut value = self.mutex.lock();
+
+        for _ in 0..batch {
+            if value.mode != Running {
+                return true
             }
 
-            let result = value.mode;
-            value.mode = Running;
-
-            result == Breakpoint
-        };
-
-        loop {
-            let mut value = self.mutex.lock().unwrap();
-
-            for _ in 0..batch {
-                if value.mode != Running {
-                    return value.frame();
-                }
-
-                if let Some(frame) = value.cycle(hit_breakpoint) {
-                    return frame;
-                }
-
-                hit_breakpoint = false
+            if value.cycle(skip_first_breakpoint) {
+                return true
             }
 
-            if BREAK_BATCH {
-                value.mode = Breakpoint;
-
-                return value.frame();
-            }
+            skip_first_breakpoint = false
         }
+
+        false
     }
 
     pub fn run(&self) -> DebugFrame {
-        let batch = self.mutex.lock().unwrap().batch;
-
-        self.run_limited::<false>(batch)
+        let batch = self.mutex.lock().batch;
+        
+        let mut should_skip = self.should_skip_first_breakpoint();
+        
+        while !self.run_batched(batch, should_skip) {
+            should_skip = false
+        }
+        
+        self.frame()
     }
 }

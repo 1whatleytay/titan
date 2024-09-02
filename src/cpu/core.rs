@@ -44,12 +44,14 @@ impl<Mem: Memory> State<Mem> {
     }
 
     pub fn step(&mut self) -> Result<()> {
+        let start = self.registers.pc;
         let instruction = self.memory.get_u32(self.registers.pc)?;
 
-        self.registers.pc = self.registers.pc.wrapping_add(4);
+        self.registers.pc = start.wrapping_add(4);
 
         self.dispatch(instruction)
             .unwrap_or(Err(CpuInvalid(instruction)))
+            .inspect_err(|_| self.registers.pc = start) // if error, keep pc here
     }
 }
 
