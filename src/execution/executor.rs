@@ -147,6 +147,10 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         self.mutex.lock().cycle(no_breakpoints)
     }
     
+    pub fn is_breakpoint(&self) -> bool {
+        self.mutex.lock().mode == Breakpoint
+    }
+    
     // Returns true if the CPU was interrupted.
     pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool) -> bool {
         let mut value = self.mutex.lock();
@@ -166,7 +170,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         false
     }
 
-    pub fn run(&self) -> DebugFrame {
+    pub fn run(&self, mut skip_first_breakpoint: bool) -> DebugFrame {
         let batch = {
             let mut lock = self.mutex.lock();
             
@@ -174,8 +178,6 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
             
             lock.batch
         };
-        
-        let mut skip_first_breakpoint = true;
         
         while !self.run_batched(batch, skip_first_breakpoint) {
             skip_first_breakpoint = false

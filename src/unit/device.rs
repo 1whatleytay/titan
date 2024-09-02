@@ -580,7 +580,7 @@ impl UnitDevice {
         loop {
             let frame = if let Some(count) = parameters.steps {
                 self.executor.override_mode(Running);
-                
+
                 let result = self.executor.run_batched(count, true);
                 
                 if !result {
@@ -589,7 +589,7 @@ impl UnitDevice {
                 
                 self.executor.frame()
             } else {
-                self.executor.run()
+                self.executor.run(self.executor.is_breakpoint())
             };
 
             if self.handle_frame(&frame, parameters.complete_error)? {
