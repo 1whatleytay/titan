@@ -147,20 +147,6 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         self.mutex.lock().cycle(no_breakpoints)
     }
     
-    pub fn should_skip_first_breakpoint(&self) -> bool {
-        let mut value = self.mutex.lock();
-
-        // Commenting this spooky line out... no idea what problems removing this causes.
-        // if value.mode == Running {
-        //     return value.frame();
-        // }
-
-        let result = value.mode;
-        value.mode = Running;
-
-        result == Breakpoint
-    }
-    
     // Returns true if the CPU was interrupted.
     pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool) -> bool {
         let mut value = self.mutex.lock();
@@ -181,12 +167,18 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     }
 
     pub fn run(&self) -> DebugFrame {
-        let batch = self.mutex.lock().batch;
+        let batch = {
+            let mut lock = self.mutex.lock();
+            
+            lock.mode = Running;
+            
+            lock.batch
+        };
         
-        let mut should_skip = self.should_skip_first_breakpoint();
+        let mut skip_first_breakpoint = true;
         
-        while !self.run_batched(batch, should_skip) {
-            should_skip = false
+        while !self.run_batched(batch, skip_first_breakpoint) {
+            skip_first_breakpoint = false
         }
         
         self.frame()

@@ -20,7 +20,7 @@ use crate::unit::device::MakeUnitDeviceError::{CompileFailed, FileMissing};
 use crate::unit::device::UnitDeviceError::{ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted};
 use num::{ToPrimitive, FromPrimitive};
 use StopCondition::{Label, MaybeLabel};
-use crate::execution::executor::ExecutorMode::Invalid;
+use crate::execution::executor::ExecutorMode::{Invalid, Running};
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
 use crate::cpu::error::Error as CpuError;
 use crate::unit::instruction::{Instruction, InstructionDecoder};
@@ -579,7 +579,9 @@ impl UnitDevice {
 
         loop {
             let frame = if let Some(count) = parameters.steps {
-                let result = self.executor.run_batched(count, self.executor.should_skip_first_breakpoint());
+                self.executor.override_mode(Running);
+                
+                let result = self.executor.run_batched(count, true);
                 
                 if !result {
                     self.executor.override_mode(ExecutorMode::Breakpoint)
