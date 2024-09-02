@@ -581,7 +581,7 @@ impl UnitDevice {
             let frame = if let Some(count) = parameters.steps {
                 self.executor.override_mode(Running);
 
-                let result = self.executor.run_batched(count, true);
+                let result = self.executor.run_batched(count, true, true);
                 
                 if !result {
                     self.executor.override_mode(ExecutorMode::Breakpoint)

@@ -152,11 +152,11 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     }
     
     // Returns true if the CPU was interrupted.
-    pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool) -> bool {
+    pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool, allow_interrupt: bool) -> bool {
         let mut value = self.mutex.lock();
 
         for _ in 0..batch {
-            if value.mode != Running {
+            if allow_interrupt && value.mode != Running {
                 return true
             }
 
@@ -171,15 +171,9 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     }
 
     pub fn run(&self, mut skip_first_breakpoint: bool) -> DebugFrame {
-        let batch = {
-            let mut lock = self.mutex.lock();
-            
-            lock.mode = Running;
-            
-            lock.batch
-        };
+        let batch = self.mutex.lock().batch;
         
-        while !self.run_batched(batch, skip_first_breakpoint) {
+        while !self.run_batched(batch, skip_first_breakpoint, true) {
             skip_first_breakpoint = false
         }
         
