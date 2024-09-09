@@ -259,8 +259,6 @@ pub enum OffsetOrLabel {
 }
 
 pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
-    let start = iter.get_position();
-
     let label = to_label(get_token(iter)?, iter);
 
     let is_offset = iter

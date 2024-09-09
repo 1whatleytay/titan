@@ -583,7 +583,7 @@ impl UnitDevice {
 
                 let result = self.executor.run_batched(count, true, true);
                 
-                if !result {
+                if !result.interrupted {
                     self.executor.override_mode(ExecutorMode::Breakpoint)
                 }
                 

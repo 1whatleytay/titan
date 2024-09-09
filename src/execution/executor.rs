@@ -83,6 +83,11 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
     }
 }
 
+pub struct BatchResult {
+    pub instructions_executed: u64,
+    pub interrupted: bool
+}
+
 impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     pub fn new(state: State<Mem>, tracker: Track) -> Executor<Mem, Track> {
         Executor {
@@ -152,28 +157,41 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
     }
     
     // Returns true if the CPU was interrupted.
-    pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool, allow_interrupt: bool) -> bool {
+    pub fn run_batched(&self, batch: usize, mut skip_first_breakpoint: bool, allow_interrupt: bool) -> BatchResult {
         let mut value = self.mutex.lock();
 
+        let mut instructions_executed = 0;
+        
         for _ in 0..batch {
             if allow_interrupt && value.mode != Running {
-                return true
+                return BatchResult {
+                    instructions_executed,
+                    interrupted: true
+                }
             }
 
             if value.cycle(skip_first_breakpoint) {
-                return true
+                return BatchResult {
+                    instructions_executed,
+                    interrupted: true
+                }
             }
+            
+            instructions_executed += 1;
 
             skip_first_breakpoint = false
         }
 
-        false
+        return BatchResult {
+            instructions_executed,
+            interrupted: false
+        }
     }
 
     pub fn run(&self, mut skip_first_breakpoint: bool) -> DebugFrame {
         let batch = self.mutex.lock().batch;
         
-        while !self.run_batched(batch, skip_first_breakpoint, true) {
+        while !self.run_batched(batch, skip_first_breakpoint, true).interrupted {
             skip_first_breakpoint = false
         }
         
