@@ -1,7 +1,7 @@
 use crate::cpu::error::Error;
 use crate::cpu::state::Registers;
 use crate::cpu::{Memory, State};
-use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Recovered, Running};
+use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Running};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use crate::execution::trackers::empty::EmptyTracker;
@@ -10,7 +10,6 @@ use crate::execution::trackers::Tracker;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ExecutorMode {
     Running,
-    Recovered, // Recovery State after Invalid(CpuSyscall)
     Invalid(Error),
     Paused,
     Breakpoint,
@@ -135,7 +134,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         let mut lock = self.mutex.lock();
 
         if let Invalid(_) = lock.mode {
-            lock.mode = Recovered
+            lock.mode = Running
         }
         
         lock.state.registers.pc += 4;
@@ -182,7 +181,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
             skip_first_breakpoint = false
         }
 
-        return BatchResult {
+        BatchResult {
             instructions_executed,
             interrupted: false
         }
