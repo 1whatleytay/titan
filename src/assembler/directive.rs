@@ -1,13 +1,11 @@
 use crate::assembler::assembler_util::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label};
+use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label, AssemblerReason};
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::binary::{BinarySection, NamedLabel};
-use crate::assembler::binary_builder::{
-    BinaryBuilder, BinaryBuilderLabel, InstructionLabel, InstructionLabelKind,
-};
+use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::lexer::{Location, Token, TokenKind};
@@ -69,6 +67,22 @@ fn do_asciiz_directive(
 }
 
 const MAX_ZERO: usize = 0x100000;
+
+fn align_with_zeros(region: &mut BinaryBuilderRegion, align: u32) -> Result<(), AssemblerError> {
+    let pc = pc_for_region(&region.raw, None)?;
+
+    let (select, remainder) = (pc / align, pc % align);
+    let correction = if remainder > 0 { 1 } else { 0 };
+
+    let target = (select + correction) * align;
+    let align_count = target as usize - pc as usize;
+    
+    let mut align_bytes = vec![0; align_count];
+
+    region.raw.data.append(&mut align_bytes);
+    
+    Ok(())
+}
 
 fn do_align_directive(
     iter: &mut LexerCursor,
@@ -275,6 +289,8 @@ fn do_half_directive(
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
+    align_with_zeros(region, 2)?;
+    
     for value in values {
         if value.count > REPEAT_LIMIT {
             continue;
@@ -309,6 +325,10 @@ fn do_word_directive(
     };
 
     let region = builder.region().ok_or(MISSING_REGION)?;
+
+    // First, align to 4 bytes
+
+    align_with_zeros(region, 4)?;
 
     for value in values {
         match value {
