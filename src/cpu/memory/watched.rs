@@ -18,10 +18,12 @@ pub struct WatchEntry {
     pub previous: BackupValue
 }
 
+pub const LOG_SIZE: usize = 1;
+
 #[derive(Clone)]
 pub struct WatchedMemory<T: Memory> {
     pub backing: T,
-    log: SmallVec<[WatchEntry; 4]>
+    log: SmallVec<[WatchEntry; LOG_SIZE]>
 }
 
 impl WatchEntry {
@@ -40,7 +42,7 @@ impl<T: Memory> WatchedMemory<T> {
         WatchedMemory { backing, log: SmallVec::new() }
     }
 
-    pub fn take(&mut self) -> SmallVec<[WatchEntry; 4]> {
+    pub fn take(&mut self) -> SmallVec<[WatchEntry; LOG_SIZE]> {
         std::mem::take(&mut self.log)
     }
 }

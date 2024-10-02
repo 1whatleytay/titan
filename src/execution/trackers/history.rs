@@ -1,20 +1,13 @@
-use std::iter::repeat_with;
+use std::collections::VecDeque;
 use smallvec::SmallVec;
 use crate::cpu::{Memory, State};
-use crate::cpu::memory::watched::{WatchedMemory, WatchEntry};
+use crate::cpu::memory::watched::{LOG_SIZE, WatchEntry, WatchedMemory};
 use crate::cpu::state::Registers;
 use crate::execution::trackers::Tracker;
 
 pub struct HistoryEntry {
     pub registers: Registers,
-    pub edits: SmallVec<[WatchEntry; 4]>
-}
-
-pub struct HistoryTracker {
-    buffer: Vec<Option<HistoryEntry>>,
-    next: usize,
-    count: usize,
-    registers: Option<Registers>
+    pub edits: SmallVec<[WatchEntry; LOG_SIZE]>
 }
 
 impl HistoryEntry {
@@ -27,46 +20,40 @@ impl HistoryEntry {
     }
 }
 
+pub struct HistoryTracker {
+    buffer: VecDeque<HistoryEntry>,
+    registers: Option<Registers>
+}
+
 impl HistoryTracker {
     pub fn new(capacity: usize) -> HistoryTracker {
         HistoryTracker {
-            buffer: repeat_with(|| None).take(capacity).collect(),
-            next: 0,
-            count: 0,
+            buffer: VecDeque::with_capacity(capacity),
             registers: None
         }
     }
 
     fn push(&mut self, entry: HistoryEntry) {
-        self.buffer[self.next] = Some(entry);
-
-        self.next += 1;
-        self.count += 1;
-
-        if self.next >= self.buffer.len() {
-            self.next = 0;
+        if self.buffer.capacity() == self.buffer.len() {
+            self.buffer.pop_front();
         }
+        self.buffer.push_back(entry);
     }
 
     pub fn pop(&mut self) -> Option<HistoryEntry> {
-        self.next = self.next.checked_sub(1).unwrap_or(self.buffer.len() - 1);
-        self.count = self.count.checked_sub(1).unwrap_or(0);
-
-        self.buffer[self.next].take()
+        self.buffer.pop_back()
     }
 
-    pub fn last(&mut self) -> &Option<HistoryEntry> {
-        let last = self.next.checked_sub(1).unwrap_or(self.buffer.len() - 1);
-
-        &self.buffer[last]
+    pub fn last(&mut self) -> Option<&HistoryEntry> {
+        self.buffer.back()
     }
 
     pub fn len(&self) -> usize {
-        self.count
+        self.buffer.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.buffer.is_empty()
     }
 }
 
