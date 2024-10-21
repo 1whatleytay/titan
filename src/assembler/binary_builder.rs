@@ -171,7 +171,7 @@ impl BinaryBuilder {
     }
 
     pub fn region(&mut self) -> Option<&mut BinaryBuilderRegion> {
-        let Some(index) = self.state.index() else { return None };
+        let index = self.state.index()?;
 
         Some(&mut self.regions[index])
     }

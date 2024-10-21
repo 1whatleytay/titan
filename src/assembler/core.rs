@@ -1,4 +1,4 @@
-use crate::assembler::assembler_util::AssemblerReason::{MissingRegion, UnexpectedToken};
+use crate::assembler::assembler_util::AssemblerReason::{DuplicateLabel, MissingRegion, UnexpectedToken};
 use crate::assembler::assembler_util::{pc_for_region, AssemblerError};
 use crate::assembler::binary::Binary;
 use crate::assembler::binary::BinarySection::Text;
@@ -36,6 +36,15 @@ fn do_symbol(
             iter.next(); // consume
 
             let pc = pc_for_region(&region.raw, Some(location))?;
+            
+            // If we already have this label, we want to panic!
+            if builder.labels.contains_key(name) {
+                return Err(AssemblerError {
+                    location: Some(location),
+                    reason: DuplicateLabel(name.to_string())
+                })
+            }
+            
             builder.labels.insert(name.to_string(), pc);
 
             Ok(SymbolType::Label)

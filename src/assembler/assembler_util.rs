@@ -30,6 +30,7 @@ pub enum AssemblerReason {
     JumpOutOfRange(u32, u32), // to, from
     MissingRegion,
     MissingInstruction,
+    DuplicateLabel(String),
 }
 
 impl Display for AssemblerReason {
@@ -58,6 +59,8 @@ impl Display for AssemblerReason {
                 f, "Assembler did not mount a binary region. Please file an issue at https://github.com/1whatleytay/titan/issues"),
             AssemblerReason::MissingInstruction => write!(
                 f, "Assembler marked an instruction that does not exist. Please file an issue at https://github.com/1whatleytay/titan/issues"),
+            AssemblerReason::DuplicateLabel(label) => write!(
+                f, "Found duplicate label with the name \"{label}\", only one label with each name is allowed")
         }
     }
 }
