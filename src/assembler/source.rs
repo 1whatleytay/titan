@@ -18,6 +18,7 @@ pub trait TokenProvider<'a>: Sized {
     fn id(&self) -> usize;
     fn get(&self) -> &[Token<'a>];
 
+    fn get_path(&self) -> Option<String>;
     fn extend(&self, path: &str) -> Result<Self, ExtendError>;
 }
 
@@ -39,6 +40,10 @@ impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
     fn id(&self) -> usize { 0 }
     fn get(&self) -> &[Token<'a>] {
         &self.tokens
+    }
+
+    fn get_path(&self) -> Option<String> {
+        None
     }
 
     fn extend(&self, _: &str) -> Result<Self, ExtendError> {
@@ -125,6 +130,10 @@ impl<'a> TokenProvider<'a> for FileProvider<'a> {
     fn id(&self) -> usize { self.info.source }
     fn get(&self) -> &[Token<'a>] {
         &self.info.tokens
+    }
+
+    fn get_path(&self) -> Option<String> {
+        Some(self.info.path.to_string_lossy().to_string())
     }
 
     fn extend(&self, path: &str) -> Result<Self, ExtendError> {

@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use PreprocessorReason::NoFilePathAssociated;
 use crate::assembler::source::{ExtendError, TokenProvider};
 
 #[derive(Debug)]
@@ -23,6 +24,7 @@ pub enum PreprocessorReason {
     MacroParameterCount(usize, usize), // expected, actual
     MacroUnknownParameter(String),
     IncludeUnsupported,
+    NoFilePathAssociated,
     FailedToFindFile(String),
     FailedToLexFile(LexerError),
     RecursiveInclude
@@ -51,7 +53,8 @@ impl Display for PreprocessorReason {
                 "Expected {expected} macro parameters, but passed {actual}"
             ),
             MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{name}\""),
-            IncludeUnsupported => write!(f, "Include is unsupported. Please save the file."),
+            IncludeUnsupported => write!(f, "Cannot include because this file is not saved to disk. Please save the file to use include."),
+            NoFilePathAssociated => write!(f, "This file is not saved to disk, so there is no path for this file."),
             FailedToFindFile(name) => write!(f, "Failed to find file \"{name}\""),
             FailedToLexFile(error) => write!(f, "File has invalid format, {error}"),
             RecursiveInclude => write!(f, "Include is recursive (includes itself), this is not allowed")
@@ -377,7 +380,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
     let mut iter = LexerCursor::new(items);
     let mut result: Vec<Token> = Vec::with_capacity(items.len());
 
-    let watched_directives = HashSet::from(["eqv", "macro", "include"]);
+    let watched_directives = HashSet::from(["eqv", "macro", "include", "file_path"]);
 
     while let Some(element) = iter.next() {
         let fail = |reason: PreprocessorReason| PreprocessorError {
@@ -403,7 +406,19 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
 
                     result.extend(tokens);
                 }
-                _ => panic!(),
+                "file_path" => {
+                    let path = provider.get_path();
+
+                    if let Some(path) = path {
+                        result.push(Token {
+                            location: element.location,
+                            kind: TokenKind::StringLiteral(path)
+                        })
+                    } else {
+                        return Err(fail(NoFilePathAssociated))
+                    }
+                }
+                _ => panic!(), // ??
             },
             Symbol(name) => {
                 let mut elements = handle_symbol(name, element.location, &mut iter, provider, cache)
