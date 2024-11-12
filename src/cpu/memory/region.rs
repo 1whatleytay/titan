@@ -1,5 +1,5 @@
 use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
-use crate::cpu::error::Result;
+use crate::cpu::error::{MemoryAlignment, Result};
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::Memory;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -59,7 +59,7 @@ impl Memory for RegionMemory {
 
     fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
-            return Err(MemoryAlign(address));
+            return Err(MemoryAlign(MemoryAlignment::Half, address));
         }
 
         for region in &self.regions {
@@ -67,7 +67,7 @@ impl Memory for RegionMemory {
                 let start = (address - region.start) as usize;
                 let data = (&region.data[start..start + 2]).read_u16::<Endian>();
 
-                return data.map_err(|_| MemoryAlign(address));
+                return data.map_err(|_| MemoryAlign(MemoryAlignment::Half, address));
             }
         }
 
@@ -76,7 +76,7 @@ impl Memory for RegionMemory {
 
     fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
-            return Err(MemoryAlign(address));
+            return Err(MemoryAlign(MemoryAlignment::Word, address));
         }
 
         for region in &self.regions {
@@ -84,11 +84,11 @@ impl Memory for RegionMemory {
                 let start = (address - region.start) as usize;
                 let data = (&region.data[start..start + 4]).read_u32::<Endian>();
 
-                return data.map_err(|_| MemoryAlign(address));
+                return data.map_err(|_| MemoryAlign(MemoryAlignment::Word, address));
             }
         }
 
-        Err(MemoryAlign(address))
+        Err(MemoryUnmapped(address))
     }
 
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {

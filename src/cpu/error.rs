@@ -1,8 +1,14 @@
 use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum MemoryAlignment {
+    Half,
+    Word,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Error {
-    MemoryAlign(u32),
+    MemoryAlign(MemoryAlignment, u32),
     MemoryUnmapped(u32),
     CpuInvalid(u32),
     CpuTrap,
@@ -12,8 +18,13 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::MemoryAlign(address) => {
-                write!(f, "Memory access for address 0x{address:08x} is prohibited (not aligned for this instruction, ensure its a multiple of 2 or 4).")
+            Error::MemoryAlign(alignment, address) => {
+                let align = match alignment {
+                    MemoryAlignment::Half => 2,
+                    MemoryAlignment::Word => 4,
+                };
+
+                write!(f, "Address 0x{address:08x} is not aligned for this instruction (ensure it is a multiple of {align}).")
             }
             Error::MemoryUnmapped(address) => {
                 write!(f, "Memory access for address 0x{address:08x} is prohibited (unmapped memory).")

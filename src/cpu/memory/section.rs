@@ -1,5 +1,5 @@
 use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
-use crate::cpu::error::Result;
+use crate::cpu::error::{MemoryAlignment, Result};
 use crate::cpu::memory::section::Section::{Data, Empty, Writable};
 use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::Memory;
@@ -170,7 +170,7 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
 
     fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(MemoryAlignment::Half, address))
         }
 
         let (section, index) = split(address);
@@ -191,7 +191,7 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
 
     fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(MemoryAlignment::Word, address))
         }
 
         let (section, index) = split(address);
@@ -220,7 +220,7 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
 
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         if address % 2 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(MemoryAlignment::Half, address))
         }
 
         let (section, index) = split(address);
@@ -253,7 +253,7 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
 
     fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         if address % 4 != 0 {
-            return Err(MemoryAlign(address))
+            return Err(MemoryAlign(MemoryAlignment::Word, address))
         }
 
         let (section, index) = split(address);
