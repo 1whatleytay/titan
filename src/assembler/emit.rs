@@ -138,48 +138,67 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
     // So we will never optimize away the size of this instruction,
     // as this might change the label location.
 
-    let label_upper = label.clone();
-    let label_lower = label;
+    match label {
+        AddressLabel::Constant(constant) => {
+            load_immediate(constant, dest)
+                .into_iter()
+                .map(|instruction| (instruction, None))
+                .collect()
+        }
+        AddressLabel::Label(_) => {
+            let label_upper = label.clone();
+            let label_lower = label;
 
-    let lui = InstructionBuilder::from_op(&Op(15)).with_temp(dest).0;
+            let lui = InstructionBuilder::from_op(&Op(15)).with_temp(dest).0;
 
-    let ori = InstructionBuilder::from_op(&Op(13))
-        .with_temp(dest)
-        .with_source(dest)
-        .0;
+            let ori = InstructionBuilder::from_op(&Op(13))
+                .with_temp(dest)
+                .with_source(dest)
+                .0;
 
-    vec![
-        (
-            lui,
-            Some(InstructionLabel {
-                label: label_upper,
-                kind: Upper,
-            }),
-        ),
-        (
-            ori,
-            Some(InstructionLabel {
-                label: label_lower,
-                kind: Lower,
-            }),
-        ),
-    ]
+            vec![
+                (
+                    lui,
+                    Some(InstructionLabel {
+                        label: label_upper,
+                        kind: Upper,
+                    }),
+                ),
+                (
+                    ori,
+                    Some(InstructionLabel {
+                        label: label_lower,
+                        kind: Lower,
+                    }),
+                ),
+            ]
+        }
+    }
 }
 
 fn make_offset_or_label(offset: OffsetOrLabel) -> (u16, RegisterSlot, Vec<InstructionPair>) {
     match offset {
         OffsetOrLabel::Offset(label, register) => {
-            let mut instructions = make_label(label, AssemblerTemporary);
+            match label {
+                AddressLabel::Constant(constant)
+                    if (constant as i64) <= 0x7fff && (constant as i64) >= -0x8000 => {
 
-            let add = InstructionBuilder::from_op(&Func(32))
-                .with_dest(AssemblerTemporary)
-                .with_source(AssemblerTemporary)
-                .with_temp(register)
-                .0;
+                    (constant as u16, register, vec![])
+                }
+                _ => {
+                    let mut instructions = make_label(label, AssemblerTemporary);
 
-            instructions.push((add, None));
+                    let add = InstructionBuilder::from_op(&Func(32))
+                        .with_dest(AssemblerTemporary)
+                        .with_source(AssemblerTemporary)
+                        .with_temp(register)
+                        .0;
 
-            (0, AssemblerTemporary, instructions)
+                    instructions.push((add, None));
+
+                    (0, AssemblerTemporary, instructions)
+                }
+            }
         }
         OffsetOrLabel::Label(label) => {
             let instructions = make_label(label, AssemblerTemporary);
@@ -904,4 +923,16 @@ pub fn do_instruction(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::assembler::string::assemble_from;
+
+    #[test]
+    fn test() {
+        let x = "lh $t1, 0($t0)";
+
+        assemble_from(x).unwrap();
+    }
 }
