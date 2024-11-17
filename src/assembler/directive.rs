@@ -1,7 +1,7 @@
 use crate::assembler::assembler_util::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label};
+use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label, maybe_get_value};
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::binary::{BinarySection, NamedLabel};
@@ -392,8 +392,14 @@ fn do_extern_directive(
     iter: &mut LexerCursor,
     _: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
-    get_string(iter)?;
-    get_constant(iter)?;
+    let location = iter.get_position();
+
+    // Optionally get string
+    if get_string(iter).is_err() {
+        iter.set_position(location);
+    }
+
+    get_label(iter)?;
 
     Ok(())
 }

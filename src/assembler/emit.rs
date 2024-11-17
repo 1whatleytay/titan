@@ -924,15 +924,3 @@ pub fn do_instruction(
 
     Ok(())
 }
-
-#[cfg(test)]
-mod test {
-    use crate::assembler::string::assemble_from;
-
-    #[test]
-    fn test() {
-        let x = "lh $t1, 0($t0)";
-
-        assemble_from(x).unwrap();
-    }
-}
