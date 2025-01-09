@@ -1,22 +1,22 @@
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags};
 use crate::elf::Elf;
+use crate::unit::instruction::{InstructionDecoder, InstructionParameter};
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::HashSet;
 use std::io::Cursor;
-use crate::unit::instruction::{InstructionDecoder, InstructionParameter};
 
 pub struct InstructionInfo {
     pub pc: u32,
     pub instruction: u32,
     pub name: &'static str,
-    pub parameters: Vec<InstructionParameter>
+    pub parameters: Vec<InstructionParameter>,
 }
 
 pub enum InspectionLine {
     Instruction(InstructionInfo),
     Blank,
     Comment(String),
-    Label(String)
+    Label(String),
 }
 
 struct LabelManager {
@@ -41,7 +41,11 @@ impl LabelManager {
     }
 }
 
-fn disassemble(mut address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<InstructionInfo> {
+fn disassemble(
+    mut address: u32,
+    data: &Vec<u8>,
+    manager: &mut LabelManager,
+) -> Vec<InstructionInfo> {
     let mut instructions = Cursor::new(data);
 
     let mut result = vec![];
@@ -63,14 +67,14 @@ fn disassemble(mut address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> 
                 pc: address,
                 instruction,
                 name,
-                parameters
+                parameters,
             })
         } else {
             result.push(InstructionInfo {
                 pc: address,
                 instruction,
                 name: "INVALID",
-                parameters: vec![]
+                parameters: vec![],
             })
         }
 
@@ -100,10 +104,7 @@ pub fn make_inspection_lines(elf: &Elf) -> Vec<InspectionLine> {
     for (header, instructions) in executables {
         lines.append(&mut vec![
             InspectionLine::Blank,
-            InspectionLine::Comment(format!(
-                "# Section 0x{:08x}",
-                header.virtual_address
-            ))
+            InspectionLine::Comment(format!("# Section 0x{:08x}", header.virtual_address)),
         ]);
 
         for instruction in instructions {

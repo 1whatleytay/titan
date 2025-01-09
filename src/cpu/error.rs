@@ -27,12 +27,18 @@ impl Display for Error {
                 write!(f, "Address 0x{address:08x} is not aligned for this instruction (ensure it is a multiple of {align}).")
             }
             Error::MemoryUnmapped(address) => {
-                write!(f, "Memory access for address 0x{address:08x} is prohibited (unmapped memory).")
+                write!(
+                    f,
+                    "Memory access for address 0x{address:08x} is prohibited (unmapped memory)."
+                )
             }
             Error::CpuInvalid(instruction) => {
                 write!(f, "Invalid CPU instruction 0x{instruction:08x}")
             }
-            Error::CpuTrap => write!(f, "The instruction was given invalid parameters (CPU Trap was thrown)."),
+            Error::CpuTrap => write!(
+                f,
+                "The instruction was given invalid parameters (CPU Trap was thrown)."
+            ),
             Error::CpuSyscall => write!(f, "CPU Syscall was not handled"),
         }
     }

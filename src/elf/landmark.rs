@@ -72,7 +72,9 @@ impl Landmarks {
 
     pub fn fill_requests<T: Write + Seek>(self, stream: &mut T) -> Result<(), std::io::Error> {
         for (position, (size, landmark)) in self.requests {
-            let Some(value) = self.landmarks.get(&landmark).cloned() else { continue };
+            let Some(value) = self.landmarks.get(&landmark).cloned() else {
+                continue;
+            };
 
             stream.seek(Start(position))?;
 

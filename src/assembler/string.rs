@@ -4,11 +4,11 @@ use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError, Location};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
+use crate::assembler::source::{FileProviderPool, HoldingProvider};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
-use crate::assembler::source::{FileProviderPool, HoldingProvider};
 
 #[derive(Debug)]
 pub enum SourceError {

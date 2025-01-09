@@ -1,13 +1,13 @@
-use std::collections::VecDeque;
-use smallvec::SmallVec;
-use crate::cpu::{Memory, State};
-use crate::cpu::memory::watched::{LOG_SIZE, WatchEntry, WatchedMemory};
+use crate::cpu::memory::watched::{WatchEntry, WatchedMemory, LOG_SIZE};
 use crate::cpu::state::Registers;
+use crate::cpu::{Memory, State};
 use crate::execution::trackers::Tracker;
+use smallvec::SmallVec;
+use std::collections::VecDeque;
 
 pub struct HistoryEntry {
     pub registers: Registers,
-    pub edits: SmallVec<[WatchEntry; LOG_SIZE]>
+    pub edits: SmallVec<[WatchEntry; LOG_SIZE]>,
 }
 
 impl HistoryEntry {
@@ -22,14 +22,14 @@ impl HistoryEntry {
 
 pub struct HistoryTracker {
     buffer: VecDeque<HistoryEntry>,
-    registers: Option<Registers>
+    registers: Option<Registers>,
 }
 
 impl HistoryTracker {
     pub fn new(capacity: usize) -> HistoryTracker {
         HistoryTracker {
             buffer: VecDeque::with_capacity(capacity),
-            registers: None
+            registers: None,
         }
     }
 
@@ -63,8 +63,13 @@ impl<Mem: Memory> Tracker<WatchedMemory<Mem>> for HistoryTracker {
     }
 
     fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
-        let Some(registers) = self.registers else { return };
-        let entry = HistoryEntry { registers, edits: state.memory.take() };
+        let Some(registers) = self.registers else {
+            return;
+        };
+        let entry = HistoryEntry {
+            registers,
+            edits: state.memory.take(),
+        };
 
         self.push(entry);
     }

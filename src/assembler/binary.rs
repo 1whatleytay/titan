@@ -1,8 +1,8 @@
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
+use crate::assembler::lexer::Location;
+use bitflags::bitflags;
 use std::collections::HashMap;
 use std::hash::Hash;
-use bitflags::bitflags;
-use crate::assembler::lexer::Location;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinarySection {
@@ -92,18 +92,19 @@ pub struct Binary {
     pub entry: u32,
     pub regions: Vec<RawRegion>,
     pub breakpoints: Vec<BinaryBreakpoint>, // pc -> offset
-    pub labels: HashMap<String, u32>
+    pub labels: HashMap<String, u32>,
 }
 
 fn build_breakpoint_map(
-    breakpoints: &Vec<BinaryBreakpoint>, id: usize
+    breakpoints: &Vec<BinaryBreakpoint>,
+    id: usize,
 ) -> HashMap<usize, Vec<&BinaryBreakpoint>> {
     // offset -> breakpoints
     let mut result: HashMap<usize, Vec<&BinaryBreakpoint>> = HashMap::new();
 
     for breakpoint in breakpoints {
         if breakpoint.location.source != id {
-            continue
+            continue;
         }
 
         let offset = breakpoint.location.index;
@@ -121,7 +122,11 @@ pub struct SourceBreakpoint {
     pub pcs: Vec<u32>, // anchor breakpoint is the first in the list
 }
 
-pub fn source_breakpoints(map: &Vec<BinaryBreakpoint>, source: &str, id: usize) -> Vec<SourceBreakpoint> {
+pub fn source_breakpoints(
+    map: &Vec<BinaryBreakpoint>,
+    source: &str,
+    id: usize,
+) -> Vec<SourceBreakpoint> {
     let mut result: Vec<SourceBreakpoint> = vec![];
     let map = build_breakpoint_map(map, id);
 
@@ -161,7 +166,7 @@ impl Binary {
             entry: Text.default_address(),
             regions: vec![],
             breakpoints: vec![],
-            labels: HashMap::new()
+            labels: HashMap::new(),
         }
     }
 }

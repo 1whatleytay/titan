@@ -6,7 +6,8 @@ use crate::elf::{Elf, Header};
 
 impl From<RegionFlags> for ProgramHeaderFlags {
     fn from(value: RegionFlags) -> Self {
-        value.iter()
+        value
+            .iter()
             .map(|item| match item {
                 RegionFlags::EXECUTABLE => ProgramHeaderFlags::EXECUTABLE,
                 RegionFlags::READABLE => ProgramHeaderFlags::READABLE,

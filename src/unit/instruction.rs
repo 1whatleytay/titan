@@ -1,71 +1,274 @@
-use std::fmt::{Display, Formatter};
 use crate::cpu::decoder::Decoder;
+use crate::unit::instruction::InstructionParameter::{Address, Immediate, Offset, Register};
 use crate::unit::register::RegisterName;
 use num::FromPrimitive;
-use crate::unit::instruction::InstructionParameter::{Address, Immediate, Offset, Register};
+use std::fmt::{Display, Formatter};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
-    Add { s: RegisterName, t: RegisterName, d: RegisterName },
-    Addu { s: RegisterName, t: RegisterName, d: RegisterName },
-    And { s: RegisterName, t: RegisterName, d: RegisterName },
-    Div { s: RegisterName, t: RegisterName },
-    Divu { s: RegisterName, t: RegisterName },
-    Mult { s: RegisterName, t: RegisterName },
-    Multu { s: RegisterName, t: RegisterName },
-    Nor { s: RegisterName, t: RegisterName, d: RegisterName },
-    Or { s: RegisterName, t: RegisterName, d: RegisterName },
-    Sll { t: RegisterName, d: RegisterName, sham: u8 },
-    Sllv { s: RegisterName, t: RegisterName, d: RegisterName },
-    Sra { t: RegisterName, d: RegisterName, sham: u8 },
-    Srav { s: RegisterName, t: RegisterName, d: RegisterName },
-    Srl { t: RegisterName, d: RegisterName, sham: u8 },
-    Srlv { s: RegisterName, t: RegisterName, d: RegisterName },
-    Sub { s: RegisterName, t: RegisterName, d: RegisterName },
-    Subu { s: RegisterName, t: RegisterName, d: RegisterName },
-    Xor { s: RegisterName, t: RegisterName, d: RegisterName },
-    Slt { s: RegisterName, t: RegisterName, d: RegisterName },
-    Sltu { s: RegisterName, t: RegisterName, d: RegisterName },
-    Jr { s: RegisterName },
-    Jalr { s: RegisterName },
-    Madd { s: RegisterName, t: RegisterName },
-    Maddu { s: RegisterName, t: RegisterName },
-    Mul { s: RegisterName, t: RegisterName, d: RegisterName },
-    Msub { s: RegisterName, t: RegisterName },
-    Msubu { s: RegisterName, t: RegisterName },
-    Addi { s: RegisterName, t: RegisterName, imm: u16 },
-    Addiu { s: RegisterName, t: RegisterName, imm: u16 },
-    Andi { s: RegisterName, t: RegisterName, imm: u16 },
-    Ori { s: RegisterName, t: RegisterName, imm: u16 },
-    Xori { s: RegisterName, t: RegisterName, imm: u16 },
-    Lui { s: RegisterName, imm: u16 },
-    Lhi { t: RegisterName, imm: u16 },
-    Llo { t: RegisterName, imm: u16 },
-    Slti { s: RegisterName, t: RegisterName, imm: u16 },
-    Sltiu { s: RegisterName, t: RegisterName, imm: u16 },
-    Beq { s: RegisterName, t: RegisterName, address: u32 },
-    Bne { s: RegisterName, t: RegisterName, address: u32 },
-    Bgtz { s: RegisterName, address: u32 },
-    Blez { s: RegisterName, address: u32 },
-    Bltz { s: RegisterName, address: u32 },
-    Bgez { s: RegisterName, address: u32 },
-    Bltzal { s: RegisterName, address: u32 },
-    Bgezal { s: RegisterName, address: u32 },
-    J { address: u32 },
-    Jal { address: u32 },
-    Lb { s: RegisterName, t: RegisterName, imm: u16 },
-    Lbu { s: RegisterName, t: RegisterName, imm: u16 },
-    Lh { s: RegisterName, t: RegisterName, imm: u16 },
-    Lhu { s: RegisterName, t: RegisterName, imm: u16 },
-    Lw { s: RegisterName, t: RegisterName, imm: u16 },
-    Sb { s: RegisterName, t: RegisterName, imm: u16 },
-    Sh { s: RegisterName, t: RegisterName, imm: u16 },
-    Sw { s: RegisterName, t: RegisterName, imm: u16 },
-    Mfhi { d: RegisterName },
-    Mflo { d: RegisterName },
-    Mthi { s: RegisterName },
-    Mtlo { s: RegisterName },
+    Add {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Addu {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    And {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Div {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Divu {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Mult {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Multu {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Nor {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Or {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Sll {
+        t: RegisterName,
+        d: RegisterName,
+        sham: u8,
+    },
+    Sllv {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Sra {
+        t: RegisterName,
+        d: RegisterName,
+        sham: u8,
+    },
+    Srav {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Srl {
+        t: RegisterName,
+        d: RegisterName,
+        sham: u8,
+    },
+    Srlv {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Sub {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Subu {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Xor {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Slt {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Sltu {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Jr {
+        s: RegisterName,
+    },
+    Jalr {
+        s: RegisterName,
+    },
+    Madd {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Maddu {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Mul {
+        s: RegisterName,
+        t: RegisterName,
+        d: RegisterName,
+    },
+    Msub {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Msubu {
+        s: RegisterName,
+        t: RegisterName,
+    },
+    Addi {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Addiu {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Andi {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Ori {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Xori {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Lui {
+        s: RegisterName,
+        imm: u16,
+    },
+    Lhi {
+        t: RegisterName,
+        imm: u16,
+    },
+    Llo {
+        t: RegisterName,
+        imm: u16,
+    },
+    Slti {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Sltiu {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Beq {
+        s: RegisterName,
+        t: RegisterName,
+        address: u32,
+    },
+    Bne {
+        s: RegisterName,
+        t: RegisterName,
+        address: u32,
+    },
+    Bgtz {
+        s: RegisterName,
+        address: u32,
+    },
+    Blez {
+        s: RegisterName,
+        address: u32,
+    },
+    Bltz {
+        s: RegisterName,
+        address: u32,
+    },
+    Bgez {
+        s: RegisterName,
+        address: u32,
+    },
+    Bltzal {
+        s: RegisterName,
+        address: u32,
+    },
+    Bgezal {
+        s: RegisterName,
+        address: u32,
+    },
+    J {
+        address: u32,
+    },
+    Jal {
+        address: u32,
+    },
+    Lb {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Lbu {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Lh {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Lhu {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Lw {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Sb {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Sh {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Sw {
+        s: RegisterName,
+        t: RegisterName,
+        imm: u16,
+    },
+    Mfhi {
+        d: RegisterName,
+    },
+    Mflo {
+        d: RegisterName,
+    },
+    Mthi {
+        s: RegisterName,
+    },
+    Mtlo {
+        s: RegisterName,
+    },
     Trap,
     Syscall,
 }
@@ -109,7 +312,7 @@ impl From<u8> for RegisterName {
 }
 
 pub struct InstructionDecoder {
-    address: u32
+    address: u32,
 }
 
 impl InstructionDecoder {
@@ -120,83 +323,159 @@ impl InstructionDecoder {
 
 impl Decoder<Instruction> for InstructionDecoder {
     fn add(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Add { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Add {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn addu(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Addu { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Addu {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn and(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::And { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::And {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn div(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Div { s: s.into(), t: t.into() }
+        Instruction::Div {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn divu(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Divu { s: s.into(), t: t.into() }
+        Instruction::Divu {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn mult(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Mult { s: s.into(), t: t.into() }
+        Instruction::Mult {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn multu(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Multu { s: s.into(), t: t.into() }
+        Instruction::Multu {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn nor(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Nor { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Nor {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn or(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Or { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Or {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn sll(&mut self, t: u8, d: u8, sham: u8) -> Instruction {
-        Instruction::Sll { t: t.into(), d: d.into(), sham }
+        Instruction::Sll {
+            t: t.into(),
+            d: d.into(),
+            sham,
+        }
     }
 
     fn sllv(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Sllv { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Sllv {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn sra(&mut self, t: u8, d: u8, sham: u8) -> Instruction {
-        Instruction::Sra { t: t.into(), d: d.into(), sham }
+        Instruction::Sra {
+            t: t.into(),
+            d: d.into(),
+            sham,
+        }
     }
 
     fn srav(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Srav { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Srav {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn srl(&mut self, t: u8, d: u8, sham: u8) -> Instruction {
-        Instruction::Srl { t: t.into(), d: d.into(), sham }
+        Instruction::Srl {
+            t: t.into(),
+            d: d.into(),
+            sham,
+        }
     }
 
     fn srlv(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Srlv { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Srlv {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn sub(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Sub { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Sub {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn subu(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Subu { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Subu {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn xor(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Xor { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Xor {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn slt(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Slt { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Slt {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn sltu(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Sltu { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Sltu {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn jr(&mut self, s: u8) -> Instruction {
@@ -208,43 +487,79 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
 
     fn madd(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Madd { s: s.into(), t: t.into() }
+        Instruction::Madd {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn maddu(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Maddu { s: s.into(), t: t.into() }
+        Instruction::Maddu {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn mul(&mut self, s: u8, t: u8, d: u8) -> Instruction {
-        Instruction::Mul { s: s.into(), t: t.into(), d: d.into() }
+        Instruction::Mul {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
     }
 
     fn msub(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Msub { s: s.into(), t: t.into() }
+        Instruction::Msub {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn msubu(&mut self, s: u8, t: u8) -> Instruction {
-        Instruction::Msubu { s: s.into(), t: t.into() }
+        Instruction::Msubu {
+            s: s.into(),
+            t: t.into(),
+        }
     }
 
     fn addi(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Addi { s: s.into(), t: t.into(), imm }
+        Instruction::Addi {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn addiu(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Addiu { s: s.into(), t: t.into(), imm }
+        Instruction::Addiu {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn andi(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Andi { s: s.into(), t: t.into(), imm }
+        Instruction::Andi {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn ori(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Ori { s: s.into(), t: t.into(), imm }
+        Instruction::Ori {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn xori(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Xori { s: s.into(), t: t.into(), imm }
+        Instruction::Xori {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn lui(&mut self, s: u8, imm: u16) -> Instruction {
@@ -260,83 +575,153 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
 
     fn slti(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Slti { s: s.into(), t: t.into(), imm }
+        Instruction::Slti {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn sltiu(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Sltiu { s: s.into(), t: t.into(), imm }
+        Instruction::Sltiu {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn beq(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Beq { s: s.into(), t: t.into(), address: rel_dest(self.address, imm) }
+        Instruction::Beq {
+            s: s.into(),
+            t: t.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bne(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Bne { s: s.into(), t: t.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bne {
+            s: s.into(),
+            t: t.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bgtz(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgtz { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bgtz {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn blez(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Blez { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Blez {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bltz(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bltz { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bltz {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bgez(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgez { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bgez {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bltzal(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bltzal { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bltzal {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn bgezal(&mut self, s: u8, imm: u16) -> Instruction {
-        Instruction::Bgezal { s: s.into(), address: rel_dest(self.address, imm) }
+        Instruction::Bgezal {
+            s: s.into(),
+            address: rel_dest(self.address, imm),
+        }
     }
 
     fn j(&mut self, imm: u32) -> Instruction {
-        Instruction::J { address: jump_dest(self.address, imm) }
+        Instruction::J {
+            address: jump_dest(self.address, imm),
+        }
     }
 
     fn jal(&mut self, imm: u32) -> Instruction {
-        Instruction::Jal { address: jump_dest(self.address, imm) }
+        Instruction::Jal {
+            address: jump_dest(self.address, imm),
+        }
     }
 
     fn lb(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Lb { s: s.into(), t: t.into(), imm }
+        Instruction::Lb {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn lbu(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Lbu { s: s.into(), t: t.into(), imm }
+        Instruction::Lbu {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn lh(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Lh { s: s.into(), t: t.into(), imm }
+        Instruction::Lh {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn lhu(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Lhu { s: s.into(), t: t.into(), imm }
+        Instruction::Lhu {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn lw(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Lw { s: s.into(), t: t.into(), imm }
+        Instruction::Lw {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn sb(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Sb { s: s.into(), t: t.into(), imm }
+        Instruction::Sb {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn sh(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Sh { s: s.into(), t: t.into(), imm }
+        Instruction::Sh {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn sw(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
-        Instruction::Sw { s: s.into(), t: t.into(), imm }
+        Instruction::Sw {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
     }
 
     fn mfhi(&mut self, d: u8) -> Instruction {
@@ -368,7 +753,7 @@ pub enum InstructionParameter {
     Register(RegisterName),
     Immediate(u16),
     Address(u32),
-    Offset(u16, RegisterName)
+    Offset(u16, RegisterName),
 }
 
 impl From<RegisterName> for InstructionParameter {
@@ -456,7 +841,7 @@ impl Instruction {
             Instruction::Nor { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Or { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Sll { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],
-            Instruction::Sllv { s, t, d } =>  vec![d.into(), s.into(), t.into()],
+            Instruction::Sllv { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Sra { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],
             Instruction::Srav { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::Srl { t, d, sham } => vec![d.into(), t.into(), Immediate(sham as u16)],

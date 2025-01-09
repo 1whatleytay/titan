@@ -3,12 +3,14 @@ use crate::assembler::assembler_util::AssemblerReason::{
     JumpOutOfRange, MissingInstruction, UnknownLabel,
 };
 use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::binary::{AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags};
+use crate::assembler::binary::{
+    AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
+};
 use crate::assembler::binary_builder::BinarySection::Text;
+use crate::assembler::lexer::Location;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
-use crate::assembler::lexer::Location;
 
 fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, AssemblerError> {
     match label {
@@ -201,7 +203,7 @@ impl BinaryBuilder {
 
                 let instruction = Cursor::new(bytes).read_u32::<LittleEndian>();
                 let Ok(instruction) = instruction else {
-                    return Err(MISSING)
+                    return Err(MISSING);
                 };
 
                 let result = add_label(instruction, pc, label.location, label.label, &self.labels)?;

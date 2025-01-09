@@ -12,7 +12,7 @@ pub struct Registers {
 pub struct State<Mem: Memory> {
     pub registers: Registers,
     pub memory: Mem,
-    
+
     pub zero: u32, // temporary value to overwrite zero, always zero
 }
 

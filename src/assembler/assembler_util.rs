@@ -77,7 +77,10 @@ impl Display for AssemblerError {
     }
 }
 
-pub fn pc_for_region(region: &RawRegion, location: Option<Location>) -> Result<u32, AssemblerError> {
+pub fn pc_for_region(
+    region: &RawRegion,
+    location: Option<Location>,
+) -> Result<u32, AssemblerError> {
     region.pc().ok_or_else(|| {
         let reason = AssemblerReason::OverwriteEdge(region.address, Some(region.data.len() as u64));
 
@@ -179,7 +182,9 @@ pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerEr
 }
 
 pub fn maybe_get_value(iter: &mut LexerCursor) -> Option<InstructionValue> {
-    let Some(value) = iter.seek_without(is_adjacent_kind) else { return None };
+    let Some(value) = iter.seek_without(is_adjacent_kind) else {
+        return None;
+    };
 
     if let Some(value) = get_integer(value, iter, true) {
         Some(Literal(value))
@@ -277,8 +282,8 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
         let Some(right) = iter.next_adjacent() else {
             return Err(AssemblerError {
                 location: None,
-                reason: AssemblerReason::EndOfFile
-            })
+                reason: AssemblerReason::EndOfFile,
+            });
         };
 
         if right.kind != RightBrace {
@@ -288,7 +293,10 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
             ));
         }
 
-        Ok(OffsetOrLabel::Offset(label.unwrap_or(AddressLabel::Constant(0)), register))
+        Ok(OffsetOrLabel::Offset(
+            label.unwrap_or(AddressLabel::Constant(0)),
+            register,
+        ))
     } else {
         Ok(OffsetOrLabel::Label(label?))
     }

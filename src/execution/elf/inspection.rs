@@ -53,7 +53,7 @@ impl Inspection {
         let entries = [
             (ProgramHeaderFlags::READABLE, "R"),
             (ProgramHeaderFlags::WRITABLE, "W"),
-            (ProgramHeaderFlags::EXECUTABLE, "E")
+            (ProgramHeaderFlags::EXECUTABLE, "E"),
         ];
 
         entries

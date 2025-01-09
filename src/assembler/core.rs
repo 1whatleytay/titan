@@ -1,4 +1,6 @@
-use crate::assembler::assembler_util::AssemblerReason::{DuplicateLabel, MissingRegion, UnexpectedToken};
+use crate::assembler::assembler_util::AssemblerReason::{
+    DuplicateLabel, MissingRegion, UnexpectedToken,
+};
 use crate::assembler::assembler_util::{pc_for_region, AssemblerError};
 use crate::assembler::binary::Binary;
 use crate::assembler::binary::BinarySection::Text;
@@ -36,15 +38,15 @@ fn do_symbol(
             iter.next(); // consume
 
             let pc = pc_for_region(&region.raw, Some(location))?;
-            
+
             // If we already have this label, we want to panic!
             if builder.labels.contains_key(name) {
                 return Err(AssemblerError {
                     location: Some(location),
-                    reason: DuplicateLabel(name.to_string())
-                })
+                    reason: DuplicateLabel(name.to_string()),
+                });
             }
-            
+
             builder.labels.insert(name.to_string(), pc);
 
             Ok(SymbolType::Label)
@@ -73,8 +75,8 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
                 let Some((directive, start)) = last_directive else {
                     return Err(AssemblerError {
                         location: Some(token.location),
-                        reason: UnexpectedToken(token.kind.strip())
-                    })
+                        reason: UnexpectedToken(token.kind.strip()),
+                    });
                 };
 
                 do_directive(directive, start, &mut cursor, &mut builder)?
@@ -91,7 +93,8 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
                 do_directive(directive, token.location, &mut cursor, &mut builder)?
             }
             Symbol(name) => {
-                let result = do_symbol(name.get(), token.location, &mut cursor, &mut builder, &map)?;
+                let result =
+                    do_symbol(name.get(), token.location, &mut cursor, &mut builder, &map)?;
 
                 if let SymbolType::Instruction = result {
                     last_directive = None;
