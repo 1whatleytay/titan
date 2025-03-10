@@ -96,7 +96,7 @@ impl Display for StrippedKind {
     }
 }
 
-impl<'a> TokenKind<'a> {
+impl TokenKind<'_> {
     pub fn strip(&self) -> StrippedKind {
         match self {
             Comment(_) => StrippedKind::Comment,

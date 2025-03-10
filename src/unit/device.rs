@@ -446,7 +446,7 @@ impl UnitDevice {
     ) -> Vec<StopCondition> {
         self.addresses_for(matching)
             .into_iter()
-            .map(|x| Address(x))
+            .map(Address)
             .collect()
     }
 
@@ -695,9 +695,7 @@ impl UnitDevice {
         height: u32,
     ) -> Result<Vec<u32>, crate::cpu::error::Error> {
         self.executor.with_memory(|memory| {
-            let mut result = vec![];
-
-            result.reserve((width as usize) * (height as usize));
+            let mut result = Vec::with_capacity((width as usize) * (height as usize));
 
             for v in y..(y + height) {
                 for h in x..(x + width) {

@@ -182,9 +182,7 @@ pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerEr
 }
 
 pub fn maybe_get_value(iter: &mut LexerCursor) -> Option<InstructionValue> {
-    let Some(value) = iter.seek_without(is_adjacent_kind) else {
-        return None;
-    };
+    let value = iter.seek_without(is_adjacent_kind)?;
 
     if let Some(value) = get_integer(value, iter, true) {
         Some(Literal(value))

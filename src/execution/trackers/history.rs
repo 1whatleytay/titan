@@ -59,7 +59,7 @@ impl HistoryTracker {
 
 impl<Mem: Memory> Tracker<WatchedMemory<Mem>> for HistoryTracker {
     fn pre_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
-        self.registers = Some(state.registers.clone())
+        self.registers = Some(state.registers)
     }
 
     fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {

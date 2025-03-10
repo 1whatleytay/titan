@@ -29,7 +29,7 @@ pub struct HoldingProvider<'a> {
 }
 
 impl<'a> HoldingProvider<'a> {
-    pub fn new(tokens: Vec<Token<'a>>) -> HoldingProvider {
+    pub fn new(tokens: Vec<Token<'a>>) -> HoldingProvider<'a> {
         HoldingProvider { tokens }
     }
 
@@ -68,6 +68,12 @@ pub struct FileProviderPool {
     sources: RefCell<Vec<FileProviderSource>>,
 }
 
+impl Default for FileProviderPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileProviderPool {
     pub fn new() -> FileProviderPool {
         FileProviderPool {
@@ -95,7 +101,7 @@ impl FileProviderPool {
 
             let item = self.arena.alloc(source);
 
-            (id, lex_with_source(&**item, id)?)
+            (id, lex_with_source(item, id)?)
         };
 
         Ok(FileInfo {
@@ -110,8 +116,7 @@ impl FileProviderPool {
         let source = fs::read_to_string(&*path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
-        self.provider_sourced(source, path)
-            .map_err(|e| LexerFailed(e))
+        self.provider_sourced(source, path).map_err(LexerFailed)
     }
 }
 

@@ -24,7 +24,7 @@ fn instruction_base(op: &Opcode) -> u32 {
     match op {
         Op(key) => (*key as u32 & 0b111111) << 26,
         Func(key) => *key as u32 & 0b111111, // opcode: 0
-        Special(key) => (*key as u32 & 0b111111) << 16 | (1 << 26), // opcode: 1
+        Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
     }
 }

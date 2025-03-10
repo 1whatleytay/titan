@@ -3,7 +3,7 @@ use crate::assembler::assembler_util::AssemblerReason::{
 };
 use crate::assembler::assembler_util::{
     default_start, get_constant, get_integer, get_integer_adjacent, get_label, get_string,
-    maybe_get_value, pc_for_region, AssemblerError,
+    pc_for_region, AssemblerError,
 };
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
