@@ -3,7 +3,8 @@ use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
 use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{
-    IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol,
+    FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral,
+    Symbol,
 };
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::RegisterSlot;
@@ -153,6 +154,44 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
 
             Some(*value)
         }
+        _ => None,
+    }
+}
+
+pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<f32> {
+    let start = iter.get_position();
+
+    match &first.kind {
+        Plus | Minus => {
+            if consume {
+                iter.next(); // consume first
+            }
+            let multiplier = if first.kind == Plus { 1f32 } else { -1f32 };
+            let adjacent = iter.next_adjacent();
+            if let Some(IntegerLiteral(value)) = adjacent.map(|t| &t.kind) {
+                Some((*value as f32) * multiplier)
+            } else if let Some(FloatLiteral(value)) = adjacent.map(|t| &t.kind) {
+                Some(*value * multiplier)
+            } else {
+                iter.set_position(start);
+
+                None
+            }
+        }
+        IntegerLiteral(value) => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            Some(*value as f32)
+        }
+        FloatLiteral(value) => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            Some(*value)
+        },
         _ => None,
     }
 }
