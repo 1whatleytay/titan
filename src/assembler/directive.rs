@@ -378,7 +378,7 @@ fn do_word_directive(
 }
 
 struct FloatInfo {
-    value: f32,
+    value: f64,
     count: u64,
 }
 
@@ -507,7 +507,7 @@ fn do_float_directive(
                 }
 
                 let mut array = [0u8; 4];
-                LittleEndian::write_f32(&mut array, value.value);
+                LittleEndian::write_f32(&mut array, value.value as f32);
 
                 region.raw.data.reserve(4 * value.count as usize);
 
@@ -521,11 +521,49 @@ fn do_float_directive(
     Ok(())
 }
 
-fn do_double_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
-    Err(AssemblerError {
-        location: None,
-        reason: UnknownDirective("double".to_string()),
-    })
+fn do_double_directive(
+    iter: &mut LexerCursor,
+    builder: &mut BinaryBuilder,
+) -> Result<(), AssemblerError> {
+    let values = get_float_or_labels(iter)?;
+
+    let region = builder.region().ok_or(MISSING_REGION)?;
+
+    align_with_zeros(region, 8)?;
+
+    for value in values {
+        match value {
+            FloatOrLabel::Label(label) => {
+                let offset = region.raw.data.len();
+
+                region.raw.data.extend_from_slice(&[0u8; 8]);
+                region.labels.push(BinaryBuilderLabel {
+                    offset,
+                    location: label.location,
+                    label: InstructionLabel {
+                        kind: InstructionLabelKind::Full,
+                        label: Label(label),
+                    },
+                })
+            }
+            FloatOrLabel::Float(value) => {
+                if value.count > REPEAT_LIMIT {
+                    continue;
+                }
+
+                let mut array = [0u8; 8];
+                LittleEndian::write_f64(&mut array, value.value);
+
+                region.raw.data.reserve(8 * value.count as usize);
+
+                for _ in 0..value.count {
+                    region.raw.data.extend_from_slice(&array);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn do_entry_directive(
