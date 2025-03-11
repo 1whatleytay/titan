@@ -61,7 +61,7 @@ pub enum TokenKind<'a> {
     Parameter(&'a str),     // %*
     Register(RegisterSlot), // $*
     IntegerLiteral(u64),    // 123 -> also characters
-    FloatLiteral(f32),      // 123.0
+    FloatLiteral(f64),      // 123.0
     StringLiteral(String),
     Symbol(SymbolName<'a>),
     Plus,
@@ -295,14 +295,14 @@ fn string_body(mut input: &str, quote: char) -> Option<(&str, String)> {
 
 enum NumericLiteral {
     Integer(u64),
-    Float(f32),
+    Float(f64),
 }
 
 fn numeric_decimal(input: &str) -> Option<(&str, NumericLiteral)> {
     let (input, value) = take_numeric_name(input);
 
     if value.contains('e') || value.contains('.') {
-        return Some((input, NumericLiteral::Float(f32::from_str(value).ok()?)));
+        return Some((input, NumericLiteral::Float(f64::from_str(value).ok()?)));
     }
 
     Some((input, NumericLiteral::Integer(u64::from_str(value).ok()?)))

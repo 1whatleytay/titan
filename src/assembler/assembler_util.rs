@@ -158,7 +158,7 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
     }
 }
 
-pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<f32> {
+pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<f64> {
     let start = iter.get_position();
 
     match &first.kind {
@@ -166,10 +166,10 @@ pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option
             if consume {
                 iter.next(); // consume first
             }
-            let multiplier = if first.kind == Plus { 1f32 } else { -1f32 };
+            let multiplier = if first.kind == Plus { 1f64 } else { -1f64 };
             let adjacent = iter.next_adjacent();
             if let Some(IntegerLiteral(value)) = adjacent.map(|t| &t.kind) {
-                Some((*value as f32) * multiplier)
+                Some((*value as f64) * multiplier)
             } else if let Some(FloatLiteral(value)) = adjacent.map(|t| &t.kind) {
                 Some(*value * multiplier)
             } else {
@@ -183,7 +183,7 @@ pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option
                 iter.next(); // consume first
             }
 
-            Some(*value as f32)
+            Some(*value as f64)
         }
         FloatLiteral(value) => {
             if consume {
