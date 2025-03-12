@@ -1,8 +1,8 @@
 use crate::assembler::instructions::Encoding::{
     Branch, BranchZero, Destination, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
-    Register, RegisterShift, Sham, Source, SpecialBranch,
+    Register, RegisterShift, Sham, Source, SpecialBranch, FPRegister
 };
-use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special, Cop1};
 use std::collections::HashMap;
 
 pub enum Encoding {
@@ -20,6 +20,8 @@ pub enum Encoding {
     BranchZero,
     Parameterless,
     Offset,
+    FPRegister(u8), // fmt, $, $, $ (fmt: 0 is single, 1 is double)
+    FPImmediate(u16), 
 }
 
 pub enum Opcode {
@@ -27,6 +29,7 @@ pub enum Opcode {
     Func(u8),
     Special(u8),
     Algebra(u8),
+    Cop1(u8),
 }
 
 pub struct Instruction<'a> {
@@ -35,7 +38,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 61] = [
+pub const INSTRUCTIONS: [Instruction; 81] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -340,6 +343,106 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
         name: "msubu",
         opcode: Algebra(5),
         encoding: Inputs,
+    },
+    Instruction {
+        name: "add.s",
+        opcode: Cop1(0),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "sub.s",
+        opcode: Cop1(1),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "mul.s",
+        opcode: Cop1(2),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "div.s",
+        opcode: Cop1(3),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "sqrt.s",
+        opcode: Cop1(4),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "abs.s",
+        opcode: Cop1(5),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "mov.s",
+        opcode: Cop1(6),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "neg.s",
+        opcode: Cop1(7),
+        encoding: FPRegister(0),
+    },
+    Instruction {
+        name: "add.d",
+        opcode: Cop1(0),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "sub.d",
+        opcode: Cop1(1),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "mul.d",
+        opcode: Cop1(2),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "div.d",
+        opcode: Cop1(3),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "sqrt.d",
+        opcode: Cop1(4),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "abs.d",
+        opcode: Cop1(5),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "mov.d",
+        opcode: Cop1(6),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "neg.d",
+        opcode: Cop1(7),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "round.w.d",
+        opcode: Cop1(12),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+       name: "trunc.w.d",
+         opcode: Cop1(13),
+         encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "ceil.w.d",
+        opcode: Cop1(14),
+        encoding: FPRegister(1),
+    },
+    Instruction {
+        name: "floor.w.d",
+        opcode: Cop1(15),
+        encoding: FPRegister(1),
     },
 ];
 

@@ -10,7 +10,7 @@ use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
-use crate::assembler::instructions::Opcode::{Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Func, Op, Special, Cop1};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
@@ -26,6 +26,7 @@ fn instruction_base(op: &Opcode) -> u32 {
         Func(key) => *key as u32 & 0b111111, // opcode: 0
         Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
+        Cop1(key) => (*key as u32 & 0b111111) | (17 << 26)
     }
 }
 
@@ -69,6 +70,22 @@ impl InstructionBuilder {
     fn with_sham(mut self, sham: u8) -> InstructionBuilder {
         self.0 &= !(0b11111 << 6);
         self.0 |= (sham as u32) << 6;
+
+        self
+    }
+
+    fn with_fp_source(self, slot: RegisterSlot) -> InstructionBuilder {
+        self.with_slot_offset::<11>(slot)
+    }
+    fn with_fp_dest(self, slot: RegisterSlot) -> InstructionBuilder {
+        self.with_slot_offset::<6>(slot)
+    }
+    fn with_fp_temp(self, slot: RegisterSlot) -> InstructionBuilder {
+        self.with_slot_offset::<16>(slot)
+    }
+    fn with_fp_fmt(mut self, fmt: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 21);
+        self.0 |= (fmt as u32) << 21;
 
         self
     }
@@ -508,6 +525,42 @@ fn do_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
+fn do_fp_register_instruction(
+    op: &Opcode,
+    fmt: u8,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+    let temp = get_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest(dest)
+        .with_fp_source(source)
+        .with_fp_temp(temp)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_immediate_instruction(
+    op: &Opcode,
+    imm: u16,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register(iter)?;
+    let source = get_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_dest(dest)
+        .with_source(source)
+        .with_immediate(imm)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
 fn do_nop_instruction(_: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let instruction = InstructionBuilder::from_op(&Func(0)).0;
 
@@ -870,6 +923,8 @@ fn dispatch_instruction(
         Encoding::BranchZero => do_branch_zero_instruction(op, iter),
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
+        Encoding::FPRegister(fmt) => do_fp_register_instruction(op, *fmt, iter),
+        Encoding::FPImmediate(imm) => do_fp_immediate_instruction(op, *imm, iter),
     }?;
 
     Ok(emit)

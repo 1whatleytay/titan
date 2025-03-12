@@ -6,6 +6,9 @@ pub struct Registers {
     pub line: [u32; 32],
     pub lo: u32,
     pub hi: u32,
+    // Coprocessor 1: FPU
+    pub fp: [u32; 32],
+    pub cf: u32,
 }
 
 #[derive(Clone)]
@@ -23,6 +26,8 @@ impl Registers {
             line: [0; 32],
             lo: 0,
             hi: 0,
+            fp: [0; 32],
+            cf: 0,
         }
     }
 }
