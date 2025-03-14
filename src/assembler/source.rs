@@ -1,17 +1,19 @@
+use crate::assembler::lexer::{lex, lex_with_source, LexerError, Token};
+use crate::assembler::source::ExtendError::{
+    FailedToRead, LexerFailed, NotSupported, RecursiveInclude,
+};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs;
-use typed_arena::Arena;
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::assembler::lexer::{lex, lex_with_source, LexerError, Token};
-use crate::assembler::source::ExtendError::{FailedToRead, LexerFailed, NotSupported, RecursiveInclude};
+use typed_arena::Arena;
 
 pub enum ExtendError {
     NotSupported,
     FailedToRead(String),
     LexerFailed(LexerError),
-    RecursiveInclude
+    RecursiveInclude,
 }
 
 pub trait TokenProvider<'a>: Sized {
@@ -23,21 +25,25 @@ pub trait TokenProvider<'a>: Sized {
 }
 
 pub struct HoldingProvider<'a> {
-    tokens: Vec<Token<'a>>
+    tokens: Vec<Token<'a>>,
 }
 
 impl<'a> HoldingProvider<'a> {
-    pub fn new(tokens: Vec<Token<'a>>) -> HoldingProvider {
+    pub fn new(tokens: Vec<Token<'a>>) -> HoldingProvider<'a> {
         HoldingProvider { tokens }
     }
 
     pub fn from_source(source: &str) -> Result<HoldingProvider, LexerError> {
-        Ok(HoldingProvider { tokens: lex(source)? })
+        Ok(HoldingProvider {
+            tokens: lex(source)?,
+        })
     }
 }
 
 impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
-    fn id(&self) -> usize { 0 }
+    fn id(&self) -> usize {
+        0
+    }
     fn get(&self) -> &[Token<'a>] {
         &self.tokens
     }
@@ -54,23 +60,33 @@ impl<'a> TokenProvider<'a> for HoldingProvider<'a> {
 pub struct FileProviderSource {
     pub id: usize,
     pub path: Rc<PathBuf>,
-    pub source: Rc<String>
+    pub source: Rc<String>,
 }
 
 pub struct FileProviderPool {
     arena: Arena<Rc<String>>,
-    sources: RefCell<Vec<FileProviderSource>>
+    sources: RefCell<Vec<FileProviderSource>>,
+}
+
+impl Default for FileProviderPool {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileProviderPool {
     pub fn new() -> FileProviderPool {
         FileProviderPool {
             arena: Arena::new(),
-            sources: RefCell::new(Vec::new())
+            sources: RefCell::new(Vec::new()),
         }
     }
 
-    pub fn provider_sourced(&self, source: String, path: Rc<PathBuf>) -> Result<FileInfo, LexerError> {
+    pub fn provider_sourced(
+        &self,
+        source: String,
+        path: Rc<PathBuf>,
+    ) -> Result<FileInfo, LexerError> {
         let (id, tokens) = {
             let source = Rc::new(source);
 
@@ -78,19 +94,21 @@ impl FileProviderPool {
             let id = items.len();
 
             items.push(FileProviderSource {
-                id, path: path.clone(), source: source.clone()
+                id,
+                path: path.clone(),
+                source: source.clone(),
             });
 
             let item = self.arena.alloc(source);
 
-            (id, lex_with_source(&**item, id)?)
+            (id, lex_with_source(item, id)?)
         };
 
         Ok(FileInfo {
             pool: self,
             source: id,
             tokens,
-            path
+            path,
         })
     }
 
@@ -98,7 +116,7 @@ impl FileProviderPool {
         let source = fs::read_to_string(&*path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
-        self.provider_sourced(source, path).map_err(|e| LexerFailed(e))
+        self.provider_sourced(source, path).map_err(LexerFailed)
     }
 }
 
@@ -106,7 +124,7 @@ pub struct FileInfo<'a> {
     pool: &'a FileProviderPool,
     source: usize,
     tokens: Vec<Token<'a>>,
-    path: Rc<PathBuf>
+    path: Rc<PathBuf>,
 }
 
 impl<'a> FileInfo<'a> {
@@ -123,11 +141,13 @@ impl<'a> FileInfo<'a> {
 
 pub struct FileProvider<'a> {
     info: FileInfo<'a>,
-    history: HashSet<Rc<PathBuf>>
+    history: HashSet<Rc<PathBuf>>,
 }
 
 impl<'a> TokenProvider<'a> for FileProvider<'a> {
-    fn id(&self) -> usize { self.info.source }
+    fn id(&self) -> usize {
+        self.info.source
+    }
     fn get(&self) -> &[Token<'a>] {
         &self.info.tokens
     }
@@ -137,7 +157,10 @@ impl<'a> TokenProvider<'a> for FileProvider<'a> {
     }
 
     fn extend(&self, path: &str) -> Result<Self, ExtendError> {
-        let file = self.info.path.parent()
+        let file = self
+            .info
+            .path
+            .parent()
             .unwrap_or(&self.info.path)
             .join(path);
 
@@ -149,12 +172,12 @@ impl<'a> TokenProvider<'a> for FileProvider<'a> {
         let mut history = self.history.clone();
 
         if !history.insert(file.clone()) {
-            return Err(RecursiveInclude)
+            return Err(RecursiveInclude);
         }
 
         Ok(FileProvider {
             info: self.info.pool.provider(file)?,
-            history
+            history,
         })
     }
 }

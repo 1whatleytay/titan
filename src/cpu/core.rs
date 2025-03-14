@@ -24,7 +24,7 @@ impl<Mem: Memory> State<Mem> {
     fn register(&mut self, index: u8) -> &mut u32 {
         if index == 0 {
             self.zero = 0;
-            
+
             &mut self.zero
         } else {
             &mut self.registers.line[index as usize]

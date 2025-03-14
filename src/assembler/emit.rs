@@ -12,19 +12,19 @@ use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
 use crate::assembler::instructions::Opcode::{Func, Op, Special};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
+use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{AssemblerTemporary, Zero};
 use byteorder::{LittleEndian, WriteBytesExt};
 use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
-use crate::assembler::lexer::Location;
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {
         Op(key) => (*key as u32 & 0b111111) << 26,
         Func(key) => *key as u32 & 0b111111, // opcode: 0
-        Special(key) => (*key as u32 & 0b111111) << 16 | (1 << 26), // opcode: 1
+        Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
     }
 }
@@ -139,12 +139,10 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
     // as this might change the label location.
 
     match label {
-        AddressLabel::Constant(constant) => {
-            load_immediate(constant, dest)
-                .into_iter()
-                .map(|instruction| (instruction, None))
-                .collect()
-        }
+        AddressLabel::Constant(constant) => load_immediate(constant, dest)
+            .into_iter()
+            .map(|instruction| (instruction, None))
+            .collect(),
         AddressLabel::Label(_) => {
             let label_upper = label.clone();
             let label_lower = label;
@@ -178,28 +176,26 @@ fn make_label(label: AddressLabel, dest: RegisterSlot) -> Vec<InstructionPair> {
 
 fn make_offset_or_label(offset: OffsetOrLabel) -> (u16, RegisterSlot, Vec<InstructionPair>) {
     match offset {
-        OffsetOrLabel::Offset(label, register) => {
-            match label {
-                AddressLabel::Constant(constant)
-                    if (constant as i64) <= 0x7fff && (constant as i64) >= -0x8000 => {
-
-                    (constant as u16, register, vec![])
-                }
-                _ => {
-                    let mut instructions = make_label(label, AssemblerTemporary);
-
-                    let add = InstructionBuilder::from_op(&Func(32))
-                        .with_dest(AssemblerTemporary)
-                        .with_source(AssemblerTemporary)
-                        .with_temp(register)
-                        .0;
-
-                    instructions.push((add, None));
-
-                    (0, AssemblerTemporary, instructions)
-                }
+        OffsetOrLabel::Offset(label, register) => match label {
+            AddressLabel::Constant(constant)
+                if (constant as i64) <= 0x7fff && (constant as i64) >= -0x8000 =>
+            {
+                (constant as u16, register, vec![])
             }
-        }
+            _ => {
+                let mut instructions = make_label(label, AssemblerTemporary);
+
+                let add = InstructionBuilder::from_op(&Func(32))
+                    .with_dest(AssemblerTemporary)
+                    .with_source(AssemblerTemporary)
+                    .with_temp(register)
+                    .0;
+
+                instructions.push((add, None));
+
+                (0, AssemblerTemporary, instructions)
+            }
+        },
         OffsetOrLabel::Label(label) => {
             let instructions = make_label(label, AssemblerTemporary);
 
@@ -851,11 +847,10 @@ fn dispatch_instruction(
     map: &HashMap<&str, &Instruction>,
 ) -> Result<EmitInstruction, AssemblerError> {
     let Some(instruction) = map.get(&instruction) else {
-        return dispatch_pseudo(instruction, iter)?
-            .ok_or_else(|| AssemblerError {
-                location: None,
-                reason: UnknownInstruction(instruction.to_string())
-            });
+        return dispatch_pseudo(instruction, iter)?.ok_or_else(|| AssemblerError {
+            location: None,
+            reason: UnknownInstruction(instruction.to_string()),
+        });
     };
 
     let op = &instruction.opcode;
@@ -889,15 +884,17 @@ pub fn do_instruction(
 ) -> Result<(), AssemblerError> {
     let lowercase = instruction.to_lowercase();
 
-    let emit = dispatch_instruction(&lowercase, iter, map)
-        .map_err(default_start(location))?;
+    let emit = dispatch_instruction(&lowercase, iter, map).map_err(default_start(location))?;
 
     let region = builder.region().ok_or(AssemblerError {
         location: Some(location),
         reason: MissingRegion,
     })?;
 
-    let mut breakpoint = BinaryBreakpoint { location, pcs: vec![] };
+    let mut breakpoint = BinaryBreakpoint {
+        location,
+        pcs: vec![],
+    };
 
     for (word, branch) in emit.instructions {
         let pc = pc_for_region(&region.raw, Some(location))?;

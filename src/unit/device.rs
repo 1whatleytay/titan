@@ -1,31 +1,33 @@
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::{fs, thread};
-use std::panic::{catch_unwind, RefUnwindSafe};
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
 use crate::assembler::binary::{Binary, RawRegion, RegionFlags};
 use crate::assembler::string::{assemble_from_path, SourceError};
-use crate::cpu::memory::{Mountable, Region};
+use crate::cpu::error::Error as CpuError;
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::memory::watched::WatchedMemory;
-use crate::cpu::{Memory, State};
+use crate::cpu::memory::{Mountable, Region};
 use crate::cpu::state::Registers;
+use crate::cpu::{Memory, State};
+use crate::execution::executor::ExecutorMode::{Invalid, Running};
 use crate::execution::executor::{DebugFrame, Executor, ExecutorMode};
 use crate::execution::trackers::history::HistoryTracker;
 use crate::unit::device::MakeUnitDeviceError::{CompileFailed, FileMissing};
-use crate::unit::device::UnitDeviceError::{ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted};
-use num::{ToPrimitive, FromPrimitive};
-use StopCondition::{Label, MaybeLabel};
-use crate::execution::executor::ExecutorMode::{Invalid, Running};
 use crate::unit::device::StopCondition::{Address, Steps, Timeout};
-use crate::cpu::error::Error as CpuError;
+use crate::unit::device::UnitDeviceError::{
+    ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted,
+};
 use crate::unit::instruction::{Instruction, InstructionDecoder};
 use crate::unit::register::RegisterName;
 use crate::unit::register::RegisterName::{A0, RA, V0};
+use num::{FromPrimitive, ToPrimitive};
+use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
+use std::panic::{catch_unwind, RefUnwindSafe};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use std::{fs, thread};
+use StopCondition::{Label, MaybeLabel};
 
 pub type MemoryType = WatchedMemory<SectionMemory<DefaultResponder>>;
 pub type TrackerType = HistoryTracker;
@@ -33,47 +35,50 @@ pub type TrackerType = HistoryTracker;
 #[derive(Debug)]
 pub enum MakeUnitDeviceError {
     CompileFailed(SourceError),
-    FileMissing(std::io::Error)
+    FileMissing(std::io::Error),
 }
 
 impl Display for MakeUnitDeviceError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CompileFailed(e) => Display::fmt(e, f),
-            FileMissing(e) => Display::fmt(e, f)
+            FileMissing(e) => Display::fmt(e, f),
         }
     }
 }
 
-impl Error for MakeUnitDeviceError { }
+impl Error for MakeUnitDeviceError {}
 
 pub struct UnitDevice {
     pub executor: Arc<Executor<MemoryType, TrackerType>>,
     pub binary: Binary,
     pub finished_pcs: Vec<u32>,
     pub syscall_handler: Option<Box<dyn Fn()>>,
-    handlers: HashMap<u32, Box<dyn Fn ()>>,
+    handlers: HashMap<u32, Box<dyn Fn()>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct LabelIdentifier {
     pub name: String,
-    pub offset: i64
+    pub offset: i64,
 }
 
 impl From<&str> for LabelIdentifier {
     fn from(value: &str) -> Self {
-        LabelIdentifier { name: value.to_string(), offset: 0 }
+        LabelIdentifier {
+            name: value.to_string(),
+            offset: 0,
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum StopCondition {
-    Address(u32), // PC Address
+    Address(u32),                // PC Address
     MaybeLabel(LabelIdentifier), // Label (if it exists)
-    Label(LabelIdentifier), // Label (fail if it doesn't exist)
-    Steps(usize), // Number of Instructions to Execute
-    Timeout(Duration), // Timeout
+    Label(LabelIdentifier),      // Label (fail if it doesn't exist)
+    Steps(usize),                // Number of Instructions to Execute
+    Timeout(Duration),           // Timeout
     Complete,
 }
 
@@ -81,14 +86,16 @@ struct StopConditionParameters {
     timeout: Option<Duration>,
     steps: Option<usize>,
     breakpoints: Vec<u32>,
-    complete_error: bool
+    complete_error: bool,
 }
 
 impl StopConditionParameters {
     pub fn from<F: FnMut(&str) -> Option<u32>>(
-        conditions: &[StopCondition], mut get_label: F
+        conditions: &[StopCondition],
+        mut get_label: F,
     ) -> Result<StopConditionParameters, UnitDeviceError> {
-        let timeout = conditions.iter()
+        let timeout = conditions
+            .iter()
             .filter_map(|c| {
                 if let Timeout(duration) = c {
                     Some(*duration)
@@ -98,7 +105,8 @@ impl StopConditionParameters {
             })
             .min();
 
-        let steps = conditions.iter()
+        let steps = conditions
+            .iter()
             .filter_map(|c| {
                 if let Steps(count) = c {
                     Some(*count)
@@ -108,41 +116,42 @@ impl StopConditionParameters {
             })
             .min();
 
-        if let Some(failed) = conditions.iter()
+        if let Some(failed) = conditions
+            .iter()
             .filter_map(|c| {
                 if let Label(identifier) = c {
                     if get_label(&identifier.name).is_none() {
-                        return Some(identifier.name.clone())
+                        return Some(identifier.name.clone());
                     }
                 }
 
                 None
-            }).next() {
-            return Err(MissingLabel(failed))
+            })
+            .next()
+        {
+            return Err(MissingLabel(failed));
         }
 
-        let breakpoints = conditions.iter()
-            .filter_map(|c| {
-                match c {
-                    Address(pc) => Some(*pc),
-                    MaybeLabel(identifier)
-                        | Label(identifier) => {
-                        get_label(&identifier.name)
-                            .map(|x| (x as i64 + identifier.offset) as u32)
-                    }
-                    _ => None
+        let breakpoints = conditions
+            .iter()
+            .filter_map(|c| match c {
+                Address(pc) => Some(*pc),
+                MaybeLabel(identifier) | Label(identifier) => {
+                    get_label(&identifier.name).map(|x| (x as i64 + identifier.offset) as u32)
                 }
+                _ => None,
             })
             .collect();
 
-        let complete_error = !conditions.iter()
+        let complete_error = !conditions
+            .iter()
             .any(|c| matches!(c, StopCondition::Complete));
 
         Ok(StopConditionParameters {
             timeout,
             steps,
             breakpoints,
-            complete_error
+            complete_error,
         })
     }
 }
@@ -152,7 +161,7 @@ pub enum UnitDeviceError {
     MissingLabel(String),
     ExecutionTimedOut,
     InvalidInstruction(CpuError),
-    ProgramCompleted
+    ProgramCompleted,
 }
 
 impl Display for UnitDeviceError {
@@ -161,12 +170,12 @@ impl Display for UnitDeviceError {
             MissingLabel(label) => write!(f, "Could not find label {} in program", label),
             ExecutionTimedOut => write!(f, "Execution timed out (by stop condition)"),
             InvalidInstruction(error) => write!(f, "Cpu execution failed with error {}", error),
-            ProgramCompleted => write!(f, "Program completed and this was not caught")
+            ProgramCompleted => write!(f, "Program completed and this was not caught"),
         }
     }
 }
 
-fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<AtomicBool> {
+fn make_timeout<F: FnOnce() + Send + 'static>(f: F, duration: Duration) -> Arc<AtomicBool> {
     let stop = Arc::new(AtomicBool::new(false));
     let result = stop.clone();
 
@@ -175,7 +184,7 @@ fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<
     thread::spawn(move || {
         while start.elapsed() < duration {
             if stop.load(Ordering::Relaxed) {
-                return
+                return;
             }
 
             thread::sleep(Duration::from_millis(100));
@@ -187,14 +196,14 @@ fn make_timeout<F: FnOnce () + Send + 'static>(f: F, duration: Duration) -> Arc<
     result
 }
 
-impl Error for UnitDeviceError { }
+impl Error for UnitDeviceError {}
 
 impl Binary {
     pub fn mount_data(&mut self, address: u32, data: Vec<u8>) {
         self.regions.push(RawRegion {
             flags: RegionFlags::all(),
             address,
-            data
+            data,
         })
     }
 
@@ -284,10 +293,7 @@ impl Registers {
     }
 
     pub fn values(&self) -> [u32; 2] {
-        [
-            self.get(V0),
-            self.get(RegisterName::V1),
-        ]
+        [self.get(V0), self.get(RegisterName::V1)]
     }
 
     pub fn other(&self) -> [u32; 4] {
@@ -300,7 +306,7 @@ impl Registers {
     }
 }
 
-pub type UnitTest = fn (UnitDevice) -> ();
+pub type UnitTest = fn(UnitDevice) -> ();
 
 impl UnitDevice {
     pub fn new(binary: Binary) -> UnitDevice {
@@ -344,7 +350,7 @@ impl UnitDevice {
             binary,
             syscall_handler: None,
             handlers: HashMap::new(),
-            finished_pcs
+            finished_pcs,
         }
     }
 
@@ -376,26 +382,34 @@ impl UnitDevice {
     }
 
     pub fn label_for(&self, address: u32) -> Option<&String> {
-        self.binary.labels.iter()
-            .filter_map(|(label, other)| {
-                if *other == address {
-                    Some(label)
-                } else {
-                    None
-                }
-            })
+        self.binary
+            .labels
+            .iter()
+            .filter_map(
+                |(label, other)| {
+                    if *other == address {
+                        Some(label)
+                    } else {
+                        None
+                    }
+                },
+            )
             .next()
     }
 
     pub fn arrived_at_label(&self, name: &str) -> bool {
-        self.binary.labels.get(name).map(
-            |v| self.executor.with_state(|s| s.registers.pc == *v)
-        ).unwrap_or(false)
+        self.binary
+            .labels
+            .get(name)
+            .map(|v| self.executor.with_state(|s| s.registers.pc == *v))
+            .unwrap_or(false)
     }
 
     pub fn instruction_at(&self, address: u32) -> Option<Instruction> {
         self.executor.with_memory(|memory| {
-            memory.get_u32(address).ok()
+            memory
+                .get_u32(address)
+                .ok()
                 .and_then(|value| InstructionDecoder::decode(address, value))
         })
     }
@@ -405,10 +419,15 @@ impl UnitDevice {
             let mut result = vec![];
 
             for region in &self.binary.regions {
-                for address in (region.address .. region.address + region.data.len() as u32).step_by(4) {
-                    let Some(instruction) = memory.get_u32(address).ok()
-                        .and_then(|value| InstructionDecoder::decode(address, value)) else {
-                        continue
+                for address in
+                    (region.address..region.address + region.data.len() as u32).step_by(4)
+                {
+                    let Some(instruction) = memory
+                        .get_u32(address)
+                        .ok()
+                        .and_then(|value| InstructionDecoder::decode(address, value))
+                    else {
+                        continue;
                     };
 
                     if matching(instruction) {
@@ -421,8 +440,14 @@ impl UnitDevice {
         })
     }
 
-    pub fn conditions_for_matching<F: FnMut(Instruction) -> bool>(&self, matching: F) -> Vec<StopCondition> {
-        self.addresses_for(matching).into_iter().map(|x| Address(x)).collect()
+    pub fn conditions_for_matching<F: FnMut(Instruction) -> bool>(
+        &self,
+        matching: F,
+    ) -> Vec<StopCondition> {
+        self.addresses_for(matching)
+            .into_iter()
+            .map(Address)
+            .collect()
     }
 
     pub fn jump_to(&self, pc: u32) {
@@ -431,7 +456,7 @@ impl UnitDevice {
 
     pub fn jump_to_label(&self, name: &str) -> Result<(), UnitDeviceError> {
         let Some(value) = self.binary.labels.get(name) else {
-            return Err(MissingLabel(name.to_string()))
+            return Err(MissingLabel(name.to_string()));
         };
 
         self.jump_to(*value);
@@ -455,7 +480,11 @@ impl UnitDevice {
         self.syscall_handler = Some(Box::new(f))
     }
 
-    pub fn handle_frame(&self, frame: &DebugFrame, complete_error: bool) -> Result<bool, UnitDeviceError> {
+    pub fn handle_frame(
+        &self,
+        frame: &DebugFrame,
+        complete_error: bool,
+    ) -> Result<bool, UnitDeviceError> {
         match frame.mode {
             Invalid(error) => match error {
                 CpuError::CpuSyscall => {
@@ -491,7 +520,7 @@ impl UnitDevice {
                 }
             },
 
-            _ => Ok(true)
+            _ => Ok(true),
         }
     }
 
@@ -501,7 +530,7 @@ impl UnitDevice {
 
     pub fn backstep(&self) -> bool {
         let Some(entry) = self.executor.with_tracker(|tracker| tracker.pop()) else {
-            return false
+            return false;
         };
 
         self.executor.with_state(|state| {
@@ -516,7 +545,7 @@ impl UnitDevice {
             let index = index + A0.to_usize().unwrap();
 
             if index >= 32 {
-                return
+                return;
             }
 
             let index = FromPrimitive::from_usize(index).unwrap();
@@ -525,13 +554,19 @@ impl UnitDevice {
         }
     }
 
-    pub fn call_with_conditions(&self, label: &str, params: &[u32], conditions: &[StopCondition]) -> Result<(), UnitDeviceError> {
+    pub fn call_with_conditions(
+        &self,
+        label: &str,
+        params: &[u32],
+        conditions: &[StopCondition],
+    ) -> Result<(), UnitDeviceError> {
         self.jump_to_label(label)?;
 
         let last_ra = self.registers().get(RA);
         let return_address = 0xEABADDEA;
 
-        self.executor.with_state(|s| s.registers.set(RA, return_address));
+        self.executor
+            .with_state(|s| s.registers.set(RA, return_address));
 
         self.load_params(params);
 
@@ -545,7 +580,12 @@ impl UnitDevice {
         Ok(())
     }
 
-    pub fn call_slice(&self, label: &str, params: &[u32], timeout: Option<Duration>) -> Result<(), UnitDeviceError> {
+    pub fn call_slice(
+        &self,
+        label: &str,
+        params: &[u32],
+        timeout: Option<Duration>,
+    ) -> Result<(), UnitDeviceError> {
         if let Some(duration) = timeout {
             self.call_with_conditions(label, params, &[Timeout(duration)])
         } else {
@@ -553,16 +593,21 @@ impl UnitDevice {
         }
     }
 
-    pub fn call<const N: usize>(&self, label: &str, params: [u32; N], timeout: Option<Duration>) -> Result<(), UnitDeviceError> {
+    pub fn call<const N: usize>(
+        &self,
+        label: &str,
+        params: [u32; N],
+        timeout: Option<Duration>,
+    ) -> Result<(), UnitDeviceError> {
         self.call_slice(label, &params, timeout)
     }
 
     pub fn execute_until_slice(&self, conditions: &[StopCondition]) -> Result<(), UnitDeviceError> {
-        let parameters = StopConditionParameters::from(
-            conditions, |s| self.binary.labels.get(s).copied()
-        )?;
+        let parameters =
+            StopConditionParameters::from(conditions, |s| self.binary.labels.get(s).copied())?;
 
-        self.executor.set_breakpoints(parameters.breakpoints.into_iter().collect());
+        self.executor
+            .set_breakpoints(parameters.breakpoints.into_iter().collect());
 
         let did_timeout = Arc::new(AtomicBool::new(false));
         let did_timeout_clone = did_timeout.clone();
@@ -570,11 +615,14 @@ impl UnitDevice {
         let cancel = parameters.timeout.map(move |duration| {
             let executor = self.executor.clone();
 
-            make_timeout(move || {
-                did_timeout_clone.store(true, Ordering::Relaxed);
+            make_timeout(
+                move || {
+                    did_timeout_clone.store(true, Ordering::Relaxed);
 
-                executor.pause();
-            }, duration)
+                    executor.pause();
+                },
+                duration,
+            )
         });
 
         loop {
@@ -582,18 +630,18 @@ impl UnitDevice {
                 self.executor.override_mode(Running);
 
                 let result = self.executor.run_batched(count, true, true);
-                
+
                 if !result.interrupted {
                     self.executor.override_mode(ExecutorMode::Breakpoint)
                 }
-                
+
                 self.executor.frame()
             } else {
                 self.executor.run(self.executor.is_breakpoint())
             };
 
             if self.handle_frame(&frame, parameters.complete_error)? {
-                break
+                break;
             }
         }
 
@@ -602,13 +650,16 @@ impl UnitDevice {
         }
 
         if did_timeout.load(Ordering::Relaxed) {
-            return Err(ExecutionTimedOut)
+            return Err(ExecutionTimedOut);
         }
 
         Ok(())
     }
 
-    pub fn execute_until<const N: usize>(&self, conditions: [StopCondition; N]) -> Result<(), UnitDeviceError> {
+    pub fn execute_until<const N: usize>(
+        &self,
+        conditions: [StopCondition; N],
+    ) -> Result<(), UnitDeviceError> {
         self.execute_until_slice(&conditions)
     }
 
@@ -616,7 +667,7 @@ impl UnitDevice {
         self.executor.with_memory(|memory| {
             let mut result = vec![];
 
-            for i in 0 .. count {
+            for i in 0..count {
                 result.push(memory.get(address.wrapping_add(i))?)
             }
 
@@ -638,19 +689,20 @@ impl UnitDevice {
         &self,
         line_byte_length: u32,
         address: u32,
-        x: u32, y: u32,
-        width: u32, height: u32
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
     ) -> Result<Vec<u32>, crate::cpu::error::Error> {
         self.executor.with_memory(|memory| {
-            let mut result = vec![];
+            let mut result = Vec::with_capacity((width as usize) * (height as usize));
 
-            result.reserve((width as usize) * (height as usize));
-
-            for v in y .. (y + height) {
-                for h in x .. (x + width) {
-                    let point = address + line_byte_length
-                        .wrapping_mul(v)
-                        .wrapping_add(h.wrapping_mul(4));
+            for v in y..(y + height) {
+                for h in x..(x + width) {
+                    let point = address
+                        + line_byte_length
+                            .wrapping_mul(v)
+                            .wrapping_add(h.wrapping_mul(4));
 
                     result.push(memory.get_u32(point)?)
                 }
@@ -664,12 +716,15 @@ impl UnitDevice {
         self.executor.with_memory(|memory| {
             memory.mount(Region {
                 start: address,
-                data
+                data,
             })
         })
     }
 
-    pub fn test<F: RefUnwindSafe + Fn() -> UnitDevice>(configure: F, tests: &[UnitTest]) -> thread::Result<()> {
+    pub fn test<F: RefUnwindSafe + Fn() -> UnitDevice>(
+        configure: F,
+        tests: &[UnitTest],
+    ) -> thread::Result<()> {
         for test in tests {
             catch_unwind(|| {
                 let device = configure();

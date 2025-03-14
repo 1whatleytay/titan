@@ -1,11 +1,16 @@
 use crate::assembler::assembler_util::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::assembler_util::{default_start, get_constant, get_integer, get_integer_adjacent, get_string, pc_for_region, AssemblerError, get_label, maybe_get_value};
+use crate::assembler::assembler_util::{
+    default_start, get_constant, get_integer, get_integer_adjacent, get_label, get_string,
+    pc_for_region, AssemblerError,
+};
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::binary::{BinarySection, NamedLabel};
-use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind};
+use crate::assembler::binary_builder::{
+    BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind,
+};
 use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::lexer::{Location, Token, TokenKind};
@@ -76,11 +81,11 @@ fn align_with_zeros(region: &mut BinaryBuilderRegion, align: u32) -> Result<(), 
 
     let target = (select + correction) * align;
     let align_count = target as usize - pc as usize;
-    
+
     let mut align_bytes = vec![0; align_count];
 
     region.raw.data.append(&mut align_bytes);
-    
+
     Ok(())
 }
 
@@ -132,8 +137,8 @@ fn do_space_directive(
         let Some(target) = pc.checked_add(byte_count as u32) else {
             return Err(AssemblerError {
                 location: None,
-                reason: OverwriteEdge(pc, Some(byte_count as u64))
-            })
+                reason: OverwriteEdge(pc, Some(byte_count as u64)),
+            });
         };
 
         builder.seek_mode_address(builder.state.mode, target)
@@ -164,7 +169,7 @@ fn grab_value(
     iter: &mut LexerCursor,
 ) -> Result<Option<ConstantInfo>, AssemblerError> {
     let Some(value) = get_integer(value, iter, true) else {
-        return Ok(None)
+        return Ok(None);
     };
 
     let next_up = iter.seek_without(is_adjacent_kind);
@@ -173,14 +178,17 @@ fn grab_value(
         iter.next();
 
         let Some(token) = iter.next_adjacent() else {
-            return Err(AssemblerError { location: None, reason: EndOfFile });
+            return Err(AssemblerError {
+                location: None,
+                reason: EndOfFile,
+            });
         };
 
         let Some(value) = get_integer(token, iter, false) else {
             return Err(AssemblerError {
                 location: Some(token.location),
-                reason: ExpectedConstant(token.kind.strip())
-            })
+                reason: ExpectedConstant(token.kind.strip()),
+            });
         };
 
         if value > REPEAT_LIMIT {
@@ -232,7 +240,9 @@ fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>
 
             ConstantOrLabel::Label(address)
         } else {
-            let Some(constant) = grab_value(value, iter)? else { break };
+            let Some(constant) = grab_value(value, iter)? else {
+                break;
+            };
 
             ConstantOrLabel::Constant(constant)
         };
@@ -247,7 +257,9 @@ fn get_constants(iter: &mut LexerCursor) -> Result<Vec<ConstantInfo>, AssemblerE
     let mut result = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
-        let Some(constant) = grab_value(value, iter)? else { break };
+        let Some(constant) = grab_value(value, iter)? else {
+            break;
+        };
 
         result.push(constant)
     }
@@ -290,7 +302,7 @@ fn do_half_directive(
     let region = builder.region().ok_or(MISSING_REGION)?;
 
     align_with_zeros(region, 2)?;
-    
+
     for value in values {
         if value.count > REPEAT_LIMIT {
             continue;
@@ -380,7 +392,10 @@ fn do_double_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(),
     })
 }
 
-fn do_entry_directive(iter: &mut LexerCursor, builder: &mut BinaryBuilder) -> Result<(), AssemblerError> {
+fn do_entry_directive(
+    iter: &mut LexerCursor,
+    builder: &mut BinaryBuilder,
+) -> Result<(), AssemblerError> {
     let label = get_label(iter)?;
 
     builder.entry = Some(label);

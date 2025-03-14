@@ -96,7 +96,7 @@ impl Display for StrippedKind {
     }
 }
 
-impl<'a> TokenKind<'a> {
+impl TokenKind<'_> {
     pub fn strip(&self) -> StrippedKind {
         match self {
             Comment(_) => StrippedKind::Comment,
@@ -120,7 +120,7 @@ impl<'a> TokenKind<'a> {
 #[derive(Copy, Clone, Debug)]
 pub struct Location {
     pub source: usize,
-    pub index: usize
+    pub index: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -335,7 +335,9 @@ fn integer_literal(input: &str) -> Option<(&str, u64)> {
 fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);
 
-    let Some(leading) = input.chars().next() else { return Ok(None) };
+    let Some(leading) = input.chars().next() else {
+        return Ok(None);
+    };
     let after_leading = &input[leading.len_utf8()..];
 
     match leading {
@@ -391,11 +393,15 @@ pub fn lex_with_source(mut input: &str, source: usize) -> Result<Vec<Token>, Lex
     while !input.is_empty() {
         let trail = input;
         let start = offset_from_start(begin, trail);
-        let location = Location { source, index: start };
+        let location = Location {
+            source,
+            index: start,
+        };
 
-        let Some((next, kind)) = lex_item(input)
-            .map_err(|reason| LexerError { location, reason })? else {
-            break
+        let Some((next, kind)) =
+            lex_item(input).map_err(|reason| LexerError { location, reason })?
+        else {
+            break;
         };
 
         if ptr::eq(trail.as_ptr(), next.as_ptr()) {

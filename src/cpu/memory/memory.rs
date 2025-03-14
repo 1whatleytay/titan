@@ -20,7 +20,7 @@ pub trait Memory {
                 self.get(address + 2)?,
                 self.get(address + 3)?,
             ]
-                .as_slice(),
+            .as_slice(),
         ))
     }
 

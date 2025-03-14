@@ -1,21 +1,21 @@
-use smallvec::SmallVec;
-use crate::cpu::Memory;
 use crate::cpu::error::Result;
+use crate::cpu::memory::watched::BackupValue::{Byte, Null, Short, Word};
 use crate::cpu::memory::{Mountable, Region};
-use crate::cpu::memory::watched::BackupValue::{Byte, Short, Word, Null};
+use crate::cpu::Memory;
+use smallvec::SmallVec;
 
 #[derive(Clone)]
 pub enum BackupValue {
     Byte(u8),
     Short(u16),
     Word(u32),
-    Null
+    Null,
 }
 
 #[derive(Clone)]
 pub struct WatchEntry {
     pub address: u32,
-    pub previous: BackupValue
+    pub previous: BackupValue,
 }
 
 pub const LOG_SIZE: usize = 1;
@@ -23,7 +23,7 @@ pub const LOG_SIZE: usize = 1;
 #[derive(Clone)]
 pub struct WatchedMemory<T: Memory> {
     pub backing: T,
-    log: SmallVec<[WatchEntry; LOG_SIZE]>
+    log: SmallVec<[WatchEntry; LOG_SIZE]>,
 }
 
 impl WatchEntry {
@@ -32,14 +32,17 @@ impl WatchEntry {
             Byte(value) => memory.set(self.address, value),
             Short(value) => memory.set_u16(self.address, value),
             Word(value) => memory.set_u32(self.address, value),
-            Null => { Ok(()) }
+            Null => Ok(()),
         }
     }
 }
 
 impl<T: Memory> WatchedMemory<T> {
     pub fn new(backing: T) -> WatchedMemory<T> {
-        WatchedMemory { backing, log: SmallVec::new() }
+        WatchedMemory {
+            backing,
+            log: SmallVec::new(),
+        }
     }
 
     pub fn take(&mut self) -> SmallVec<[WatchEntry; LOG_SIZE]> {
@@ -54,7 +57,8 @@ impl<T: Memory> Memory for WatchedMemory<T> {
 
     fn set(&mut self, address: u32, value: u8) -> Result<()> {
         self.log.push(WatchEntry {
-            address, previous: self.backing.get(address).map_or(Null, Byte)
+            address,
+            previous: self.backing.get(address).map_or(Null, Byte),
         });
 
         self.backing.set(address, value)
@@ -70,7 +74,8 @@ impl<T: Memory> Memory for WatchedMemory<T> {
 
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         self.log.push(WatchEntry {
-            address, previous: self.backing.get_u16(address).map_or(Null, Short)
+            address,
+            previous: self.backing.get_u16(address).map_or(Null, Short),
         });
 
         self.backing.set_u16(address, value)
@@ -78,7 +83,8 @@ impl<T: Memory> Memory for WatchedMemory<T> {
 
     fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         self.log.push(WatchEntry {
-            address, previous: self.backing.get_u32(address).map_or(Null, Word)
+            address,
+            previous: self.backing.get_u32(address).map_or(Null, Word),
         });
 
         self.backing.set_u32(address, value)

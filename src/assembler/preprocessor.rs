@@ -4,13 +4,17 @@ use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
 };
 use crate::assembler::lexer::{LexerError, Location, StrippedKind, SymbolName, Token, TokenKind};
-use crate::assembler::preprocessor::PreprocessorReason::{EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedSymbol, MacroParameterCount, MacroUnknownParameter, RecursiveExpansion, IncludeUnsupported, ExpectedString, FailedToFindFile, FailedToLexFile, RecursiveInclude};
+use crate::assembler::preprocessor::PreprocessorReason::{
+    EndOfFile, ExpectedLeftBrace, ExpectedParameter, ExpectedRightBrace, ExpectedString,
+    ExpectedSymbol, FailedToFindFile, FailedToLexFile, IncludeUnsupported, MacroParameterCount,
+    MacroUnknownParameter, RecursiveExpansion, RecursiveInclude,
+};
+use crate::assembler::source::{ExtendError, TokenProvider};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use PreprocessorReason::NoFilePathAssociated;
-use crate::assembler::source::{ExtendError, TokenProvider};
 
 #[derive(Debug)]
 pub enum PreprocessorReason {
@@ -27,7 +31,7 @@ pub enum PreprocessorReason {
     NoFilePathAssociated,
     FailedToFindFile(String),
     FailedToLexFile(LexerError),
-    RecursiveInclude
+    RecursiveInclude,
 }
 
 impl Display for PreprocessorReason {
@@ -116,9 +120,13 @@ impl<'a> Cache<'a> {
 fn consume_eqv<'a>(
     iter: &mut LexerCursor<'a, '_>,
 ) -> Result<(String, Vec<TokenKind<'a>>), PreprocessorReason> {
-    let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
+    let Some(symbol) = iter.next_adjacent() else {
+        return Err(EndOfFile);
+    };
 
-    let Symbol(key) = &symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
+    let Symbol(key) = &symbol.kind else {
+        return Err(ExpectedSymbol(symbol.kind.strip()));
+    };
     let value = iter
         .collect_without(|kind| kind == &NewLine)
         .into_iter()
@@ -129,18 +137,26 @@ fn consume_eqv<'a>(
 }
 
 fn consume_macro<'a>(iter: &mut LexerCursor<'a, '_>) -> Result<Macro<'a>, PreprocessorReason> {
-    let Some(symbol) = iter.next_adjacent() else { return Err(EndOfFile) };
-    let Symbol(name) = &symbol.kind else { return Err(ExpectedSymbol(symbol.kind.strip())) };
+    let Some(symbol) = iter.next_adjacent() else {
+        return Err(EndOfFile);
+    };
+    let Symbol(name) = &symbol.kind else {
+        return Err(ExpectedSymbol(symbol.kind.strip()));
+    };
 
     let mut result = Macro::new(name.get().to_string());
 
-    let Some(left_brace) = iter.next_adjacent() else { return Err(EndOfFile) };
+    let Some(left_brace) = iter.next_adjacent() else {
+        return Err(EndOfFile);
+    };
     if left_brace.kind != LeftBrace {
         return Err(ExpectedLeftBrace(left_brace.kind.strip()));
     };
 
     loop {
-        let Some(next) = iter.next_adjacent() else { return Err(EndOfFile) };
+        let Some(next) = iter.next_adjacent() else {
+            return Err(EndOfFile);
+        };
 
         match next.kind {
             LeftBrace => continue,
@@ -190,24 +206,25 @@ fn consume_macro<'a>(iter: &mut LexerCursor<'a, '_>) -> Result<Macro<'a>, Prepro
 }
 
 fn consume_include<'a, P: TokenProvider<'a>>(
-    iter: &mut LexerCursor<'a, '_>, provider: &P, cache: &mut Cache<'a>
+    iter: &mut LexerCursor<'a, '_>,
+    provider: &P,
+    cache: &mut Cache<'a>,
 ) -> Result<Vec<Token<'a>>, PreprocessorReason> {
     let next = iter.next().ok_or(EndOfFile)?;
 
     let TokenKind::StringLiteral(path) = &next.kind else {
-        return Err(ExpectedString(next.kind.strip()))
+        return Err(ExpectedString(next.kind.strip()));
     };
 
-    let new_provider = provider.extend(path)
-        .map_err(|e| match e {
-            ExtendError::NotSupported => IncludeUnsupported,
-            ExtendError::FailedToRead(f) => FailedToFindFile(f),
-            ExtendError::LexerFailed(e) => FailedToLexFile(e),
-            ExtendError::RecursiveInclude => RecursiveInclude
-        })?;
+    let new_provider = provider.extend(path).map_err(|e| match e {
+        ExtendError::NotSupported => IncludeUnsupported,
+        ExtendError::FailedToRead(f) => FailedToFindFile(f),
+        ExtendError::LexerFailed(e) => FailedToLexFile(e),
+        ExtendError::RecursiveInclude => RecursiveInclude,
+    })?;
 
-    preprocess_cached(&new_provider, new_provider.get(), cache)
-        .map_err(|e| e.reason) // strip any location info ATM
+    preprocess_cached(&new_provider, new_provider.get(), cache).map_err(|e| e.reason)
+    // strip any location info ATM
 }
 
 fn expand_macro<'a, P: TokenProvider<'a>>(
@@ -259,17 +276,17 @@ fn expand_macro<'a, P: TokenProvider<'a>>(
                 let kinds = parameter_map
                     .get(name)
                     .ok_or_else(|| MacroUnknownParameter(name.to_string()))?;
-                
+
                 for kind in kinds {
                     result.push(Token {
                         location: token.location,
                         kind: kind.clone(),
                     });
                 }
-                
+
                 // isolate dealing with vectors to this branch
-                continue
-            },
+                continue;
+            }
             Symbol(name) => {
                 if let Some(new_name) = label_names.get(name.get()) {
                     Symbol(Owned(new_name.clone()))
@@ -286,8 +303,7 @@ fn expand_macro<'a, P: TokenProvider<'a>>(
         });
     }
 
-    let result = preprocess_cached(provider, &result, cache)
-        .map_err(|err| err.reason)?;
+    let result = preprocess_cached(provider, &result, cache).map_err(|err| err.reason)?;
 
     cache.expanding.remove(&macro_info.name);
 
@@ -315,7 +331,10 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
     let (position, token) = iter.peek_adjacent();
 
     let Some(last) = token else {
-        return Ok(vec![Token { location, kind: Symbol(name.clone()) }])
+        return Ok(vec![Token {
+            location,
+            kind: Symbol(name.clone()),
+        }]);
     };
 
     let start = iter.get_position();
@@ -346,23 +365,25 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
     let mut parameters = vec![];
 
     loop {
-        let Some(next) = iter.next_adjacent() else { return Err(EndOfFile) };
+        let Some(next) = iter.next_adjacent() else {
+            return Err(EndOfFile);
+        };
 
         match next.kind {
             RightBrace => break,
             NewLine => return Err(ExpectedRightBrace(next.kind.strip())),
             TokenKind::Plus | TokenKind::Minus => {
                 let mut result = vec![next.clone()];
-                
+
                 if let (position, Some(number)) = iter.peek_adjacent() {
                     if let TokenKind::IntegerLiteral(_) = number.kind {
                         iter.set_position(position);
                         iter.next();
-                        
+
                         result.push(number.clone());
                     }
                 }
-                
+
                 parameters.push(result);
             }
             _ => parameters.push(vec![next.clone()]),
@@ -401,8 +422,7 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
                     cache.macros.insert(value.name.clone(), Rc::new(value));
                 }
                 "include" => {
-                    let tokens = consume_include(&mut iter, provider, cache)
-                        .map_err(fail)?;
+                    let tokens = consume_include(&mut iter, provider, cache).map_err(fail)?;
 
                     result.extend(tokens);
                 }
@@ -412,17 +432,18 @@ fn preprocess_cached<'a, P: TokenProvider<'a>>(
                     if let Some(path) = path {
                         result.push(Token {
                             location: element.location,
-                            kind: TokenKind::StringLiteral(path)
+                            kind: TokenKind::StringLiteral(path),
                         })
                     } else {
-                        return Err(fail(NoFilePathAssociated))
+                        return Err(fail(NoFilePathAssociated));
                     }
                 }
                 _ => panic!(), // ??
             },
             Symbol(name) => {
-                let mut elements = handle_symbol(name, element.location, &mut iter, provider, cache)
-                    .map_err(fail)?;
+                let mut elements =
+                    handle_symbol(name, element.location, &mut iter, provider, cache)
+                        .map_err(fail)?;
 
                 result.append(&mut elements)
             }
@@ -440,18 +461,17 @@ pub fn mark_parameters_as_error(result: Vec<Token>) -> Result<Vec<Token>, Prepro
             return Err(PreprocessorError {
                 location: token.location,
                 reason: MacroUnknownParameter(name.to_string()),
-            })
+            });
         }
     }
-    
+
     Ok(result)
 }
 
 pub fn preprocess<'a, P: TokenProvider<'a>>(
-    provider: &P
+    provider: &P,
 ) -> Result<Vec<Token<'a>>, PreprocessorError> {
     let mut cache = Cache::new();
 
-    preprocess_cached(provider, provider.get(), &mut cache)
-        .and_then(mark_parameters_as_error)
+    preprocess_cached(provider, provider.get(), &mut cache).and_then(mark_parameters_as_error)
 }
