@@ -1,8 +1,8 @@
 use crate::assembler::instructions::Encoding::{
     Branch, BranchZero, Destination, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
-    Register, RegisterShift, Sham, Source, SpecialBranch, FPRegister
+    Register, RegisterShift, Sham, Source, SpecialBranch, FPRegister, FPRegisterCC, FPImmediate, FPImmediateCC
 };
-use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special, Cop1};
+use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special, Cop1, Cop0};
 use crate::assembler::instructions::Size::{Double, Single, Word};
 use std::collections::HashMap;
 
@@ -23,7 +23,8 @@ pub enum Encoding {
     Offset,
     FPRegister(Size), // Size, $, $, $
     FPRegisterCC(Size, bool),
-    FPImmediate(bool), 
+    FPImmediate,
+    FPImmediateCC(bool), 
 }
 
 pub enum Size {
@@ -37,6 +38,7 @@ pub enum Opcode {
     Special(u8),
     Algebra(u8),
     Cop1(u8),
+    Cop0(u8)
 }
 
 pub struct Instruction<'a> {
@@ -45,7 +47,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 81] = [
+pub const INSTRUCTIONS: [Instruction; 111] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -488,12 +490,12 @@ pub const INSTRUCTIONS: [Instruction; 81] = [
     Instruction {
         name: "bc1t",
         opcode: Cop1(0b01000),
-        encoding: Encoding::FPImmediate(true),
+        encoding: FPImmediateCC(true),
     },
     Instruction {
         name: "bc1f",
         opcode: Cop1(0b01000),
-        encoding: Encoding::FPImmediate(false),
+        encoding: FPImmediateCC(false),
     },
 
     Instruction {
@@ -580,6 +582,36 @@ pub const INSTRUCTIONS: [Instruction; 81] = [
         encoding: FPRegister(Word),
     },
 
+    Instruction {
+        name: "mfc0",
+        opcode: Cop0(0b00000),
+        encoding: FPImmediate,
+    },
+    Instruction {
+        name: "mfc1",
+        opcode: Cop1(0b00000),
+        encoding: FPImmediate,
+    },
+    Instruction {
+        name: "mtc0",
+        opcode: Cop0(0b00100),
+        encoding: FPImmediate,
+    },
+    Instruction {
+        name: "mtc1",
+        opcode: Cop1(0b00100),
+        encoding: FPImmediate,
+    },
+    Instruction {
+        name: "lwc1",
+        opcode: Op(0b110001),
+        encoding: Offset,
+    },
+    Instruction {
+        name: "swc1",
+        opcode: Op(0b111001),
+        encoding: Offset,
+    },
 ];
 
 pub fn instructions_map<'a, 'b>(
