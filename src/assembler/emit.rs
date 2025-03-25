@@ -10,7 +10,7 @@ use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
-use crate::assembler::instructions::Opcode::{Func, Op, Special, Cop1};
+use crate::assembler::instructions::Opcode::{Func, Op, Special, Cop1, Cop0};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
@@ -26,7 +26,8 @@ fn instruction_base(op: &Opcode) -> u32 {
         Func(key) => *key as u32 & 0b111111, // opcode: 0
         Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
-        Cop1(key) => (*key as u32 & 0b111111) | (17 << 26)
+        Cop1(key) => (*key as u32 & 0b111111) | (17 << 26),
+        Cop0(key) => (*key as u32 & 0b111111) | (16 << 26),
     }
 }
 

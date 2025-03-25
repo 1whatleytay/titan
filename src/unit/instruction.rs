@@ -1009,6 +1009,386 @@ impl Decoder<Instruction> for InstructionDecoder {
     fn syscall(&mut self) -> Instruction {
         Instruction::Syscall
     }
+    fn add_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::AddS {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::SubS {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::MulS {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn div_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::DivS {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn sqrt_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::SqrtS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn abs_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::AbsS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn neg_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::NegS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn floor_w_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::FloorWS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn ceil_w_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CeilWS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn round_w_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::RoundWS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn trunc_w_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::TruncWS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn add_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::AddD {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::SubD {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::MulD {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn div_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+        Instruction::DivD {
+            s: s.into(),
+            t: t.into(),
+            d: d.into(),
+        }
+    }
+    fn sqrt_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::SqrtD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn abs_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::AbsD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn neg_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::NegD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn floor_w_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::FloorWD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn ceil_w_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CeilWD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn round_w_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::RoundWD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn trunc_w_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::TruncWD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CEqS {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
+    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CLeS {
+            imm,
+            s: s.into(),
+            t: t.into(),
+        }
+    }
+    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CLtS {
+            imm,
+            s: s.into(),
+            t: t.into(),
+        }
+    }
+    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CEqD {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
+    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CLeD {
+            imm,
+            s: s.into(),
+            t: t.into(),
+        }
+    }
+    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+        Instruction::CLtD {
+            imm,
+            s: s.into(),
+            t: t.into(),
+        }
+    }
+    fn bc1t(&mut self, imm: u8, address: u16) -> Instruction {
+        Instruction::BC1T {
+            imm,
+            address,
+        }
+    }
+    fn bc1f(&mut self, imm: u8, address: u16) -> Instruction {
+        Instruction::BC1F {
+            imm,
+            address,
+        }
+    }
+    fn mov_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::MovS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovFS {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovTS {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movn_s(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovNS {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn movz_s(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovZS {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn mov_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::MovD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovFD {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovTD {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movn_d(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovND {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn movz_d(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovZD {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn movf(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovF {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movt(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+        Instruction::MovT {
+            s: s.into(),
+            d: d.into(),
+            imm,
+        }
+    }
+    fn movn(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovN {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn movz(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+        Instruction::MovZ {
+            s: s.into(),
+            d: d.into(),
+            t: t.into(),
+        }
+    }
+    fn cvt_s_w(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtSW {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn cvt_w_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtWS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn cvt_s_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtSD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn cvt_d_s(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtDS {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn cvt_d_w(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtDW {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::CvtWD {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn mtc0(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::Mtc0 {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn mfc0(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::Mfc0 {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn mtc1(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::Mtc1 {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn mfc1(&mut self, s: u8, d: u8) -> Instruction {
+        Instruction::Mfc1 {
+            s: s.into(),
+            d: d.into(),
+        }
+    }
+    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+        Instruction::Ldc1 {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
+    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+        Instruction::Sdc1 {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
+
+    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+        Instruction::Lwc1 {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
+
+    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+        Instruction::Swc1 {
+            s: s.into(),
+            t: t.into(),
+            imm,
+        }
+    }
 }
 
 pub enum InstructionParameter {
