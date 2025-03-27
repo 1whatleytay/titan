@@ -350,4 +350,185 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn syscall(&mut self) -> String {
         "syscall".to_string()
     }
+
+
+    fn add_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("add.s {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("sub.s {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("mul.s {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn div_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("div.s {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn sqrt_s(&mut self, s: u8, d: u8) -> String {
+        format!("sqrt.s {}, {}", reg(d), reg(s))
+    }
+    fn abs_s(&mut self, s: u8, d: u8) -> String {
+        format!("abs.s {}, {}", reg(d), reg(s))
+    }
+    fn neg_s(&mut self, s: u8, d: u8) -> String {
+        format!("neg.s {}, {}", reg(d), reg(s))
+    }
+    fn floor_w_s(&mut self, s: u8, d: u8) -> String {
+        format!("floor.w.s {}, {}", reg(d), reg(s))
+    }
+    fn ceil_w_s(&mut self, s: u8, d: u8) -> String {
+        format!("ceil.w.s {}, {}", reg(d), reg(s))
+    }
+    fn round_w_s(&mut self, s: u8, d: u8) -> String {
+        format!("round.w.s {}, {}", reg(d), reg(s))
+    }
+    fn trunc_w_s(&mut self, s: u8, d: u8) -> String {
+        format!("trunc.w.s {}, {}", reg(d), reg(s))
+    }
+    fn add_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("add.d {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("sub.d {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("mul.d {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn div_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("div.d {}, {}, {}", reg(d), reg(s), reg(t))
+    }
+    fn sqrt_d(&mut self, s: u8, d: u8) -> String {
+        format!("sqrt.d {}, {}", reg(d), reg(s))
+    }
+    fn abs_d(&mut self, s: u8, d: u8) -> String {
+        format!("abs.d {}, {}", reg(d), reg(s))
+    }
+    fn neg_d(&mut self, s: u8, d: u8) -> String {
+        format!("neg.d {}, {}", reg(d), reg(s))
+    }
+    fn floor_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("floor.w.d {}, {}", reg(d), reg(s))
+    }
+    fn ceil_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("ceil.w.d {}, {}", reg(d), reg(s))
+    }
+    fn round_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("round.w.d {}, {}", reg(d), reg(s))
+    }
+    fn trunc_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("trunc.w.d {}, {}", reg(d), reg(s))
+    }
+    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.eq.s {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.le.s {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.lt.s {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.eq.d {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.le.d {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> String {
+        format!("c.lt.d {}, {}, {}", reg(s), reg(t), imm)
+    }
+    fn bc1t(&mut self, imm: u8, addr: u16) -> String {
+        let label = self.labels.label_for(rel_dest(self.pc, addr));
+
+        format!("bc1t {}, {}", imm, label)
+    }
+    fn bc1f(&mut self, imm: u8, addr: u16) -> String {
+        let label = self.labels.label_for(rel_dest(self.pc, addr));
+
+        format!("bc1f {}, {}", imm, label)
+    }
+    fn mov_s(&mut self, s: u8, d: u8) -> String {
+        format!("mov.s {}, {}", reg(d), reg(s))
+    }
+    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movf.s {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movt.s {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movn_s(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movn.s {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movz_s(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movz.s {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn mov_d(&mut self, s: u8, d: u8) -> String {
+        format!("mov.d {}, {}", reg(d), reg(s))
+    }
+    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> String {        
+        format!("movf.d {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movt.d {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movn_d(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movn.d {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movz_d(&mut self, s: u8, d: u8, imm: u8) -> String {        
+        format!("movz.d {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movf(&mut self, s: u8, d: u8, imm: u8) -> String {        
+        format!("movf {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movt(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movt {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movn(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movn {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn movz(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movz {}, {}, {}", reg(d), reg(s), imm)
+    }
+    fn cvt_s_w(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.s.w {}, {}", reg(d), reg(s))
+    }
+    fn cvt_w_s(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.w.s {}, {}", reg(d), reg(s))
+    }
+    fn cvt_s_d(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.s.d {}, {}", reg(d), reg(s))
+    }
+    fn cvt_d_s(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.d.s {}, {}", reg(d), reg(s))
+    }
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.w.d {}, {}", reg(d), reg(s))
+    }
+    fn cvt_d_w(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.d.w {}, {}", reg(d), reg(s))
+    }
+    fn mtc0(&mut self, s: u8, imm: u8) -> String {
+        format!("mtc0 {}, {}", reg(s), imm)
+    }
+    fn mfc0(&mut self, s: u8, imm: u8) -> String {
+        format!("mfc0 {}, {}", reg(s), imm)
+    }
+    fn mtc1(&mut self, s: u8, imm: u8) -> String {
+        format!("mtc1 {}, {}", reg(s), imm)
+    }
+    fn mfc1(&mut self, s: u8, imm: u8) -> String {
+        format!("mfc1 {}, {}", reg(s), imm)
+    }
+    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> String {
+        format!("ldc1 {}, {}({})", reg(t), sig(imm), reg(s))
+    }
+    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> String {
+        format!("sdc1 {}, {}({})", reg(t), sig(imm), reg(s))
+    }
+    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> String {
+        format!("lwc1 {}, {}({})", reg(t), sig(imm), reg(s))
+    }
+
+    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> String {
+        format!("swc1 {}, {}({})", reg(t), sig(imm), reg(s))
+    }
 }

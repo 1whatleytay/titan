@@ -27,6 +27,7 @@ pub enum Encoding {
     FPImmediateCC(bool), 
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Size {
     Single,
     Double,

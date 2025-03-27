@@ -88,6 +88,12 @@ impl InstructionBuilder {
     fn with_fp_temp(self, slot: RegisterSlot) -> InstructionBuilder {
         self.with_slot_offset::<16>(slot)
     }
+    fn with_fp_fmt_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 21);
+        self.0 |= (value as u32) << 21;
+
+        self
+    }
     fn with_fp_temp_value(mut self, value: u8) -> InstructionBuilder {
         self.0 &= !(0b11111 << 16);
         self.0 |= (value as u32) << 16;
@@ -563,15 +569,14 @@ fn do_fp_register_instruction(
 fn do_fp_register_cc_instruction(
     op: &Opcode,
     fmt: Size,
-    bool: u8,
+    bool: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let cc = get_integer_adjacent(iter).ok_or(AssemblerError { location: None, reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus) })?;
 
-    let temp = ((cc as u8) << 2) | (bool & 1);
-
+    let temp = ((cc as u8) << 2) | (bool as u8 & 1);
 
     let inst = InstructionBuilder::from_op(op)
         .with_fp_dest(dest)
@@ -589,6 +594,7 @@ fn do_fp_immediate_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
+    let imm = get_constant(iter)? as u16;
 
     let inst = InstructionBuilder::from_op(op)
         .with_dest(dest)
@@ -601,16 +607,22 @@ fn do_fp_immediate_instruction(
 
 fn do_fp_immediate_cc_instruction(
     op: &Opcode,
-    imm: bool,
+    immb: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
+    let cc = get_integer_adjacent(iter).ok_or(AssemblerError { location: None, reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus) })?;
+    let imm = get_constant(iter)? as u16;
+    
+    let temp = match op {
+        Cop1(x) => *x,
+        _ => 0,
+    };
+    let temp2 = ((cc as u8) << 2) | (immb as u8 & 1);
 
     let inst = InstructionBuilder::from_op(op)
-        .with_dest(dest)
-        .with_source(source)
         .with_immediate(imm)
+        .with_fp_fmt_value(temp)
+        .with_fp_temp_value(temp2)
         .0;
 
     Ok(EmitInstruction::with(inst))
@@ -979,7 +991,7 @@ fn dispatch_instruction(
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
         Encoding::FPRegister(fmt) => do_fp_register_instruction(op, *fmt, iter),
-        Encoding::FPRegisterCC(size, other) => do_fp_register_cc_instruction(op, *size, *fmt, iter),
+        Encoding::FPRegisterCC(size, other) => do_fp_register_cc_instruction(op, *size, *other, iter),
         Encoding::FPImmediate => do_fp_immediate_instruction(op, iter),
         Encoding::FPImmediateCC(fmt) => do_fp_immediate_cc_instruction(op, *fmt, iter),
     }?;
