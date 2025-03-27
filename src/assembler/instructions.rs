@@ -178,12 +178,12 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
     },
     Instruction {
         name: "bltzal",
-        opcode: Special(6),
+        opcode: Special(16),
         encoding: SpecialBranch,
     },
     Instruction {
         name: "bgezal",
-        opcode: Special(7),
+        opcode: Special(17),
         encoding: SpecialBranch,
     },
     Instruction {
