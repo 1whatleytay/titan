@@ -1,7 +1,7 @@
 use crate::assembler::instructions::Encoding::{
     Branch, BranchZero, Destination, FP2Register, FP3Register, FPCond, FPConditionalBranch,
-    FPCrossMove, FPMove, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless, Register,
-    RegisterShift, Sham, Source, SpecialBranch,
+    FPCrossMove, FPMove, FPOffset, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
+    Register, RegisterShift, Sham, Source, SpecialBranch,
 };
 use crate::assembler::instructions::Opcode::{Algebra, Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::Size::{Double, Single, Word};
@@ -22,6 +22,7 @@ pub enum Encoding {
     BranchZero,
     Parameterless,
     Offset,
+    FPOffset,
     FP3Register(Size),  // Size, $, $, $
     FP2Register(Size),  // Size, 0, $, $
     FPMove(Size, bool), // Size, $, $, cc|bool
@@ -51,7 +52,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 113] = [
+pub const INSTRUCTIONS: [Instruction; 115] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -610,12 +611,22 @@ pub const INSTRUCTIONS: [Instruction; 113] = [
     Instruction {
         name: "lwc1",
         opcode: Op(0b110001),
-        encoding: Offset,
+        encoding: FPOffset,
     },
     Instruction {
         name: "swc1",
         opcode: Op(0b111001),
-        encoding: Offset,
+        encoding: FPOffset,
+    },
+    Instruction {
+        name: "ldc1",
+        opcode: Op(0b110101),
+        encoding: FPOffset,
+    },
+    Instruction {
+        name: "sdc1",
+        opcode: Op(0b111101),
+        encoding: FPOffset,
     },
 ];
 

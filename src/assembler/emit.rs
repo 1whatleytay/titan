@@ -574,6 +574,27 @@ fn do_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
+fn do_fp_offset_instruction(
+    op: &Opcode,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let temp = get_fp_register(iter)?;
+
+    let offset = get_offset_or_label(iter)?;
+
+    let (immediate, register, mut instructions) = make_offset_or_label(offset);
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(register)
+        .with_fp_temp(temp)
+        .with_immediate(immediate)
+        .0;
+
+    instructions.push((inst, None));
+
+    Ok(EmitInstruction { instructions })
+}
+
 fn do_fp_3register_instruction(
     op: &Opcode,
     fmt: Size,
@@ -1071,6 +1092,7 @@ fn dispatch_instruction(
         Encoding::BranchZero => do_branch_zero_instruction(op, iter),
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
+        Encoding::FPOffset => do_fp_offset_instruction(op, iter),
         Encoding::FP3Register(fmt) => do_fp_3register_instruction(op, *fmt, iter),
         Encoding::FP2Register(fmt) => do_fp_2register_instruction(op, *fmt, iter),
         Encoding::FPMove(size, other) => do_fp_move_instruction(op, *size, *other, iter),

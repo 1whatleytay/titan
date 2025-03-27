@@ -125,10 +125,10 @@ pub trait Decoder<T> {
     fn cvt_w_d(&mut self, s: u8, d: u8) -> T;
     fn mtc1(&mut self, t: u8, s: u8) -> T;
     fn mfc1(&mut self, t: u8, s: u8) -> T;
-    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> T;
-    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> T;
     fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> T;
     fn swc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> T;
 
     fn dispatch_rtype(&mut self, instruction: u32) -> Option<T> {
         let func = instruction & 0x3F;
