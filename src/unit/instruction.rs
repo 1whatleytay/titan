@@ -1,6 +1,8 @@
+use crate::assembler::registers::{FPRegisterSlot, RegisterSlot};
 use crate::cpu::decoder::Decoder;
-use crate::unit::instruction::InstructionParameter::{Address, Immediate, Offset, Register};
-use crate::unit::register::RegisterName;
+use crate::unit::instruction::InstructionParameter::{
+    Address, FPRegister, Immediate, Offset, Register,
+};
 use num::FromPrimitive;
 use std::fmt::{Display, Formatter};
 
@@ -8,207 +10,207 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Instruction {
     Add {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Addu {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     And {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Div {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Divu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Mult {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Multu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Nor {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Or {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Sll {
-        t: RegisterName,
-        d: RegisterName,
+        t: RegisterSlot,
+        d: RegisterSlot,
         sham: u8,
     },
     Sllv {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Sra {
-        t: RegisterName,
-        d: RegisterName,
+        t: RegisterSlot,
+        d: RegisterSlot,
         sham: u8,
     },
     Srav {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Srl {
-        t: RegisterName,
-        d: RegisterName,
+        t: RegisterSlot,
+        d: RegisterSlot,
         sham: u8,
     },
     Srlv {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Sub {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Subu {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Xor {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Slt {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Sltu {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Jr {
-        s: RegisterName,
+        s: RegisterSlot,
     },
     Jalr {
-        s: RegisterName,
+        s: RegisterSlot,
     },
     Madd {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Maddu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Mul {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
+        d: RegisterSlot,
     },
     Msub {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Msubu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
     },
     Addi {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Addiu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Andi {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Ori {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Xori {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Lui {
-        s: RegisterName,
+        s: RegisterSlot,
         imm: u16,
     },
     Lhi {
-        t: RegisterName,
+        t: RegisterSlot,
         imm: u16,
     },
     Llo {
-        t: RegisterName,
+        t: RegisterSlot,
         imm: u16,
     },
     Slti {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Sltiu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Beq {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         address: u32,
     },
     Bne {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         address: u32,
     },
     Bgtz {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     Blez {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     Bltz {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     Bgez {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     Bltzal {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     Bgezal {
-        s: RegisterName,
+        s: RegisterSlot,
         address: u32,
     },
     J {
@@ -218,312 +220,312 @@ pub enum Instruction {
         address: u32,
     },
     Lb {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Lbu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Lh {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Lhu {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Lw {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Sb {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Sh {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Sw {
-        s: RegisterName,
-        t: RegisterName,
+        s: RegisterSlot,
+        t: RegisterSlot,
         imm: u16,
     },
     Mfhi {
-        d: RegisterName,
+        d: RegisterSlot,
     },
     Mflo {
-        d: RegisterName,
+        d: RegisterSlot,
     },
     Mthi {
-        s: RegisterName,
+        s: RegisterSlot,
     },
     Mtlo {
-        s: RegisterName,
+        s: RegisterSlot,
     },
     Trap,
     Syscall,
     AddS {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     SubS {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MulS {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     DivS {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     SqrtS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     AbsS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     NegS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     FloorWS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CeilWS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     RoundWS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     TruncWS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     AddD {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     SubD {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MulD {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     DivD {
-        s: RegisterName,
-        t: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     SqrtD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     AbsD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     NegD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     FloorWD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CeilWD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     RoundWD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     TruncWD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CEqS {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u8,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     CLeS {
-        imm: u8,
-        s: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     CLtS {
-        imm: u8,
-        s: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     CEqD {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u8,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     CLeD {
-        imm: u8,
-        s: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     CLtD {
-        imm: u8,
-        s: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        cc: u8,
     },
     BC1T {
-        imm: u8,
-        address: u16,
+        cc: u8,
+        offset: u16,
     },
     BC1F {
-        imm: u8,
-        address: u16,
+        cc: u8,
+        offset: u16,
     },
     MovS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovFS {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        cc: u8,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovTS {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        cc: u8,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovNS {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovZS {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovFD {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        cc: u8,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovTD {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        cc: u8,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovND {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovZD {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        t: FPRegisterSlot,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovF {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        s: FPRegisterSlot,
+        cc: u8,
+        d: FPRegisterSlot,
     },
     MovT {
-        s: RegisterName,
-        d: RegisterName,
-        imm: u8,
+        s: FPRegisterSlot,
+        cc: u8,
+        d: FPRegisterSlot,
     },
     MovN {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        s: FPRegisterSlot,
+        t: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     MovZ {
-        s: RegisterName,
-        d: RegisterName,
-        t: RegisterName,
+        s: FPRegisterSlot,
+        t: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtSW {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtWS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtDS {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtSD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtDW {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     CvtWD {
-        s: RegisterName,
-        d: RegisterName,
+        s: FPRegisterSlot,
+        d: FPRegisterSlot,
     },
     Mtc1 {
-        s: RegisterName,
-        d: RegisterName,
+        t: FPRegisterSlot,
+        s: RegisterSlot,
     },
     Mfc1 {
-        s: RegisterName,
-        d: RegisterName,
+        t: RegisterSlot,
+        s: FPRegisterSlot,
     },
     Lwc1 {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u16,
+        base: RegisterSlot,
+        t: FPRegisterSlot,
+        offset: u16,
     },
     Swc1 {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u16,
+        base: RegisterSlot,
+        t: FPRegisterSlot,
+        offset: u16,
     },
     Ldc1 {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u16,
+        base: RegisterSlot,
+        t: FPRegisterSlot,
+        offset: u16,
     },
     Sdc1 {
-        s: RegisterName,
-        t: RegisterName,
-        imm: u16,
+        base: RegisterSlot,
+        t: FPRegisterSlot,
+        offset: u16,
     },
 }
 
@@ -559,7 +561,12 @@ fn rel_dest(pc: u32, imm: u16) -> u32 {
     ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
 }
 
-impl From<u8> for RegisterName {
+impl From<u8> for RegisterSlot {
+    fn from(value: u8) -> Self {
+        FromPrimitive::from_u8(value).unwrap()
+    }
+}
+impl From<u8> for FPRegisterSlot {
     fn from(value: u8) -> Self {
         FromPrimitive::from_u8(value).unwrap()
     }
@@ -1001,31 +1008,31 @@ impl Decoder<Instruction> for InstructionDecoder {
     fn syscall(&mut self) -> Instruction {
         Instruction::Syscall
     }
-    fn add_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn add_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::AddS {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn sub_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::SubS {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn mul_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MulS {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn div_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn div_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::DivS {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
@@ -1071,31 +1078,31 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn add_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn add_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::AddD {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn sub_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::SubD {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn mul_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MulD {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
-    fn div_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn div_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::DivD {
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
             d: d.into(),
         }
     }
@@ -1141,53 +1148,59 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_eq_s(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CEqS {
-            s: s.into(),
             t: t.into(),
-            imm,
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLeS {
-            imm,
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLtS {
-            imm,
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CEqD {
-            s: s.into(),
             t: t.into(),
-            imm,
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLeD {
-            imm,
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> Instruction {
+    fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLtD {
-            imm,
-            s: s.into(),
             t: t.into(),
+            s: s.into(),
+            cc: cc,
         }
     }
-    fn bc1t(&mut self, imm: u8, address: u16) -> Instruction {
-        Instruction::BC1T { imm, address }
+    fn bc1t(&mut self, cc: u8, address: u16) -> Instruction {
+        Instruction::BC1T {
+            cc: cc,
+            offset: address,
+        }
     }
-    fn bc1f(&mut self, imm: u8, address: u16) -> Instruction {
-        Instruction::BC1F { imm, address }
+    fn bc1f(&mut self, cc: u8, address: u16) -> Instruction {
+        Instruction::BC1F {
+            cc: cc,
+            offset: address,
+        }
     }
     fn mov_s(&mut self, s: u8, d: u8) -> Instruction {
         Instruction::MovS {
@@ -1195,32 +1208,32 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movf_s(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovFS {
+            cc: cc,
             s: s.into(),
             d: d.into(),
-            imm,
         }
     }
-    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movt_s(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovTS {
+            cc: cc,
             s: s.into(),
             d: d.into(),
-            imm,
         }
     }
-    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn movn_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovNS {
+            t: t.into(),
             s: s.into(),
             d: d.into(),
-            t: t.into(),
         }
     }
-    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn movz_s(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovZS {
+            t: t.into(),
             s: s.into(),
             d: d.into(),
-            t: t.into(),
         }
     }
     fn mov_d(&mut self, s: u8, d: u8) -> Instruction {
@@ -1229,60 +1242,60 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movf_d(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovFD {
+            cc: cc,
             s: s.into(),
             d: d.into(),
-            imm,
         }
     }
-    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movt_d(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovTD {
+            cc: cc,
             s: s.into(),
             d: d.into(),
-            imm,
         }
     }
-    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn movn_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovND {
+            t: t.into(),
             s: s.into(),
             d: d.into(),
-            t: t.into(),
         }
     }
-    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
+    fn movz_d(&mut self, t: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovZD {
+            t: t.into(),
             s: s.into(),
             d: d.into(),
-            t: t.into(),
         }
     }
-    fn movf(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movf(&mut self, s: u8, cc: u8, d: u8) -> Instruction {
         Instruction::MovF {
             s: s.into(),
+            cc: cc,
             d: d.into(),
-            imm,
         }
     }
-    fn movt(&mut self, s: u8, d: u8, imm: u8) -> Instruction {
+    fn movt(&mut self, s: u8, cc: u8, d: u8) -> Instruction {
         Instruction::MovT {
             s: s.into(),
+            cc: cc,
             d: d.into(),
-            imm,
         }
     }
-    fn movn(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movn(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovN {
             s: s.into(),
-            d: d.into(),
             t: t.into(),
+            d: d.into(),
         }
     }
-    fn movz(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movz(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovZ {
             s: s.into(),
-            d: d.into(),
             t: t.into(),
+            d: d.into(),
         }
     }
     fn cvt_s_w(&mut self, s: u8, d: u8) -> Instruction {
@@ -1321,60 +1334,66 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn mtc1(&mut self, s: u8, d: u8) -> Instruction {
+    fn mtc1(&mut self, t: u8, s: u8) -> Instruction {
         Instruction::Mtc1 {
+            t: t.into(),
             s: s.into(),
-            d: d.into(),
         }
     }
-    fn mfc1(&mut self, s: u8, d: u8) -> Instruction {
+    fn mfc1(&mut self, t: u8, s: u8) -> Instruction {
         Instruction::Mfc1 {
+            t: t.into(),
             s: s.into(),
-            d: d.into(),
         }
     }
-    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> Instruction {
         Instruction::Ldc1 {
-            s: s.into(),
+            base: base.into(),
             t: t.into(),
-            imm,
+            offset: offset,
         }
     }
-    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> Instruction {
         Instruction::Sdc1 {
-            s: s.into(),
+            base: base.into(),
             t: t.into(),
-            imm,
+            offset: offset,
         }
     }
 
-    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> Instruction {
         Instruction::Lwc1 {
-            s: s.into(),
+            base: base.into(),
             t: t.into(),
-            imm,
+            offset: offset,
         }
     }
 
-    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> Instruction {
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> Instruction {
         Instruction::Swc1 {
-            s: s.into(),
+            base: base.into(),
             t: t.into(),
-            imm,
+            offset: offset,
         }
     }
 }
 
 pub enum InstructionParameter {
-    Register(RegisterName),
+    Register(RegisterSlot),
+    FPRegister(FPRegisterSlot),
     Immediate(u16),
     Address(u32),
-    Offset(u16, RegisterName),
+    Offset(u16, RegisterSlot),
 }
 
-impl From<RegisterName> for InstructionParameter {
-    fn from(value: RegisterName) -> Self {
+impl From<RegisterSlot> for InstructionParameter {
+    fn from(value: RegisterSlot) -> Self {
         Register(value)
+    }
+}
+impl From<FPRegisterSlot> for InstructionParameter {
+    fn from(value: FPRegisterSlot) -> Self {
+        FPRegister(value)
     }
 }
 
@@ -1564,10 +1583,10 @@ impl Instruction {
             Instruction::Mtlo { s } => vec![s.into()],
             Instruction::Trap => vec![],
             Instruction::Syscall => vec![],
-            Instruction::AddS { s, t, d } => vec![d.into(), s.into(), t.into()],
-            Instruction::SubS { s, t, d } => vec![d.into(), s.into(), t.into()],
-            Instruction::MulS { s, t, d } => vec![d.into(), s.into(), t.into()],
-            Instruction::DivS { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::AddS { t, s, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::SubS { t, s, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::MulS { t, s, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::DivS { t, s, d } => vec![d.into(), s.into(), t.into()],
             Instruction::SqrtS { s, d } => vec![d.into(), s.into()],
             Instruction::AbsS { s, d } => vec![d.into(), s.into()],
             Instruction::NegS { s, d } => vec![d.into(), s.into()],
@@ -1586,44 +1605,40 @@ impl Instruction {
             Instruction::CeilWD { s, d } => vec![d.into(), s.into()],
             Instruction::RoundWD { s, d } => vec![d.into(), s.into()],
             Instruction::TruncWD { s, d } => vec![d.into(), s.into()],
-            Instruction::CEqS { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::CLeS { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::CLtS { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::CEqD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::CLeD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::CLtD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::BC1T { imm, address } => {
-                vec![Immediate(imm.into()), Address(address.into())]
-            }
-            Instruction::BC1F { imm, address } => {
-                vec![Immediate(imm.into()), Address(address.into())]
-            }
+            Instruction::CEqS { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::CLeS { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::CLtS { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::CEqD { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::CLeD { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::CLtD { t, s, cc } => vec![Immediate(cc.into()), s.into(), t.into()],
+            Instruction::BC1T { cc, offset } => vec![Immediate(cc.into()), Address(offset.into())],
+            Instruction::BC1F { cc, offset } => vec![Immediate(cc.into()), Address(offset.into())],
             Instruction::MovS { s, d } => vec![d.into(), s.into()],
-            Instruction::MovFS { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
-            Instruction::MovTS { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
+            Instruction::MovFS { cc, s, d } => vec![d.into(), s.into(), Immediate(cc.into())],
+            Instruction::MovTS { cc, s, d } => vec![d.into(), s.into(), Immediate(cc.into())],
             Instruction::MovNS { t, s, d } => vec![d.into(), s.into(), t.into()],
             Instruction::MovZS { t, s, d } => vec![d.into(), s.into(), t.into()],
             Instruction::MovD { s, d } => vec![d.into(), s.into()],
-            Instruction::MovFD { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
-            Instruction::MovTD { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
+            Instruction::MovFD { cc, s, d } => vec![d.into(), s.into(), Immediate(cc.into())],
+            Instruction::MovTD { cc, s, d } => vec![d.into(), s.into(), Immediate(cc.into())],
             Instruction::MovND { t, s, d } => vec![d.into(), s.into(), t.into()],
             Instruction::MovZD { t, s, d } => vec![d.into(), s.into(), t.into()],
-            Instruction::MovF { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
-            Instruction::MovT { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
-            Instruction::MovN { t, s, d } => vec![d.into(), s.into(), t.into()],
-            Instruction::MovZ { t, s, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::MovF { s, cc, d } => vec![d.into(), s.into(), Immediate(cc.into())],
+            Instruction::MovT { s, cc, d } => vec![d.into(), s.into(), Immediate(cc.into())],
+            Instruction::MovN { s, t, d } => vec![d.into(), s.into(), t.into()],
+            Instruction::MovZ { s, t, d } => vec![d.into(), s.into(), t.into()],
             Instruction::CvtSW { s, d } => vec![d.into(), s.into()],
             Instruction::CvtWS { s, d } => vec![d.into(), s.into()],
             Instruction::CvtDS { s, d } => vec![d.into(), s.into()],
             Instruction::CvtSD { s, d } => vec![d.into(), s.into()],
             Instruction::CvtDW { s, d } => vec![d.into(), s.into()],
             Instruction::CvtWD { s, d } => vec![d.into(), s.into()],
-            Instruction::Mtc1 { s, d } => vec![d.into(), s.into()],
-            Instruction::Mfc1 { s, d } => vec![d.into(), s.into()],
-            Instruction::Lwc1 { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Swc1 { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Ldc1 { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
-            Instruction::Sdc1 { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
+            Instruction::Mtc1 { t, s } => vec![t.into(), s.into()],
+            Instruction::Mfc1 { t, s } => vec![t.into(), s.into()],
+            Instruction::Lwc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
+            Instruction::Swc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
+            Instruction::Ldc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
+            Instruction::Sdc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
         }
     }
 }
@@ -1692,10 +1707,10 @@ impl Display for Instruction {
             Instruction::Mtlo { s } => write!(f, "mtlo {}", s),
             Instruction::Trap => write!(f, "trap"),
             Instruction::Syscall => write!(f, "syscall"),
-            Instruction::AddS { s, t, d } => write!(f, "add.s {}, {}, {}", d, s, t),
-            Instruction::SubS { s, t, d } => write!(f, "sub.s {}, {}, {}", d, s, t),
-            Instruction::MulS { s, t, d } => write!(f, "mul.s {}, {}, {}", d, s, t),
-            Instruction::DivS { s, t, d } => write!(f, "div.s {}, {}, {}", d, s, t),
+            Instruction::AddS { t, s, d } => write!(f, "add.s {}, {}, {}", d, s, t),
+            Instruction::SubS { t, s, d } => write!(f, "sub.s {}, {}, {}", d, s, t),
+            Instruction::MulS { t, s, d } => write!(f, "mul.s {}, {}, {}", d, s, t),
+            Instruction::DivS { t, s, d } => write!(f, "div.s {}, {}, {}", d, s, t),
             Instruction::SqrtS { s, d } => write!(f, "sqrt.s {}, {}", d, s),
             Instruction::AbsS { s, d } => write!(f, "abs.s {}, {}", d, s),
             Instruction::NegS { s, d } => write!(f, "neg.s {}, {}", d, s),
@@ -1703,10 +1718,10 @@ impl Display for Instruction {
             Instruction::CeilWS { s, d } => write!(f, "ceil.w.s {}, {}", d, s),
             Instruction::RoundWS { s, d } => write!(f, "round.w.s {}, {}", d, s),
             Instruction::TruncWS { s, d } => write!(f, "trunc.w.s {}, {}", d, s),
-            Instruction::AddD { s, t, d } => write!(f, "add.d {}, {}, {}", d, s, t),
-            Instruction::SubD { s, t, d } => write!(f, "sub.d {}, {}, {}", d, s, t),
-            Instruction::MulD { s, t, d } => write!(f, "mul.d {}, {}, {}", d, s, t),
-            Instruction::DivD { s, t, d } => write!(f, "div.d {}, {}, {}", d, s, t),
+            Instruction::AddD { t, s, d } => write!(f, "add.d {}, {}, {}", d, s, t),
+            Instruction::SubD { t, s, d } => write!(f, "sub.d {}, {}, {}", d, s, t),
+            Instruction::MulD { t, s, d } => write!(f, "mul.d {}, {}, {}", d, s, t),
+            Instruction::DivD { t, s, d } => write!(f, "div.d {}, {}, {}", d, s, t),
             Instruction::SqrtD { s, d } => write!(f, "sqrt.d {}, {}", d, s),
             Instruction::AbsD { s, d } => write!(f, "abs.d {}, {}", d, s),
             Instruction::NegD { s, d } => write!(f, "neg.d {}, {}", d, s),
@@ -1714,40 +1729,48 @@ impl Display for Instruction {
             Instruction::CeilWD { s, d } => write!(f, "ceil.w.d {}, {}", d, s),
             Instruction::RoundWD { s, d } => write!(f, "round.w.d {}, {}", d, s),
             Instruction::TruncWD { s, d } => write!(f, "trunc.w.d {}, {}", d, s),
-            Instruction::CEqS { s, t, imm } => write!(f, "c.eq.s {}, {}, {}", *imm, s, t),
-            Instruction::CLeS { s, t, imm } => write!(f, "c.le.s {}, {}, {}", *imm, s, t),
-            Instruction::CLtS { s, t, imm } => write!(f, "c.lt.s {}, {}, {}", *imm, s, t),
-            Instruction::CEqD { s, t, imm } => write!(f, "c.eq.d {}, {}, {}", *imm, s, t),
-            Instruction::CLeD { s, t, imm } => write!(f, "c.le.d {}, {}, {}", *imm, s, t),
-            Instruction::CLtD { s, t, imm } => write!(f, "c.lt.d {}, {}, {}", *imm, s, t),
-            Instruction::BC1T { imm, address } => write!(f, "bc1t {}, 0x{:x}", *imm, address),
-            Instruction::BC1F { imm, address } => write!(f, "bc1f {}, 0x{:x}", *imm, address),
+            Instruction::CEqS { t, s, cc } => write!(f, "c.eq.s {}, {}, {}", *cc, s, t),
+            Instruction::CLeS { t, s, cc } => write!(f, "c.le.s {}, {}, {}", *cc, s, t),
+            Instruction::CLtS { t, s, cc } => write!(f, "c.lt.s {}, {}, {}", *cc, s, t),
+            Instruction::CEqD { t, s, cc } => write!(f, "c.eq.d {}, {}, {}", *cc, s, t),
+            Instruction::CLeD { t, s, cc } => write!(f, "c.le.d {}, {}, {}", *cc, s, t),
+            Instruction::CLtD { t, s, cc } => write!(f, "c.lt.d {}, {}, {}", *cc, s, t),
+            Instruction::BC1T { cc, offset } => write!(f, "bc1t {}, 0x{:x}", *cc, offset),
+            Instruction::BC1F { cc, offset } => write!(f, "bc1f {}, 0x{:x}", *cc, offset),
             Instruction::MovS { s, d } => write!(f, "mov.s {}, {}", d, s),
-            Instruction::MovFS { s, d, imm } => write!(f, "movf.s {}, {}, {}", *imm, d, s),
-            Instruction::MovTS { s, d, imm } => write!(f, "movt.s {}, {}, {}", *imm, d, s),
+            Instruction::MovFS { cc, s, d } => write!(f, "movf.s {}, {}, {}", d, s, *cc),
+            Instruction::MovTS { cc, s, d } => write!(f, "movt.s {}, {}, {}", d, s, *cc),
             Instruction::MovNS { t, s, d } => write!(f, "movn.s {}, {}, {}", d, s, t),
             Instruction::MovZS { t, s, d } => write!(f, "movz.s {}, {}, {}", d, s, t),
             Instruction::MovD { s, d } => write!(f, "mov.d {}, {}", d, s),
-            Instruction::MovFD { s, d, imm } => write!(f, "movf.d {}, {}, {}", *imm, d, s),
-            Instruction::MovTD { s, d, imm } => write!(f, "movt.d {}, {}, {}", *imm, d, s),
+            Instruction::MovFD { cc, s, d } => write!(f, "movf.d {}, {}, {}", d, s, *cc),
+            Instruction::MovTD { cc, s, d } => write!(f, "movt.d {}, {}, {}", d, s, *cc),
             Instruction::MovND { t, s, d } => write!(f, "movn.d {}, {}, {}", d, s, t),
             Instruction::MovZD { t, s, d } => write!(f, "movz.d {}, {}, {}", d, s, t),
-            Instruction::MovF { s, d, imm } => write!(f, "movf {}, {}, {}", *imm, d, s),
-            Instruction::MovT { s, d, imm } => write!(f, "movt {}, {}, {}", *imm, d, s),
-            Instruction::MovN { t, s, d } => write!(f, "movn {}, {}, {}", d, s, t),
-            Instruction::MovZ { t, s, d } => write!(f, "movz {}, {}, {}", d, s, t),
+            Instruction::MovF { s, cc, d } => write!(f, "movf {}, {}, {}", d, s, *cc),
+            Instruction::MovT { s, cc, d } => write!(f, "movt {}, {}, {}", d, s, *cc),
+            Instruction::MovN { s, t, d } => write!(f, "movn {}, {}, {}", d, s, t),
+            Instruction::MovZ { s, t, d } => write!(f, "movz {}, {}, {}", d, s, t),
             Instruction::CvtSW { s, d } => write!(f, "cvt.s.w {}, {}", d, s),
             Instruction::CvtWS { s, d } => write!(f, "cvt.w.s {}, {}", d, s),
             Instruction::CvtDS { s, d } => write!(f, "cvt.d.s {}, {}", d, s),
             Instruction::CvtSD { s, d } => write!(f, "cvt.s.d {}, {}", d, s),
             Instruction::CvtDW { s, d } => write!(f, "cvt.d.w {}, {}", d, s),
             Instruction::CvtWD { s, d } => write!(f, "cvt.w.d {}, {}", d, s),
-            Instruction::Mtc1 { s, d } => write!(f, "mtc1 {}, {}", d, s),
-            Instruction::Mfc1 { s, d } => write!(f, "mfc1 {}, {}", d, s),
-            Instruction::Lwc1 { s, t, imm } => write!(f, "lwc1 {}, {}({})", t, sig(*imm), s),
-            Instruction::Swc1 { s, t, imm } => write!(f, "swc1 {}, {}({})", t, sig(*imm), s),
-            Instruction::Ldc1 { s, t, imm } => write!(f, "ldc1 {}, {}({})", t, sig(*imm), s),
-            Instruction::Sdc1 { s, t, imm } => write!(f, "sdc1 {}, {}({})", t, sig(*imm), s),
+            Instruction::Mtc1 { t, s } => write!(f, "mtc1 {}, {}", t, s),
+            Instruction::Mfc1 { t, s } => write!(f, "mfc1 {}, {}", t, s),
+            Instruction::Lwc1 { base, t, offset } => {
+                write!(f, "lwc1 {}, {}({})", t, sig(*offset), base)
+            }
+            Instruction::Swc1 { base, t, offset } => {
+                write!(f, "swc1 {}, {}({})", t, sig(*offset), base)
+            }
+            Instruction::Ldc1 { base, t, offset } => {
+                write!(f, "ldc1 {}, {}({})", t, sig(*offset), base)
+            }
+            Instruction::Sdc1 { base, t, offset } => {
+                write!(f, "sdc1 {}, {}({})", t, sig(*offset), base)
+            }
         }
     }
 }

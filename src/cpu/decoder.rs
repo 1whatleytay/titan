@@ -73,10 +73,10 @@ pub trait Decoder<T> {
     fn trap(&mut self) -> T;
     fn syscall(&mut self) -> T;
 
-    fn add_s(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn div_s(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn add_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sub_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn mul_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn div_s(&mut self, t: u8, s: u8, d: u8) -> T;
     fn sqrt_s(&mut self, s: u8, d: u8) -> T;
     fn abs_s(&mut self, s: u8, d: u8) -> T;
     fn neg_s(&mut self, s: u8, d: u8) -> T;
@@ -84,10 +84,10 @@ pub trait Decoder<T> {
     fn ceil_w_s(&mut self, s: u8, d: u8) -> T;
     fn round_w_s(&mut self, s: u8, d: u8) -> T;
     fn trunc_w_s(&mut self, s: u8, d: u8) -> T;
-    fn add_d(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn div_d(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn add_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sub_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn mul_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn div_d(&mut self, t: u8, s: u8, d: u8) -> T;
     fn sqrt_d(&mut self, s: u8, d: u8) -> T;
     fn abs_d(&mut self, s: u8, d: u8) -> T;
     fn neg_d(&mut self, s: u8, d: u8) -> T;
@@ -95,40 +95,40 @@ pub trait Decoder<T> {
     fn ceil_w_d(&mut self, s: u8, d: u8) -> T;
     fn round_w_d(&mut self, s: u8, d: u8) -> T;
     fn trunc_w_d(&mut self, s: u8, d: u8) -> T;
-    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> T;
-    fn bc1t(&mut self, imm: u8, addr: u16) -> T;
-    fn bc1f(&mut self, imm: u8, addr: u16) -> T;
+    fn c_eq_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn bc1t(&mut self, cc: u8, address: u16) -> T;
+    fn bc1f(&mut self, cc: u8, address: u16) -> T;
     fn mov_s(&mut self, s: u8, d: u8) -> T;
-    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn movf_s(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movt_s(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movn_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movz_s(&mut self, t: u8, s: u8, d: u8) -> T;
     fn mov_d(&mut self, s: u8, d: u8) -> T;
-    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> T;
-    fn movf(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movt(&mut self, s: u8, d: u8, imm: u8) -> T;
+    fn movf_d(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movt_d(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movn_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movz_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movf(&mut self, s: u8, cc: u8, d: u8) -> T;
+    fn movt(&mut self, s: u8, cc: u8, d: u8) -> T;
     fn movn(&mut self, s: u8, t: u8, d: u8) -> T;
     fn movz(&mut self, s: u8, t: u8, d: u8) -> T;
     fn cvt_s_w(&mut self, s: u8, d: u8) -> T;
     fn cvt_w_s(&mut self, s: u8, d: u8) -> T;
     fn cvt_s_d(&mut self, s: u8, d: u8) -> T;
     fn cvt_d_s(&mut self, s: u8, d: u8) -> T;
-    fn cvt_w_d(&mut self, s: u8, d: u8) -> T;
     fn cvt_d_w(&mut self, s: u8, d: u8) -> T;
-    fn mtc1(&mut self, s: u8, imm: u8) -> T;
-    fn mfc1(&mut self, s: u8, imm: u8) -> T;
-    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> T;
-    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> T;
-    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> T;
-    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> T;
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> T;
+    fn mtc1(&mut self, t: u8, s: u8) -> T;
+    fn mfc1(&mut self, t: u8, s: u8) -> T;
+    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> T;
 
     fn dispatch_rtype(&mut self, instruction: u32) -> Option<T> {
         let func = instruction & 0x3F;
@@ -228,10 +228,10 @@ pub trait Decoder<T> {
                     _ => unreachable!(),
                 };
                 match (instr, ifmt) {
-                    (0, Size::Single) => self.add_s(s, t, d),
-                    (1, Size::Single) => self.sub_s(s, t, d),
-                    (2, Size::Single) => self.mul_s(s, t, d),
-                    (3, Size::Single) => self.div_s(s, t, d),
+                    (0, Size::Single) => self.add_s(t, s, d),
+                    (1, Size::Single) => self.sub_s(t, s, d),
+                    (2, Size::Single) => self.mul_s(t, s, d),
+                    (3, Size::Single) => self.div_s(t, s, d),
                     (4, Size::Single) => self.sqrt_s(s, d),
                     (5, Size::Single) => self.abs_s(s, d),
                     (6, Size::Single) => self.mov_s(s, d),
@@ -241,20 +241,20 @@ pub trait Decoder<T> {
                     (14, Size::Single) => self.ceil_w_s(s, d),
                     (15, Size::Single) => self.floor_w_s(s, d),
                     (17, Size::Single) => match t & 0b11 {
-                        0b00 => self.movf_s(s, d, t >> 2),
-                        0b01 => self.movt_s(s, d, t >> 2),
+                        0b00 => self.movf_s(t >> 2, s, d),
+                        0b01 => self.movt_s(t >> 2, s, d),
                         _ => unreachable!(),
                     },
-                    (18, Size::Single) => self.movz_s(s, t, d),
-                    (19, Size::Single) => self.movn_s(s, t, d),
-                    (50, Size::Single) => self.c_eq_s(s, t, d >> 2),
-                    (60, Size::Single) => self.c_lt_s(s, t, d >> 2),
-                    (62, Size::Single) => self.c_le_s(s, t, d >> 2),
+                    (18, Size::Single) => self.movz_s(t, s, d),
+                    (19, Size::Single) => self.movn_s(t, s, d),
+                    (50, Size::Single) => self.c_eq_s(t, s, d >> 2),
+                    (60, Size::Single) => self.c_lt_s(t, s, d >> 2),
+                    (62, Size::Single) => self.c_le_s(t, s, d >> 2),
 
-                    (0, Size::Double) => self.add_d(s, t, d),
-                    (1, Size::Double) => self.sub_d(s, t, d),
-                    (2, Size::Double) => self.mul_d(s, t, d),
-                    (3, Size::Double) => self.div_d(s, t, d),
+                    (0, Size::Double) => self.add_d(t, s, d),
+                    (1, Size::Double) => self.sub_d(t, s, d),
+                    (2, Size::Double) => self.mul_d(t, s, d),
+                    (3, Size::Double) => self.div_d(t, s, d),
                     (4, Size::Double) => self.sqrt_d(s, d),
                     (5, Size::Double) => self.abs_d(s, d),
                     (6, Size::Double) => self.mov_d(s, d),
@@ -264,15 +264,15 @@ pub trait Decoder<T> {
                     (14, Size::Double) => self.ceil_w_d(s, d),
                     (15, Size::Double) => self.floor_w_d(s, d),
                     (17, Size::Double) => match t & 0b11 {
-                        0b00 => self.movf_d(s, d, t >> 2),
-                        0b01 => self.movt_d(s, d, t >> 2),
+                        0b00 => self.movf_d(t >> 2, s, d),
+                        0b01 => self.movt_d(t >> 2, s, d),
                         _ => unreachable!(),
                     },
-                    (18, Size::Double) => self.movz_d(s, t, d),
-                    (19, Size::Double) => self.movn_d(s, t, d),
-                    (50, Size::Double) => self.c_eq_d(s, t, d >> 2),
-                    (60, Size::Double) => self.c_lt_d(s, t, d >> 2),
-                    (62, Size::Double) => self.c_le_d(s, t, d >> 2),
+                    (18, Size::Double) => self.movz_d(t, s, d),
+                    (19, Size::Double) => self.movn_d(t, s, d),
+                    (50, Size::Double) => self.c_eq_d(t, s, d >> 2),
+                    (60, Size::Double) => self.c_lt_d(t, s, d >> 2),
+                    (62, Size::Double) => self.c_le_d(t, s, d >> 2),
 
                     (33, Size::Single) => self.cvt_d_s(s, d),
                     (33, Size::Word) => self.cvt_d_w(s, d),
@@ -284,16 +284,16 @@ pub trait Decoder<T> {
                     _ => return None,
                 }
             }
-            0b00000 => self.mfc1(s, t),
-            0b00100 => self.mtc1(s, t),
+            0b00000 => self.mfc1(t, s),
+            0b00100 => self.mtc1(t, s),
             0b01000 => {
                 let tf = t & 0b11;
                 let cc = (t >> 2) & 0b111;
 
-                let imm = (instruction & 0xFFFF) as u16;
+                let addr = (instruction & 0xFFFF) as u16;
                 match tf {
-                    0 => return Some(self.bc1f(cc, imm)),
-                    1 => return Some(self.bc1t(cc, imm)),
+                    0 => return Some(self.bc1f(cc, addr)),
+                    1 => return Some(self.bc1t(cc, addr)),
                     _ => unreachable!(),
                 }
             }

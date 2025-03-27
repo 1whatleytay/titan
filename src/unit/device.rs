@@ -1,4 +1,6 @@
 use crate::assembler::binary::{Binary, RawRegion, RegionFlags};
+use crate::assembler::registers::RegisterSlot;
+use crate::assembler::registers::RegisterSlot::{Parameter0, ReturnAddress, Value0};
 use crate::assembler::string::{assemble_from_path, SourceError};
 use crate::cpu::error::Error as CpuError;
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
@@ -15,8 +17,6 @@ use crate::unit::device::UnitDeviceError::{
     ExecutionTimedOut, InvalidInstruction, MissingLabel, ProgramCompleted,
 };
 use crate::unit::instruction::{Instruction, InstructionDecoder};
-use crate::unit::register::RegisterName;
-use crate::unit::register::RegisterName::{A0, RA, V0};
 use num::{FromPrimitive, ToPrimitive};
 use std::collections::HashMap;
 use std::error::Error;
@@ -257,51 +257,54 @@ impl Binary {
 impl Registers {
     pub fn temporary(&self) -> [u32; 10] {
         [
-            self.get(RegisterName::T0),
-            self.get(RegisterName::T1),
-            self.get(RegisterName::T2),
-            self.get(RegisterName::T3),
-            self.get(RegisterName::T4),
-            self.get(RegisterName::T5),
-            self.get(RegisterName::T6),
-            self.get(RegisterName::T7),
-            self.get(RegisterName::T8),
-            self.get(RegisterName::T9),
+            self.get(RegisterSlot::Temporary0),
+            self.get(RegisterSlot::Temporary1),
+            self.get(RegisterSlot::Temporary2),
+            self.get(RegisterSlot::Temporary3),
+            self.get(RegisterSlot::Temporary4),
+            self.get(RegisterSlot::Temporary5),
+            self.get(RegisterSlot::Temporary6),
+            self.get(RegisterSlot::Temporary7),
+            self.get(RegisterSlot::Temporary8),
+            self.get(RegisterSlot::Temporary9),
         ]
     }
 
     pub fn saved(&self) -> [u32; 8] {
         [
-            self.get(RegisterName::S0),
-            self.get(RegisterName::S1),
-            self.get(RegisterName::S2),
-            self.get(RegisterName::S3),
-            self.get(RegisterName::S4),
-            self.get(RegisterName::S5),
-            self.get(RegisterName::S6),
-            self.get(RegisterName::S7),
+            self.get(RegisterSlot::Saved0),
+            self.get(RegisterSlot::Saved1),
+            self.get(RegisterSlot::Saved2),
+            self.get(RegisterSlot::Saved3),
+            self.get(RegisterSlot::Saved4),
+            self.get(RegisterSlot::Saved5),
+            self.get(RegisterSlot::Saved6),
+            self.get(RegisterSlot::Saved7),
         ]
     }
 
     pub fn parameters(&self) -> [u32; 4] {
         [
-            self.get(A0),
-            self.get(RegisterName::A1),
-            self.get(RegisterName::A2),
-            self.get(RegisterName::A3),
+            self.get(RegisterSlot::Parameter0),
+            self.get(RegisterSlot::Parameter1),
+            self.get(RegisterSlot::Parameter2),
+            self.get(RegisterSlot::Parameter3),
         ]
     }
 
     pub fn values(&self) -> [u32; 2] {
-        [self.get(V0), self.get(RegisterName::V1)]
+        [
+            self.get(RegisterSlot::Value0),
+            self.get(RegisterSlot::Value1),
+        ]
     }
 
     pub fn other(&self) -> [u32; 4] {
         [
-            self.get(RegisterName::SP),
-            self.get(RegisterName::GP),
-            self.get(RegisterName::K0),
-            self.get(RegisterName::K1),
+            self.get(RegisterSlot::StackPointer),
+            self.get(RegisterSlot::GeneralPointer),
+            self.get(RegisterSlot::Kernel0),
+            self.get(RegisterSlot::Kernel1),
         ]
     }
 }
@@ -369,11 +372,11 @@ impl UnitDevice {
         self.executor.with_state(|s| s.registers)
     }
 
-    pub fn get(&self, name: RegisterName) -> u32 {
+    pub fn get(&self, name: RegisterSlot) -> u32 {
         self.executor.with_state(|s| s.registers.get(name))
     }
 
-    pub fn set(&self, name: RegisterName, value: u32) {
+    pub fn set(&self, name: RegisterSlot, value: u32) {
         self.executor.with_state(|s| s.registers.set(name, value))
     }
 
@@ -488,7 +491,7 @@ impl UnitDevice {
         match frame.mode {
             Invalid(error) => match error {
                 CpuError::CpuSyscall => {
-                    let v0 = self.executor.with_state(|s| s.registers.get(V0));
+                    let v0 = self.executor.with_state(|s| s.registers.get(Value0));
 
                     if let Some(handler) = self.handlers.get(&v0) {
                         handler();
@@ -542,7 +545,7 @@ impl UnitDevice {
 
     pub fn load_params(&self, params: &[u32]) {
         for (index, value) in params.iter().enumerate() {
-            let index = index + A0.to_usize().unwrap();
+            let index = index + Parameter0.to_usize().unwrap();
 
             if index >= 32 {
                 return;
@@ -562,11 +565,11 @@ impl UnitDevice {
     ) -> Result<(), UnitDeviceError> {
         self.jump_to_label(label)?;
 
-        let last_ra = self.registers().get(RA);
+        let last_ra = self.registers().get(ReturnAddress);
         let return_address = 0xEABADDEA;
 
         self.executor
-            .with_state(|s| s.registers.set(RA, return_address));
+            .with_state(|s| s.registers.set(ReturnAddress, return_address));
 
         self.load_params(params);
 
@@ -575,7 +578,8 @@ impl UnitDevice {
 
         self.execute_until_slice(&execution_conditions)?;
 
-        self.executor.with_state(|s| s.registers.set(RA, last_ra));
+        self.executor
+            .with_state(|s| s.registers.set(ReturnAddress, last_ra));
 
         Ok(())
     }
