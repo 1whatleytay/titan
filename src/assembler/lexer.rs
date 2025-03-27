@@ -11,10 +11,12 @@ use crate::assembler::lexer::LexerReason::{
 };
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::lexer::TokenKind::{
-    Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Parameter,
-    Register, RightBrace, StringLiteral, Symbol,
+    Colon, Comma, Comment, Directive, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine,
+    Parameter, Register, RightBrace, StringLiteral, Symbol,
 };
 use crate::assembler::registers::RegisterSlot;
+
+use super::registers::FPRegisterSlot;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
@@ -41,6 +43,7 @@ pub enum StrippedKind {
     Directive,
     Parameter,
     Register,
+    FPRegister,
     IntegerLiteral,
     FloatLiteral,
     StringLiteral,
@@ -56,12 +59,13 @@ pub enum StrippedKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
-    Comment(&'a str),       // #*\n
-    Directive(&'a str),     // .*
-    Parameter(&'a str),     // %*
-    Register(RegisterSlot), // $*
-    IntegerLiteral(u64),    // 123 -> also characters
-    FloatLiteral(f64),      // 123.0
+    Comment(&'a str),           // #*\n
+    Directive(&'a str),         // .*
+    Parameter(&'a str),         // %*
+    Register(RegisterSlot),     // $*
+    FPRegister(FPRegisterSlot), // $f*
+    IntegerLiteral(u64),        // 123 -> also characters
+    FloatLiteral(f64),          // 123.0
     StringLiteral(String),
     Symbol(SymbolName<'a>),
     Plus,
@@ -83,6 +87,7 @@ impl Display for StrippedKind {
                 StrippedKind::Directive => "Directive",
                 StrippedKind::Parameter => "Parameter",
                 StrippedKind::Register => "Register",
+                StrippedKind::FPRegister => "Floating Point Register",
                 StrippedKind::IntegerLiteral => "Integer Literal",
                 StrippedKind::FloatLiteral => "Float Literal",
                 StrippedKind::StringLiteral => "String Literal",
@@ -106,6 +111,7 @@ impl TokenKind<'_> {
             Directive(_) => StrippedKind::Directive,
             Parameter(_) => StrippedKind::Parameter,
             Register(_) => StrippedKind::Register,
+            FPRegister(_) => StrippedKind::FPRegister,
             IntegerLiteral(_) => StrippedKind::IntegerLiteral,
             FloatLiteral(_) => StrippedKind::FloatLiteral,
             StringLiteral(_) => StrippedKind::StringLiteral,
@@ -382,10 +388,16 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         '$' => {
             let (rest, value) = take_name(after_leading);
 
-            RegisterSlot::from_string(value)
-                .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
-                .map(|slot| Some((rest, Register(slot))))
-                .ok_or_else(|| UnknownRegister(value.to_string()))
+            if value.chars().nth(0) == Some('f') {
+                FPRegisterSlot::from_string(value)
+                    .map(|reg| Some((rest, TokenKind::FPRegister(reg))))
+                    .ok_or_else(|| UnknownRegister(value.to_string()))
+            } else {
+                RegisterSlot::from_string(value)
+                    .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
+                    .map(|slot| Some((rest, Register(slot))))
+                    .ok_or_else(|| UnknownRegister(value.to_string()))
+            }
         }
         '+' => Ok(Some((&input[1..], Plus))),
         '-' => Ok(Some((&input[1..], Minus))),

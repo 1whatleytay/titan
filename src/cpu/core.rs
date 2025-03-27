@@ -561,65 +561,65 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         let b = f32::from_bits(*self.fp_register(t));
 
         *self.fp_register(d) = (a - b).to_bits();
-        
+
         Ok(())
     }
     fn mul_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
-        
+
         *self.fp_register(d) = (a * b).to_bits();
-        
+
         Ok(())
     }
     fn div_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
-        
+
         *self.fp_register(d) = (a / b).to_bits();
-        
+
         Ok(())
     }
     fn sqrt_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = a.sqrt().to_bits();
-        
+
         Ok(())
     }
     fn abs_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = a.abs().to_bits();
-        
+
         Ok(())
     }
     fn neg_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = (-a).to_bits();
-        
+
         Ok(())
     }
     fn floor_w_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = u32::from_le_bytes((a.floor() as i32).to_le_bytes());
-        
+
         Ok(())
     }
     fn ceil_w_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = u32::from_le_bytes((a.ceil() as i32).to_le_bytes());
-        
+
         Ok(())
     }
     fn round_w_s(&mut self, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
-        
+
         *self.fp_register(d) = u32::from_le_bytes((a.round() as i32).to_le_bytes());
-        
+
         Ok(())
     }
     fn trunc_w_s(&mut self, s: u8, d: u8) -> Result<()> {

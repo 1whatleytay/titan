@@ -1,8 +1,9 @@
 use crate::assembler::instructions::Encoding::{
-    Branch, BranchZero, Destination, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
-    Register, RegisterShift, Sham, Source, SpecialBranch, FPRegister, FPRegisterCC, FPImmediate, FPImmediateCC
+    Branch, BranchZero, Destination, FPImmediateCC, FPMove, FPRegister, FPRegisterCC, Immediate,
+    Inputs, Jump, LoadImmediate, Offset, Parameterless, Register, RegisterShift, Sham, Source,
+    SpecialBranch,
 };
-use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special, Cop1, Cop0};
+use crate::assembler::instructions::Opcode::{Algebra, Cop0, Cop1, Func, Op, Special};
 use crate::assembler::instructions::Size::{Double, Single, Word};
 use std::collections::HashMap;
 
@@ -23,15 +24,15 @@ pub enum Encoding {
     Offset,
     FPRegister(Size), // Size, $, $, $
     FPRegisterCC(Size, bool),
-    FPImmediate,
-    FPImmediateCC(bool), 
+    FPMove(bool),
+    FPImmediateCC(bool),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Size {
     Single,
     Double,
-    Word
+    Word,
 }
 pub enum Opcode {
     Op(u8),
@@ -39,7 +40,7 @@ pub enum Opcode {
     Special(u8),
     Algebra(u8),
     Cop1(u8),
-    Cop0(u8)
+    Cop0(u8),
 }
 
 pub struct Instruction<'a> {
@@ -48,7 +49,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 115] = [
+pub const INSTRUCTIONS: [Instruction; 113] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -400,9 +401,9 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         encoding: FPRegister(Single),
     },
     Instruction {
-       name: "trunc.w.s",
-         opcode: Cop1(13),
-         encoding: FPRegister(Single),
+        name: "trunc.w.s",
+        opcode: Cop1(13),
+        encoding: FPRegister(Single),
     },
     Instruction {
         name: "ceil.w.s",
@@ -460,9 +461,9 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         encoding: FPRegister(Double),
     },
     Instruction {
-       name: "trunc.w.d",
-         opcode: Cop1(13),
-         encoding: FPRegister(Double),
+        name: "trunc.w.d",
+        opcode: Cop1(13),
+        encoding: FPRegister(Double),
     },
     Instruction {
         name: "ceil.w.d",
@@ -474,8 +475,6 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(15),
         encoding: FPRegister(Double),
     },
-
-
     Instruction {
         name: "c.eq.s",
         opcode: Cop1(0b110010),
@@ -506,8 +505,6 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(0b111100),
         encoding: FPRegister(Double),
     },
-
-
     Instruction {
         name: "bc1t",
         opcode: Cop1(0b01000),
@@ -518,7 +515,6 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(0b01000),
         encoding: FPImmediateCC(false),
     },
-
     Instruction {
         name: "mov.s",
         opcode: Cop1(0b000110),
@@ -544,7 +540,6 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(0b010010),
         encoding: FPRegister(Single),
     },
-
     Instruction {
         name: "mov.d",
         opcode: Cop1(0b000110),
@@ -570,8 +565,6 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(0b010010),
         encoding: FPRegister(Double),
     },
-
-
     Instruction {
         name: "cvt.s.w",
         opcode: Cop1(0b100000),
@@ -602,26 +595,15 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         opcode: Cop1(0b100001),
         encoding: FPRegister(Word),
     },
-
-    Instruction {
-        name: "mfc0",
-        opcode: Cop0(0b00000),
-        encoding: FPImmediate,
-    },
     Instruction {
         name: "mfc1",
         opcode: Cop1(0b00000),
-        encoding: FPImmediate,
-    },
-    Instruction {
-        name: "mtc0",
-        opcode: Cop0(0b00100),
-        encoding: FPImmediate,
+        encoding: FPMove(false),
     },
     Instruction {
         name: "mtc1",
         opcode: Cop1(0b00100),
-        encoding: FPImmediate,
+        encoding: FPMove(true),
     },
     Instruction {
         name: "lwc1",

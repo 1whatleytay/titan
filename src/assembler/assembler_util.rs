@@ -3,14 +3,16 @@ use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
 use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{
-    FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral,
-    Symbol,
+    FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace,
+    StringLiteral, Symbol,
 };
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::RegisterSlot;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
+
+use super::registers::FPRegisterSlot;
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -120,6 +122,18 @@ pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
+pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, AssemblerError> {
+    let token = get_token(iter)?;
+
+    match token.kind {
+        FPRegister(slot) => Ok(slot),
+        _ => Err(default_error(
+            AssemblerReason::ExpectedRegister(token.kind.strip()),
+            token,
+        )),
+    }
+}
+
 pub enum InstructionValue {
     Slot(RegisterSlot),
     Literal(u64),
@@ -191,7 +205,7 @@ pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option
             }
 
             Some(*value)
-        },
+        }
         _ => None,
     }
 }

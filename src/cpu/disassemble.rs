@@ -66,6 +66,44 @@ fn reg(value: u8) -> &'static str {
     }
 }
 
+fn freg(value: u8) -> &'static str {
+    match value {
+        0 => "$f0",
+        1 => "$f1",
+        2 => "$f2",
+        3 => "$f3",
+        4 => "$f4",
+        5 => "$f5",
+        6 => "$f6",
+        7 => "$f7",
+        8 => "$f8",
+        9 => "$f9",
+        10 => "$f10",
+        11 => "$f11",
+        12 => "$f12",
+        13 => "$f13",
+        14 => "$f14",
+        15 => "$f15",
+        16 => "$f16",
+        17 => "$f17",
+        18 => "$f18",
+        19 => "$f19",
+        20 => "$f20",
+        21 => "$f21",
+        22 => "$f22",
+        23 => "$f23",
+        24 => "$f24",
+        25 => "$f25",
+        26 => "$f26",
+        27 => "$f27",
+        28 => "$f28",
+        29 => "$f29",
+        30 => "$f30",
+        31 => "$f31",
+        _ => "$unk",
+    }
+}
+
 fn uns(imm: u16) -> String {
     if imm < 10 {
         format!("{imm}")
@@ -351,90 +389,89 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
         "syscall".to_string()
     }
 
-
     fn add_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("add.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("add.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn sub_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("sub.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("sub.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn mul_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("mul.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("mul.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn div_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("div.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("div.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn sqrt_s(&mut self, s: u8, d: u8) -> String {
-        format!("sqrt.s {}, {}", reg(d), reg(s))
+        format!("sqrt.s {}, {}", freg(d), freg(s))
     }
     fn abs_s(&mut self, s: u8, d: u8) -> String {
-        format!("abs.s {}, {}", reg(d), reg(s))
+        format!("abs.s {}, {}", freg(d), freg(s))
     }
     fn neg_s(&mut self, s: u8, d: u8) -> String {
-        format!("neg.s {}, {}", reg(d), reg(s))
+        format!("neg.s {}, {}", freg(d), freg(s))
     }
     fn floor_w_s(&mut self, s: u8, d: u8) -> String {
-        format!("floor.w.s {}, {}", reg(d), reg(s))
+        format!("floor.w.s {}, {}", freg(d), freg(s))
     }
     fn ceil_w_s(&mut self, s: u8, d: u8) -> String {
-        format!("ceil.w.s {}, {}", reg(d), reg(s))
+        format!("ceil.w.s {}, {}", freg(d), freg(s))
     }
     fn round_w_s(&mut self, s: u8, d: u8) -> String {
-        format!("round.w.s {}, {}", reg(d), reg(s))
+        format!("round.w.s {}, {}", freg(d), freg(s))
     }
     fn trunc_w_s(&mut self, s: u8, d: u8) -> String {
-        format!("trunc.w.s {}, {}", reg(d), reg(s))
+        format!("trunc.w.s {}, {}", freg(d), freg(s))
     }
     fn add_d(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("add.d {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("add.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn sub_d(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("sub.d {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("sub.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn mul_d(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("mul.d {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("mul.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn div_d(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("div.d {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("div.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn sqrt_d(&mut self, s: u8, d: u8) -> String {
-        format!("sqrt.d {}, {}", reg(d), reg(s))
+        format!("sqrt.d {}, {}", freg(d), freg(s))
     }
     fn abs_d(&mut self, s: u8, d: u8) -> String {
-        format!("abs.d {}, {}", reg(d), reg(s))
+        format!("abs.d {}, {}", freg(d), freg(s))
     }
     fn neg_d(&mut self, s: u8, d: u8) -> String {
-        format!("neg.d {}, {}", reg(d), reg(s))
+        format!("neg.d {}, {}", freg(d), freg(s))
     }
     fn floor_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("floor.w.d {}, {}", reg(d), reg(s))
+        format!("floor.w.d {}, {}", freg(d), freg(s))
     }
     fn ceil_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("ceil.w.d {}, {}", reg(d), reg(s))
+        format!("ceil.w.d {}, {}", freg(d), freg(s))
     }
     fn round_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("round.w.d {}, {}", reg(d), reg(s))
+        format!("round.w.d {}, {}", freg(d), freg(s))
     }
     fn trunc_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("trunc.w.d {}, {}", reg(d), reg(s))
+        format!("trunc.w.d {}, {}", freg(d), freg(s))
     }
     fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.eq.s {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.eq.s {}, {}, {}", freg(s), freg(t), imm)
     }
     fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.le.s {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.le.s {}, {}, {}", freg(s), freg(t), imm)
     }
     fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.lt.s {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.lt.s {}, {}, {}", freg(s), freg(t), imm)
     }
     fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.eq.d {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.eq.d {}, {}, {}", freg(s), freg(t), imm)
     }
     fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.le.d {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.le.d {}, {}, {}", freg(s), freg(t), imm)
     }
     fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> String {
-        format!("c.lt.d {}, {}, {}", reg(s), reg(t), imm)
+        format!("c.lt.d {}, {}, {}", freg(s), freg(t), imm)
     }
     fn bc1t(&mut self, imm: u8, addr: u16) -> String {
         let label = self.labels.label_for(rel_dest(self.pc, addr));
@@ -447,82 +484,81 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
         format!("bc1f {}, {}", imm, label)
     }
     fn mov_s(&mut self, s: u8, d: u8) -> String {
-        format!("mov.s {}, {}", reg(d), reg(s))
+        format!("mov.s {}, {}", freg(d), freg(s))
     }
     fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movf.s {}, {}, {}", reg(d), reg(s), imm)
+        format!("movf.s {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movt.s {}, {}, {}", reg(d), reg(s), imm)
+        format!("movt.s {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movn_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("movn.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("movn.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn movz_s(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("movz.s {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("movz.s {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn mov_d(&mut self, s: u8, d: u8) -> String {
-        format!("mov.d {}, {}", reg(d), reg(s))
+        format!("mov.d {}, {}", freg(d), freg(s))
     }
-    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> String {        
-        format!("movf.d {}, {}, {}", reg(d), reg(s), imm)
+    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movf.d {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movt.d {}, {}, {}", reg(d), reg(s), imm)
+        format!("movt.d {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movn_d(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("movn.d {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("movn.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
-    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> String {        
-        format!("movz.d {}, {}, {}", reg(d), reg(s), reg(t))
+    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movz.d {}, {}, {}", freg(d), freg(s), freg(t))
     }
-    fn movf(&mut self, s: u8, d: u8, imm: u8) -> String {        
-        format!("movf {}, {}, {}", reg(d), reg(s), imm)
+    fn movf(&mut self, s: u8, d: u8, imm: u8) -> String {
+        format!("movf {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movt(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movt {}, {}, {}", reg(d), reg(s), imm)
+        format!("movt {}, {}, {}", freg(d), freg(s), imm)
     }
     fn movn(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("movn {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("movn {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn movz(&mut self, s: u8, t: u8, d: u8) -> String {
-        format!("movz {}, {}, {}", reg(d), reg(s), reg(t))
+        format!("movz {}, {}, {}", freg(d), freg(s), freg(t))
     }
     fn cvt_s_w(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.s.w {}, {}", reg(d), reg(s))
+        format!("cvt.s.w {}, {}", freg(d), freg(s))
     }
     fn cvt_w_s(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.w.s {}, {}", reg(d), reg(s))
+        format!("cvt.w.s {}, {}", freg(d), freg(s))
     }
     fn cvt_s_d(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.s.d {}, {}", reg(d), reg(s))
+        format!("cvt.s.d {}, {}", freg(d), freg(s))
     }
     fn cvt_d_s(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.d.s {}, {}", reg(d), reg(s))
+        format!("cvt.d.s {}, {}", freg(d), freg(s))
     }
     fn cvt_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.w.d {}, {}", reg(d), reg(s))
+        format!("cvt.w.d {}, {}", freg(d), freg(s))
     }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.d.w {}, {}", reg(d), reg(s))
+        format!("cvt.d.w {}, {}", freg(d), freg(s))
     }
     fn mtc1(&mut self, s: u8, imm: u8) -> String {
-        format!("mtc1 {}, {}", reg(s), imm)
+        format!("mtc1 {}, {}", freg(s), imm)
     }
     fn mfc1(&mut self, s: u8, imm: u8) -> String {
-        format!("mfc1 {}, {}", reg(s), imm)
+        format!("mfc1 {}, {}", freg(s), imm)
     }
     fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("ldc1 {}, {}({})", reg(t), sig(imm), reg(s))
+        format!("ldc1 {}, {}({})", freg(t), sig(imm), reg(s))
     }
     fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("sdc1 {}, {}({})", reg(t), sig(imm), reg(s))
+        format!("sdc1 {}, {}({})", freg(t), sig(imm), reg(s))
     }
     fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("lwc1 {}, {}({})", reg(t), sig(imm), reg(s))
+        format!("lwc1 {}, {}({})", freg(t), sig(imm), reg(s))
     }
-
     fn swc1(&mut self, s: u8, t: u8, imm: u16) -> String {
-        format!("swc1 {}, {}({})", reg(t), sig(imm), reg(s))
+        format!("swc1 {}, {}({})", freg(t), sig(imm), reg(s))
     }
 }

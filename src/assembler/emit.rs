@@ -10,7 +10,7 @@ use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
-use crate::assembler::instructions::Opcode::{Func, Op, Special, Cop1, Cop0};
+use crate::assembler::instructions::Opcode::{Cop0, Cop1, Func, Op, Special};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
@@ -20,9 +20,10 @@ use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
 
-use super::assembler_util::{get_integer_adjacent, AssemblerReason};
+use super::assembler_util::{get_fp_register, get_integer_adjacent, AssemblerReason};
 use super::instructions::Size;
 use super::lexer::StrippedKind;
+use super::registers::FPRegisterSlot;
 
 fn instruction_base(op: &Opcode) -> u32 {
     match op {
@@ -39,6 +40,10 @@ fn register_source(slot: RegisterSlot) -> u32 {
     slot.to_u32().unwrap()
 }
 
+fn fp_register_source(slot: FPRegisterSlot) -> u32 {
+    slot.to_u32().unwrap()
+}
+
 struct InstructionBuilder(u32);
 
 impl InstructionBuilder {
@@ -49,6 +54,16 @@ impl InstructionBuilder {
     fn with_slot_offset<const OFFSET: u32>(mut self, slot: RegisterSlot) -> InstructionBuilder {
         self.0 &= !(0b11111 << OFFSET);
         self.0 |= register_source(slot) << OFFSET;
+
+        self
+    }
+
+    fn with_fp_slot_offset<const OFFSET: u32>(
+        mut self,
+        slot: FPRegisterSlot,
+    ) -> InstructionBuilder {
+        self.0 &= !(0b11111 << OFFSET);
+        self.0 |= fp_register_source(slot) << OFFSET;
 
         self
     }
@@ -79,14 +94,20 @@ impl InstructionBuilder {
         self
     }
 
-    fn with_fp_source(self, slot: RegisterSlot) -> InstructionBuilder {
-        self.with_slot_offset::<11>(slot)
+    fn with_fp_source(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<11>(slot)
     }
-    fn with_fp_dest(self, slot: RegisterSlot) -> InstructionBuilder {
-        self.with_slot_offset::<6>(slot)
+    fn with_fp_source_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 11);
+        self.0 |= (value as u32) << 11;
+
+        self
     }
-    fn with_fp_temp(self, slot: RegisterSlot) -> InstructionBuilder {
-        self.with_slot_offset::<16>(slot)
+    fn with_fp_dest(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<6>(slot)
+    }
+    fn with_fp_temp(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<16>(slot)
     }
     fn with_fp_fmt_value(mut self, value: u8) -> InstructionBuilder {
         self.0 &= !(0b11111 << 21);
@@ -552,9 +573,9 @@ fn do_fp_register_instruction(
     fmt: Size,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
-    let temp = get_register(iter)?;
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+    let temp = get_fp_register(iter)?;
 
     let inst = InstructionBuilder::from_op(op)
         .with_fp_dest(dest)
@@ -572,9 +593,12 @@ fn do_fp_register_cc_instruction(
     bool: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
-    let cc = get_integer_adjacent(iter).ok_or(AssemblerError { location: None, reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus) })?;
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
+        location: None,
+        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
+    })?;
 
     let temp = ((cc as u8) << 2) | (bool as u8 & 1);
 
@@ -588,18 +612,26 @@ fn do_fp_register_cc_instruction(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_fp_immediate_instruction(
+fn do_fp_move_instruction(
     op: &Opcode,
+    reg: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register(iter)?;
-    let source = get_register(iter)?;
-    let imm = get_constant(iter)? as u16;
+    let t = if reg {
+        get_fp_register(iter)?.to_u8()
+    } else {
+        get_register(iter)?.to_u8()
+    };
+    let s = if reg {
+        get_register(iter)?.to_u8()
+    } else {
+        get_fp_register(iter)?.to_u8()
+    };
 
     let inst = InstructionBuilder::from_op(op)
-        .with_dest(dest)
-        .with_source(source)
-        .with_immediate(imm)
+        .with_fp_temp_value(t.unwrap())
+        .with_fp_source_value(s.unwrap())
+        .with_immediate(0)
         .0;
 
     Ok(EmitInstruction::with(inst))
@@ -610,9 +642,12 @@ fn do_fp_immediate_cc_instruction(
     immb: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let cc = get_integer_adjacent(iter).ok_or(AssemblerError { location: None, reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus) })?;
+    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
+        location: None,
+        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
+    })?;
     let imm = get_constant(iter)? as u16;
-    
+
     let temp = match op {
         Cop1(x) => *x,
         _ => 0,
@@ -991,8 +1026,10 @@ fn dispatch_instruction(
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
         Encoding::FPRegister(fmt) => do_fp_register_instruction(op, *fmt, iter),
-        Encoding::FPRegisterCC(size, other) => do_fp_register_cc_instruction(op, *size, *other, iter),
-        Encoding::FPImmediate => do_fp_immediate_instruction(op, iter),
+        Encoding::FPRegisterCC(size, other) => {
+            do_fp_register_cc_instruction(op, *size, *other, iter)
+        }
+        Encoding::FPMove(reg) => do_fp_move_instruction(op, *reg, iter),
         Encoding::FPImmediateCC(fmt) => do_fp_immediate_cc_instruction(op, *fmt, iter),
     }?;
 

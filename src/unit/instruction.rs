@@ -1184,16 +1184,10 @@ impl Decoder<Instruction> for InstructionDecoder {
         }
     }
     fn bc1t(&mut self, imm: u8, address: u16) -> Instruction {
-        Instruction::BC1T {
-            imm,
-            address,
-        }
+        Instruction::BC1T { imm, address }
     }
     fn bc1f(&mut self, imm: u8, address: u16) -> Instruction {
-        Instruction::BC1F {
-            imm,
-            address,
-        }
+        Instruction::BC1F { imm, address }
     }
     fn mov_s(&mut self, s: u8, d: u8) -> Instruction {
         Instruction::MovS {
@@ -1598,8 +1592,12 @@ impl Instruction {
             Instruction::CEqD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
             Instruction::CLeD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
             Instruction::CLtD { s, t, imm } => vec![Immediate(imm.into()), s.into(), t.into()],
-            Instruction::BC1T { imm, address } => vec![Immediate(imm.into()), Address(address.into())],
-            Instruction::BC1F { imm, address } => vec![Immediate(imm.into()), Address(address.into())],
+            Instruction::BC1T { imm, address } => {
+                vec![Immediate(imm.into()), Address(address.into())]
+            }
+            Instruction::BC1F { imm, address } => {
+                vec![Immediate(imm.into()), Address(address.into())]
+            }
             Instruction::MovS { s, d } => vec![d.into(), s.into()],
             Instruction::MovFS { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
             Instruction::MovTS { s, d, imm } => vec![Immediate(imm.into()), d.into(), s.into()],
