@@ -106,6 +106,12 @@ impl InstructionBuilder {
     fn with_fp_dest(self, slot: FPRegisterSlot) -> InstructionBuilder {
         self.with_fp_slot_offset::<6>(slot)
     }
+    fn with_fp_dest_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 6);
+        self.0 |= (value as u32) << 6;
+
+        self
+    }
     fn with_fp_temp(self, slot: FPRegisterSlot) -> InstructionBuilder {
         self.with_fp_slot_offset::<16>(slot)
     }
@@ -568,7 +574,7 @@ fn do_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_fp_register_instruction(
+fn do_fp_3register_instruction(
     op: &Opcode,
     fmt: Size,
     iter: &mut LexerCursor,
@@ -587,7 +593,24 @@ fn do_fp_register_instruction(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_fp_register_cc_instruction(
+fn do_fp_2register_instruction(
+    op: &Opcode,
+    fmt: Size,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest(dest)
+        .with_fp_source(source)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_move_instruction(
     op: &Opcode,
     fmt: Size,
     bool: bool,
@@ -612,7 +635,31 @@ fn do_fp_register_cc_instruction(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_fp_move_instruction(
+fn do_fp_cond_instruction(
+    op: &Opcode,
+    fmt: Size,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
+        location: None,
+        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
+    })?;
+    let source = get_fp_register(iter)?;
+    let target = get_fp_register(iter)?;
+
+    let temp = (cc as u8) << 2;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest_value(temp)
+        .with_fp_source(source)
+        .with_fp_temp(target)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_cross_move_instruction(
     op: &Opcode,
     reg: bool,
     iter: &mut LexerCursor,
@@ -636,7 +683,7 @@ fn do_fp_move_instruction(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_fp_immediate_cc_instruction(
+fn do_fp_cond_branch_instruction(
     op: &Opcode,
     immb: bool,
     iter: &mut LexerCursor,
@@ -1024,12 +1071,12 @@ fn dispatch_instruction(
         Encoding::BranchZero => do_branch_zero_instruction(op, iter),
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
-        Encoding::FPRegister(fmt) => do_fp_register_instruction(op, *fmt, iter),
-        Encoding::FPRegisterCC(size, other) => {
-            do_fp_register_cc_instruction(op, *size, *other, iter)
-        }
-        Encoding::FPMove(reg) => do_fp_move_instruction(op, *reg, iter),
-        Encoding::FPImmediateCC(fmt) => do_fp_immediate_cc_instruction(op, *fmt, iter),
+        Encoding::FP3Register(fmt) => do_fp_3register_instruction(op, *fmt, iter),
+        Encoding::FP2Register(fmt) => do_fp_2register_instruction(op, *fmt, iter),
+        Encoding::FPMove(size, other) => do_fp_move_instruction(op, *size, *other, iter),
+        Encoding::FPCond(fmt) => do_fp_cond_instruction(op, *fmt, iter),
+        Encoding::FPCrossMove(reg) => do_fp_cross_move_instruction(op, *reg, iter),
+        Encoding::FPConditionalBranch(fmt) => do_fp_cond_branch_instruction(op, *fmt, iter),
     }?;
 
     Ok(emit)
