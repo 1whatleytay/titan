@@ -482,11 +482,11 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn movt(&mut self, s: u8, d: u8, imm: u8) -> String {
         format!("movt {}, {}, {}", reg(d), reg(s), imm)
     }
-    fn movn(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movn {}, {}, {}", reg(d), reg(s), imm)
+    fn movn(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movn {}, {}, {}", reg(d), reg(s), reg(t))
     }
-    fn movz(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movz {}, {}, {}", reg(d), reg(s), imm)
+    fn movz(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movz {}, {}, {}", reg(d), reg(s), reg(t))
     }
     fn cvt_s_w(&mut self, s: u8, d: u8) -> String {
         format!("cvt.s.w {}, {}", reg(d), reg(s))
@@ -505,12 +505,6 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> String {
         format!("cvt.d.w {}, {}", reg(d), reg(s))
-    }
-    fn mtc0(&mut self, s: u8, imm: u8) -> String {
-        format!("mtc0 {}, {}", reg(s), imm)
-    }
-    fn mfc0(&mut self, s: u8, imm: u8) -> String {
-        format!("mfc0 {}, {}", reg(s), imm)
     }
     fn mtc1(&mut self, s: u8, imm: u8) -> String {
         format!("mtc1 {}, {}", reg(s), imm)

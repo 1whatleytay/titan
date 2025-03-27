@@ -497,14 +497,6 @@ pub enum Instruction {
         s: RegisterName,
         d: RegisterName,
     },
-    Mtc0 {
-        s: RegisterName,
-        d: RegisterName,
-    },
-    Mfc0 {
-        s: RegisterName,
-        d: RegisterName,
-    },
     Mtc1 {
         s: RegisterName,
         d: RegisterName,
@@ -1335,18 +1327,6 @@ impl Decoder<Instruction> for InstructionDecoder {
             d: d.into(),
         }
     }
-    fn mtc0(&mut self, s: u8, d: u8) -> Instruction {
-        Instruction::Mtc0 {
-            s: s.into(),
-            d: d.into(),
-        }
-    }
-    fn mfc0(&mut self, s: u8, d: u8) -> Instruction {
-        Instruction::Mfc0 {
-            s: s.into(),
-            d: d.into(),
-        }
-    }
     fn mtc1(&mut self, s: u8, d: u8) -> Instruction {
         Instruction::Mtc1 {
             s: s.into(),
@@ -1518,8 +1498,6 @@ impl Instruction {
             Instruction::CvtSD { .. } => "cvt.s.d",
             Instruction::CvtDW { .. } => "cvt.d.w",
             Instruction::CvtWD { .. } => "cvt.w.d",
-            Instruction::Mtc0 { .. } => "mtc0",
-            Instruction::Mfc0 { .. } => "mfc0",
             Instruction::Mtc1 { .. } => "mtc1",
             Instruction::Mfc1 { .. } => "mfc1",
             Instruction::Lwc1 { .. } => "lwc1",
@@ -1642,8 +1620,6 @@ impl Instruction {
             Instruction::CvtSD { s, d } => vec![d.into(), s.into()],
             Instruction::CvtDW { s, d } => vec![d.into(), s.into()],
             Instruction::CvtWD { s, d } => vec![d.into(), s.into()],
-            Instruction::Mtc0 { s, d } => vec![d.into(), s.into()],
-            Instruction::Mfc0 { s, d } => vec![d.into(), s.into()],
             Instruction::Mtc1 { s, d } => vec![d.into(), s.into()],
             Instruction::Mfc1 { s, d } => vec![d.into(), s.into()],
             Instruction::Lwc1 { s, t, imm } => vec![s.into(), t.into(), Immediate(imm)],
@@ -1768,8 +1744,6 @@ impl Display for Instruction {
             Instruction::CvtSD { s, d } => write!(f, "cvt.s.d {}, {}", d, s),
             Instruction::CvtDW { s, d } => write!(f, "cvt.d.w {}, {}", d, s),
             Instruction::CvtWD { s, d } => write!(f, "cvt.w.d {}, {}", d, s),
-            Instruction::Mtc0 { s, d } => write!(f, "mtc0 {}, {}", d, s),
-            Instruction::Mfc0 { s, d } => write!(f, "mfc0 {}, {}", d, s),
             Instruction::Mtc1 { s, d } => write!(f, "mtc1 {}, {}", d, s),
             Instruction::Mfc1 { s, d } => write!(f, "mfc1 {}, {}", d, s),
             Instruction::Lwc1 { s, t, imm } => write!(f, "lwc1 {}, {}({})", t, sig(*imm), s),

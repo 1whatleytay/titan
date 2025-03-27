@@ -115,16 +115,14 @@ pub trait Decoder<T> {
     fn movz_d(&mut self, s: u8, t: u8, d: u8) -> T;
     fn movf(&mut self, s: u8, d: u8, imm: u8) -> T;
     fn movt(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movn(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movz(&mut self, s: u8, d: u8, imm: u8) -> T;
+    fn movn(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn movz(&mut self, s: u8, t: u8, d: u8) -> T;
     fn cvt_s_w(&mut self, s: u8, d: u8) -> T;
     fn cvt_w_s(&mut self, s: u8, d: u8) -> T;
     fn cvt_s_d(&mut self, s: u8, d: u8) -> T;
     fn cvt_d_s(&mut self, s: u8, d: u8) -> T;
     fn cvt_w_d(&mut self, s: u8, d: u8) -> T;
     fn cvt_d_w(&mut self, s: u8, d: u8) -> T;
-    fn mtc0(&mut self, s: u8, imm: u8) -> T;
-    fn mfc0(&mut self, s: u8, imm: u8) -> T;
     fn mtc1(&mut self, s: u8, imm: u8) -> T;
     fn mfc1(&mut self, s: u8, imm: u8) -> T;
     fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> T;
@@ -142,6 +140,11 @@ pub trait Decoder<T> {
 
         Some(match func {
             0 => self.sll(t, d, sham),
+            1 => match t & 0b11 {
+                0b00 => self.movf(s, d, t >> 2),
+                0b01 => self.movt(s, d, t >> 2),
+                _ => unreachable!(),
+            },
             2 => self.srl(t, d, sham),
             3 => self.sra(t, d, sham),
             4 => self.sllv(s, t, d),
@@ -149,6 +152,8 @@ pub trait Decoder<T> {
             7 => self.srav(s, t, d),
             8 => self.jr(s),
             9 => self.jalr(s),
+            10 => self.movz(s, t, d),
+            11 => self.movn(s, t, d),
             12 => self.syscall(),
             16 => self.mfhi(d),
             17 => self.mthi(s),
@@ -209,12 +214,12 @@ pub trait Decoder<T> {
     fn dispatch_cop1(&mut self, instruction: u32) -> Option<T> {
         let fmt = (instruction >> 21) & 0b11111;
 
+        let t = ((instruction >> 16) & 0x1F) as u8;
+        let s = ((instruction >> 11) & 0x1F) as u8;
+        let d = ((instruction >> 6) & 0x1F) as u8;
         Some(match fmt {
             16 | 17 | 20 | 21 => {
                 let instr = instruction & 0b11111;
-                let s = ((instruction >> 11) & 0x1F) as u8;
-                let t = ((instruction >> 16) & 0x1F) as u8;
-                let d = ((instruction >> 6) & 0x1F) as u8;
                 let ifmt = match fmt {
                     16 => Size::Single,
                     17 => Size::Double,
@@ -242,7 +247,6 @@ pub trait Decoder<T> {
                     },
                     (18, Size::Single) => self.movz_s(s, t, d),
                     (19, Size::Single) => self.movn_s(s, t, d),
-
                     (50, Size::Single) => self.c_eq_s(s, t, d >> 2),
                     (60, Size::Single) => self.c_lt_s(s, t, d >> 2),
                     (62, Size::Single) => self.c_le_s(s, t, d >> 2),
@@ -266,18 +270,25 @@ pub trait Decoder<T> {
                     },
                     (18, Size::Double) => self.movz_d(s, t, d),
                     (19, Size::Double) => self.movn_d(s, t, d),
-
                     (50, Size::Double) => self.c_eq_d(s, t, d >> 2),
                     (60, Size::Double) => self.c_lt_d(s, t, d >> 2),
                     (62, Size::Double) => self.c_le_d(s, t, d >> 2),
 
+                    (33, Size::Single) => self.cvt_d_s(s, d),
+                    (33, Size::Word) => self.cvt_d_w(s, d),
+                    (32, Size::Double) => self.cvt_s_d(s, d),
+                    (32, Size::Word) => self.cvt_s_w(s, d),
+                    (36, Size::Single) => self.cvt_w_s(s, d),
+                    (36, Size::Double) => self.cvt_w_d(s, d),
+
                     _ => return None,
                 }
             }
+            0b00000 => self.mfc1(s, t),
+            0b00100 => self.mtc1(s, t),
             0b01000 => {
-                let tmp = ((instruction >> 16) & 0x1F) as u8;
-                let tf = tmp & 0b11;
-                let cc = (tmp >> 2) & 0b111;
+                let tf = t & 0b11;
+                let cc = (t >> 2) & 0b111;
 
                 let imm = (instruction & 0xFFFF) as u16;
                 match tf {
@@ -331,8 +342,11 @@ pub trait Decoder<T> {
             40 => self.sb(s, t, imm),
             41 => self.sh(s, t, imm),
             43 => self.sw(s, t, imm),
+
             49 => self.lwc1(s, t, imm),
+            53 => self.ldc1(s, t, imm),
             57 => self.swc1(s, t, imm),
+            61 => self.sdc1(s, t, imm),
             _ => return None,
         })
     }
