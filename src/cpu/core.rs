@@ -31,6 +31,10 @@ impl<Mem: Memory> State<Mem> {
         }
     }
 
+    fn fp_register(&mut self, index: u8) -> &mut u32 {
+        &mut self.registers.fp[index as usize]
+    }
+
     fn skip(&mut self, imm: u16) {
         // ((pc + 4) as i32 + ((imm as i16 as i32) << 2)) as u32
         let offset = (imm as i16 as i32).wrapping_shl(2);
@@ -542,5 +546,224 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
     fn syscall(&mut self) -> Result<()> {
         Err(CpuSyscall)
+    }
+
+    fn add_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        let b = f32::from_bits(*self.fp_register(t));
+
+        *self.fp_register(d) = (a + b).to_bits();
+
+        Ok(())
+    }
+    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        let b = f32::from_bits(*self.fp_register(t));
+
+        *self.fp_register(d) = (a - b).to_bits();
+        
+        Ok(())
+    }
+    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        let b = f32::from_bits(*self.fp_register(t));
+        
+        *self.fp_register(d) = (a * b).to_bits();
+        
+        Ok(())
+    }
+    fn div_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        let b = f32::from_bits(*self.fp_register(t));
+        
+        *self.fp_register(d) = (a / b).to_bits();
+        
+        Ok(())
+    }
+    fn sqrt_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = a.sqrt().to_bits();
+        
+        Ok(())
+    }
+    fn abs_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = a.abs().to_bits();
+        
+        Ok(())
+    }
+    fn neg_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = (-a).to_bits();
+        
+        Ok(())
+    }
+    fn floor_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = u32::from_le_bytes((a.floor() as i32).to_le_bytes());
+        
+        Ok(())
+    }
+    fn ceil_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = u32::from_le_bytes((a.ceil() as i32).to_le_bytes());
+        
+        Ok(())
+    }
+    fn round_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let a = f32::from_bits(*self.fp_register(s));
+        
+        *self.fp_register(d) = u32::from_le_bytes((a.round() as i32).to_le_bytes());
+        
+        Ok(())
+    }
+    fn trunc_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn add_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn div_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn sqrt_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn abs_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn neg_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn floor_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn ceil_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn round_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn trunc_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn bc1t(&mut self, imm: u8, addr: u16) -> Result<()> {
+        Ok(())
+    }
+    fn bc1f(&mut self, imm: u8, addr: u16) -> Result<()> {
+        Ok(())
+    }
+    fn mov_s(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movn_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movz_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mov_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movn_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movz_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movf(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movt(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movn(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn movz(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_s_w(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_s_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_d_s(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn cvt_d_w(&mut self, s: u8, d: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mtc0(&mut self, s: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mfc0(&mut self, s: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mtc1(&mut self, s: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn mfc1(&mut self, s: u8, imm: u8) -> Result<()> {
+        Ok(())
+    }
+    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+        Ok(())
+    }
+    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+        Ok(())
+    }
+    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+        Ok(())
+    }
+    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+        Ok(())
     }
 }
