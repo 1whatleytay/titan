@@ -115,12 +115,6 @@ impl InstructionBuilder {
     fn with_fp_temp(self, slot: FPRegisterSlot) -> InstructionBuilder {
         self.with_fp_slot_offset::<16>(slot)
     }
-    fn with_fp_fmt_value(mut self, value: u8) -> InstructionBuilder {
-        self.0 &= !(0b11111 << 21);
-        self.0 |= (value as u32) << 21;
-
-        self
-    }
     fn with_fp_temp_value(mut self, value: u8) -> InstructionBuilder {
         self.0 &= !(0b11111 << 16);
         self.0 |= (value as u32) << 16;
@@ -704,30 +698,29 @@ fn do_fp_cross_move_instruction(
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_fp_cond_branch_instruction(
+fn do_fp_branch_instruction(
     op: &Opcode,
-    immb: bool,
+    bool: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
         location: None,
         reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
     })?;
-    let imm = get_constant(iter)? as u16;
+    let label = get_label(iter)?;
+    let temp = ((cc as u8) << 2) | (bool as u8 & 1);
 
-    let temp = match op {
-        Cop1(x) => *x,
-        _ => 0,
-    };
-    let temp2 = ((cc as u8) << 2) | (immb as u8 & 1);
+    let inst = InstructionBuilder::from_op(op).with_fp_temp_value(temp).0;
 
-    let inst = InstructionBuilder::from_op(op)
-        .with_immediate(imm)
-        .with_fp_fmt_value(temp)
-        .with_fp_temp_value(temp2)
-        .0;
+    let instructions = vec![(
+        inst,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    )];
 
-    Ok(EmitInstruction::with(inst))
+    Ok(EmitInstruction { instructions })
 }
 
 fn do_nop_instruction(_: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
@@ -1098,7 +1091,7 @@ fn dispatch_instruction(
         Encoding::FPMove(size, other) => do_fp_move_instruction(op, *size, *other, iter),
         Encoding::FPCond(fmt) => do_fp_cond_instruction(op, *fmt, iter),
         Encoding::FPCrossMove(reg) => do_fp_cross_move_instruction(op, *reg, iter),
-        Encoding::FPConditionalBranch(fmt) => do_fp_cond_branch_instruction(op, *fmt, iter),
+        Encoding::FPBranch(fmt) => do_fp_branch_instruction(op, *fmt, iter),
     }?;
 
     Ok(emit)

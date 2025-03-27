@@ -219,7 +219,7 @@ pub trait Decoder<T> {
         let d = ((instruction >> 6) & 0x1F) as u8;
         Some(match fmt {
             16 | 17 | 20 | 21 => {
-                let instr = instruction & 0b11111;
+                let instr = instruction & 0b111111;
                 let ifmt = match fmt {
                     16 => Size::Single,
                     17 => Size::Double,

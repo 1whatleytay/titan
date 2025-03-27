@@ -1,7 +1,7 @@
 use crate::assembler::instructions::Encoding::{
-    Branch, BranchZero, Destination, FP2Register, FP3Register, FPCond, FPConditionalBranch,
-    FPCrossMove, FPMove, FPOffset, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
-    Register, RegisterShift, Sham, Source, SpecialBranch,
+    Branch, BranchZero, Destination, FP2Register, FP3Register, FPBranch, FPCond, FPCrossMove,
+    FPMove, FPOffset, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless, Register,
+    RegisterShift, Sham, Source, SpecialBranch,
 };
 use crate::assembler::instructions::Opcode::{Algebra, Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::Size::{Double, Single, Word};
@@ -28,7 +28,7 @@ pub enum Encoding {
     FPMove(Size, bool), // Size, $, $, cc|bool
     FPCond(Size),       // Size, cc, $, $
     FPCrossMove(bool),  // direction
-    FPConditionalBranch(bool),
+    FPBranch(bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -511,12 +511,12 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
     Instruction {
         name: "bc1t",
         opcode: Cop1I(0b01000),
-        encoding: FPConditionalBranch(true),
+        encoding: FPBranch(true),
     },
     Instruction {
         name: "bc1f",
         opcode: Cop1I(0b01000),
-        encoding: FPConditionalBranch(false),
+        encoding: FPBranch(false),
     },
     Instruction {
         name: "mov.s",
