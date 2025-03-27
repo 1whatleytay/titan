@@ -297,10 +297,7 @@ pub trait Decoder<T> {
                     _ => unreachable!(),
                 }
             }
-            _ => {
-                let imm = (instruction & 0xFFFF) as u16;
-                return None;
-            }
+            _ => return None,
         })
     }
 

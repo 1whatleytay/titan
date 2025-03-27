@@ -743,9 +743,16 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         Ok(())
     }
     fn mtc1(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = *self.register(s);
+
+        *self.fp_register(d) = value;
+
         Ok(())
     }
     fn mfc1(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = *self.fp_register(s);
+        *self.register(d) = value;
+
         Ok(())
     }
     fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {

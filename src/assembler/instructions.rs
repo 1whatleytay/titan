@@ -3,7 +3,7 @@ use crate::assembler::instructions::Encoding::{
     Inputs, Jump, LoadImmediate, Offset, Parameterless, Register, RegisterShift, Sham, Source,
     SpecialBranch,
 };
-use crate::assembler::instructions::Opcode::{Algebra, Cop0, Cop1, Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Algebra, Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::Size::{Double, Single, Word};
 use std::collections::HashMap;
 
@@ -40,7 +40,7 @@ pub enum Opcode {
     Special(u8),
     Algebra(u8),
     Cop1(u8),
-    Cop0(u8),
+    Cop1I(u8),
 }
 
 pub struct Instruction<'a> {
@@ -507,12 +507,12 @@ pub const INSTRUCTIONS: [Instruction; 113] = [
     },
     Instruction {
         name: "bc1t",
-        opcode: Cop1(0b01000),
+        opcode: Cop1I(0b01000),
         encoding: FPImmediateCC(true),
     },
     Instruction {
         name: "bc1f",
-        opcode: Cop1(0b01000),
+        opcode: Cop1I(0b01000),
         encoding: FPImmediateCC(false),
     },
     Instruction {
@@ -597,12 +597,12 @@ pub const INSTRUCTIONS: [Instruction; 113] = [
     },
     Instruction {
         name: "mfc1",
-        opcode: Cop1(0b00000),
+        opcode: Cop1I(0b00000),
         encoding: FPMove(false),
     },
     Instruction {
         name: "mtc1",
-        opcode: Cop1(0b00100),
+        opcode: Cop1I(0b00100),
         encoding: FPMove(true),
     },
     Instruction {

@@ -10,7 +10,7 @@ use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
-use crate::assembler::instructions::Opcode::{Cop0, Cop1, Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
@@ -32,7 +32,7 @@ fn instruction_base(op: &Opcode) -> u32 {
         Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
         Cop1(key) => (*key as u32 & 0b111111) | (17 << 26),
-        Cop0(key) => (*key as u32 & 0b111111) | (16 << 26),
+        Cop1I(key) => ((*key as u32 & 0b11111) << 21) | (17 << 26),
     }
 }
 
@@ -126,7 +126,7 @@ impl InstructionBuilder {
             Size::Single => 0b00,
             Size::Double => 0b01,
             Size::Word => 0b10,
-        };
+        } | 0b10000;
         self.0 &= !(0b11111 << 21);
         self.0 |= fmt_val << 21;
 
@@ -631,7 +631,6 @@ fn do_fp_move_instruction(
     let inst = InstructionBuilder::from_op(op)
         .with_fp_temp_value(t.unwrap())
         .with_fp_source_value(s.unwrap())
-        .with_immediate(0)
         .0;
 
     Ok(EmitInstruction::with(inst))
