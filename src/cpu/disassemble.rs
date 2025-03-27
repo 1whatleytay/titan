@@ -544,10 +544,10 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
         format!("cvt.d.w {}, {}", freg(d), freg(s))
     }
     fn mtc1(&mut self, t: u8, s: u8) -> String {
-        format!("mtc1 {}, {}", reg(t), freg(s))
+        format!("mtc1 {}, {}", freg(t), reg(s))
     }
     fn mfc1(&mut self, t: u8, s: u8) -> String {
-        format!("mfc1 {}, {}", freg(t), reg(s))
+        format!("mfc1 {}, {}", reg(t), freg(s))
     }
     fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> String {
         format!("ldc1 {}, {}({})", freg(t), sig(offset), reg(base))
