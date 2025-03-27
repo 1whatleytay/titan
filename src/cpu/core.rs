@@ -548,7 +548,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         Err(CpuSyscall)
     }
 
-    fn add_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn add_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
 
@@ -556,7 +556,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
         Ok(())
     }
-    fn sub_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn sub_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
 
@@ -564,7 +564,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
         Ok(())
     }
-    fn mul_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn mul_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
 
@@ -572,7 +572,7 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
 
         Ok(())
     }
-    fn div_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn div_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         let a = f32::from_bits(*self.fp_register(s));
         let b = f32::from_bits(*self.fp_register(t));
 
@@ -625,16 +625,16 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn trunc_w_s(&mut self, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn add_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn add_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn sub_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn sub_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn mul_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn mul_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn div_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn div_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
     fn sqrt_d(&mut self, s: u8, d: u8) -> Result<()> {
@@ -658,64 +658,64 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn trunc_w_d(&mut self, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn c_eq_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_eq_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn c_le_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn c_lt_s(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn c_eq_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn c_le_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn c_lt_d(&mut self, s: u8, t: u8, imm: u8) -> Result<()> {
+    fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
         Ok(())
     }
-    fn bc1t(&mut self, imm: u8, addr: u16) -> Result<()> {
+    fn bc1t(&mut self, cc: u8, addr: u16) -> Result<()> {
         Ok(())
     }
-    fn bc1f(&mut self, imm: u8, addr: u16) -> Result<()> {
+    fn bc1f(&mut self, cc: u8, addr: u16) -> Result<()> {
         Ok(())
     }
     fn mov_s(&mut self, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movf_s(&mut self, cc: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movt_s(&mut self, cc: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn movn_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn movz_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
     fn mov_d(&mut self, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movf_d(&mut self, cc: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movt_d(&mut self, cc: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn movn_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
+    fn movz_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movf(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movf(&mut self, s: u8, cc: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movt(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movt(&mut self, s: u8, cc: u8, d: u8) -> Result<()> {
         Ok(())
     }
     fn movn(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
@@ -742,29 +742,29 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn cvt_d_w(&mut self, s: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn mtc1(&mut self, s: u8, d: u8) -> Result<()> {
+    fn mtc1(&mut self, t: u8, s: u8) -> Result<()> {
         let value = *self.register(s);
 
-        *self.fp_register(d) = value;
+        *self.fp_register(t) = value;
 
         Ok(())
     }
-    fn mfc1(&mut self, s: u8, d: u8) -> Result<()> {
+    fn mfc1(&mut self, t: u8, s: u8) -> Result<()> {
         let value = *self.fp_register(s);
-        *self.register(d) = value;
+        *self.register(t) = value;
 
         Ok(())
     }
-    fn ldc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         Ok(())
     }
-    fn sdc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         Ok(())
     }
-    fn lwc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         Ok(())
     }
-    fn swc1(&mut self, s: u8, t: u8, imm: u16) -> Result<()> {
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         Ok(())
     }
 }
