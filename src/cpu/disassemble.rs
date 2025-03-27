@@ -455,11 +455,11 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> String {
         format!("movt.s {}, {}, {}", reg(d), reg(s), imm)
     }
-    fn movn_s(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movn.s {}, {}, {}", reg(d), reg(s), imm)
+    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movn.s {}, {}, {}", reg(d), reg(s), reg(t))
     }
-    fn movz_s(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movz.s {}, {}, {}", reg(d), reg(s), imm)
+    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movz.s {}, {}, {}", reg(d), reg(s), reg(t))
     }
     fn mov_d(&mut self, s: u8, d: u8) -> String {
         format!("mov.d {}, {}", reg(d), reg(s))
@@ -470,11 +470,11 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> String {
         format!("movt.d {}, {}, {}", reg(d), reg(s), imm)
     }
-    fn movn_d(&mut self, s: u8, d: u8, imm: u8) -> String {
-        format!("movn.d {}, {}, {}", reg(d), reg(s), imm)
+    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> String {
+        format!("movn.d {}, {}, {}", reg(d), reg(s), reg(t))
     }
-    fn movz_d(&mut self, s: u8, d: u8, imm: u8) -> String {        
-        format!("movz.d {}, {}, {}", reg(d), reg(s), imm)
+    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> String {        
+        format!("movz.d {}, {}, {}", reg(d), reg(s), reg(t))
     }
     fn movf(&mut self, s: u8, d: u8, imm: u8) -> String {        
         format!("movf {}, {}, {}", reg(d), reg(s), imm)

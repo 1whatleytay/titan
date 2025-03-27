@@ -691,10 +691,10 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
         Ok(())
     }
-    fn movn_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movz_s(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         Ok(())
     }
     fn mov_d(&mut self, s: u8, d: u8) -> Result<()> {
@@ -706,10 +706,10 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
     fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
         Ok(())
     }
-    fn movn_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         Ok(())
     }
-    fn movz_d(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {
+    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
         Ok(())
     }
     fn movf(&mut self, s: u8, d: u8, imm: u8) -> Result<()> {

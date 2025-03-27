@@ -48,7 +48,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 111] = [
+pub const INSTRUCTIONS: [Instruction; 115] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -392,6 +392,26 @@ pub const INSTRUCTIONS: [Instruction; 111] = [
     Instruction {
         name: "neg.s",
         opcode: Cop1(7),
+        encoding: FPRegister(Single),
+    },
+    Instruction {
+        name: "round.w.s",
+        opcode: Cop1(12),
+        encoding: FPRegister(Single),
+    },
+    Instruction {
+       name: "trunc.w.s",
+         opcode: Cop1(13),
+         encoding: FPRegister(Single),
+    },
+    Instruction {
+        name: "ceil.w.s",
+        opcode: Cop1(14),
+        encoding: FPRegister(Single),
+    },
+    Instruction {
+        name: "floor.w.s",
+        opcode: Cop1(15),
         encoding: FPRegister(Single),
     },
     Instruction {

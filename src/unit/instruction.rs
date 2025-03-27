@@ -1223,14 +1223,14 @@ impl Decoder<Instruction> for InstructionDecoder {
             imm,
         }
     }
-    fn movn_s(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovNS {
             s: s.into(),
             d: d.into(),
             t: t.into(),
         }
     }
-    fn movz_s(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovZS {
             s: s.into(),
             d: d.into(),
@@ -1257,14 +1257,14 @@ impl Decoder<Instruction> for InstructionDecoder {
             imm,
         }
     }
-    fn movn_d(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovND {
             s: s.into(),
             d: d.into(),
             t: t.into(),
         }
     }
-    fn movz_d(&mut self, s: u8, d: u8, t: u8) -> Instruction {
+    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> Instruction {
         Instruction::MovZD {
             s: s.into(),
             d: d.into(),

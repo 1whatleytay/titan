@@ -1,3 +1,5 @@
+use crate::assembler::instructions::Size;
+
 // noinspection SpellCheckingInspection
 pub trait Decoder<T> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> T;
@@ -104,13 +106,13 @@ pub trait Decoder<T> {
     fn mov_s(&mut self, s: u8, d: u8) -> T;
     fn movf_s(&mut self, s: u8, d: u8, imm: u8) -> T;
     fn movt_s(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movn_s(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movz_s(&mut self, s: u8, d: u8, imm: u8) -> T;
+    fn movn_s(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn movz_s(&mut self, s: u8, t: u8, d: u8) -> T;
     fn mov_d(&mut self, s: u8, d: u8) -> T;
     fn movf_d(&mut self, s: u8, d: u8, imm: u8) -> T;
     fn movt_d(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movn_d(&mut self, s: u8, d: u8, imm: u8) -> T;
-    fn movz_d(&mut self, s: u8, d: u8, imm: u8) -> T;
+    fn movn_d(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn movz_d(&mut self, s: u8, t: u8, d: u8) -> T;
     fn movf(&mut self, s: u8, d: u8, imm: u8) -> T;
     fn movt(&mut self, s: u8, d: u8, imm: u8) -> T;
     fn movn(&mut self, s: u8, d: u8, imm: u8) -> T;
@@ -204,6 +206,93 @@ pub trait Decoder<T> {
         })
     }
 
+    fn dispatch_cop1(&mut self, instruction: u32) -> Option<T> {
+        let fmt = (instruction >> 21) & 0b11111;
+
+        Some(match fmt {
+            16 | 17 | 20 | 21 => {
+                let instr = instruction & 0b11111;
+                let s = ((instruction >> 11) & 0x1F) as u8;
+                let t = ((instruction >> 16) & 0x1F) as u8;
+                let d = ((instruction >> 6) & 0x1F) as u8;
+                let ifmt = match fmt {
+                    16 => Size::Single,
+                    17 => Size::Double,
+                    20 => Size::Word,
+                    21 => unimplemented!(),
+                    _ => unreachable!(),
+                };
+                match (instr, ifmt) {
+                    (0, Size::Single) => self.add_s(s, t, d),
+                    (1, Size::Single) => self.sub_s(s, t, d),
+                    (2, Size::Single) => self.mul_s(s, t, d),
+                    (3, Size::Single) => self.div_s(s, t, d),
+                    (4, Size::Single) => self.sqrt_s(s, d),
+                    (5, Size::Single) => self.abs_s(s, d),
+                    (6, Size::Single) => self.mov_s(s, d),
+                    (7, Size::Single) => self.neg_s(s, d),
+                    (12, Size::Single) => self.round_w_s(s, d),
+                    (13, Size::Single) => self.trunc_w_s(s, d),
+                    (14, Size::Single) => self.ceil_w_s(s, d),
+                    (15, Size::Single) => self.floor_w_s(s, d),
+                    (17, Size::Single) => match t & 0b11 {
+                        0b00 => self.movf_s(s, d, t >> 2),
+                        0b01 => self.movt_s(s, d, t >> 2),
+                        _ => unreachable!(),
+                    },
+                    (18, Size::Single) => self.movz_s(s, t, d),
+                    (19, Size::Single) => self.movn_s(s, t, d),
+
+                    (50, Size::Single) => self.c_eq_s(s, t, d >> 2),
+                    (60, Size::Single) => self.c_lt_s(s, t, d >> 2),
+                    (62, Size::Single) => self.c_le_s(s, t, d >> 2),
+
+                    (0, Size::Double) => self.add_d(s, t, d),
+                    (1, Size::Double) => self.sub_d(s, t, d),
+                    (2, Size::Double) => self.mul_d(s, t, d),
+                    (3, Size::Double) => self.div_d(s, t, d),
+                    (4, Size::Double) => self.sqrt_d(s, d),
+                    (5, Size::Double) => self.abs_d(s, d),
+                    (6, Size::Double) => self.mov_d(s, d),
+                    (7, Size::Double) => self.neg_d(s, d),
+                    (12, Size::Double) => self.round_w_d(s, d),
+                    (13, Size::Double) => self.trunc_w_d(s, d),
+                    (14, Size::Double) => self.ceil_w_d(s, d),
+                    (15, Size::Double) => self.floor_w_d(s, d),
+                    (17, Size::Double) => match t & 0b11 {
+                        0b00 => self.movf_d(s, d, t >> 2),
+                        0b01 => self.movt_d(s, d, t >> 2),
+                        _ => unreachable!(),
+                    },
+                    (18, Size::Double) => self.movz_d(s, t, d),
+                    (19, Size::Double) => self.movn_d(s, t, d),
+
+                    (50, Size::Double) => self.c_eq_d(s, t, d >> 2),
+                    (60, Size::Double) => self.c_lt_d(s, t, d >> 2),
+                    (62, Size::Double) => self.c_le_d(s, t, d >> 2),
+
+                    _ => return None,
+                }
+            }
+            0b01000 => {
+                let tmp = ((instruction >> 16) & 0x1F) as u8;
+                let tf = tmp & 0b11;
+                let cc = (tmp >> 2) & 0b111;
+
+                let imm = (instruction & 0xFFFF) as u16;
+                match tf {
+                    0 => return Some(self.bc1f(cc, imm)),
+                    1 => return Some(self.bc1t(cc, imm)),
+                    _ => unreachable!(),
+                }
+            }
+            _ => {
+                let imm = (instruction & 0xFFFF) as u16;
+                return None;
+            }
+        })
+    }
+
     fn dispatch(&mut self, instruction: u32) -> Option<T> {
         let opcode = instruction >> 26;
 
@@ -229,6 +318,7 @@ pub trait Decoder<T> {
             13 => self.ori(s, t, imm),
             14 => self.xori(s, t, imm),
             15 => self.lui(t, imm),
+            17 => return self.dispatch_cop1(instruction),
             24 => self.llo(t, imm),
             25 => self.lhi(t, imm),
             26 => self.trap(),
@@ -241,7 +331,8 @@ pub trait Decoder<T> {
             40 => self.sb(s, t, imm),
             41 => self.sh(s, t, imm),
             43 => self.sw(s, t, imm),
-
+            49 => self.lwc1(s, t, imm),
+            57 => self.swc1(s, t, imm),
             _ => return None,
         })
     }
