@@ -1635,10 +1635,10 @@ impl Instruction {
             Instruction::CvtWD { s, d } => vec![d.into(), s.into()],
             Instruction::Mtc1 { t, s } => vec![t.into(), s.into()],
             Instruction::Mfc1 { t, s } => vec![t.into(), s.into()],
-            Instruction::Lwc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
-            Instruction::Swc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
-            Instruction::Ldc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
-            Instruction::Sdc1 { base, t, offset } => vec![base.into(), t.into(), Immediate(offset)],
+            Instruction::Lwc1 { base, t, offset } => vec![t.into(), Offset(offset, base)],
+            Instruction::Swc1 { base, t, offset } => vec![t.into(), Offset(offset, base)],
+            Instruction::Ldc1 { base, t, offset } => vec![t.into(), Offset(offset, base)],
+            Instruction::Sdc1 { base, t, offset } => vec![t.into(), Offset(offset, base)],
         }
     }
 }
