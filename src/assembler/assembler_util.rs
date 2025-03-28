@@ -134,6 +134,18 @@ pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, Assembl
     }
 }
 
+pub fn get_cc(iter: &mut LexerCursor) -> Result<u8, AssemblerError> {
+    let token = get_token(iter)?;
+
+    match token.kind {
+        IntegerLiteral(slot) => Ok(slot as u8),
+        _ => Err(default_error(
+            AssemblerReason::ExpectedConstant(token.kind.strip()),
+            token,
+        )),
+    }
+}
+
 pub enum InstructionValue {
     Slot(RegisterSlot),
     Literal(u64),

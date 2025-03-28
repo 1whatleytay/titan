@@ -20,9 +20,8 @@ use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
 
-use super::assembler_util::{get_fp_register, get_integer_adjacent, AssemblerReason};
+use super::assembler_util::{get_cc, get_fp_register};
 use super::instructions::Size;
-use super::lexer::StrippedKind;
 use super::registers::FPRegisterSlot;
 
 fn instruction_base(op: &Opcode) -> u32 {
@@ -633,10 +632,7 @@ fn do_fp_move_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_fp_register(iter)?;
     let source = get_fp_register(iter)?;
-    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
-        location: None,
-        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
-    })?;
+    let cc = get_cc(iter)?;
 
     let temp = ((cc as u8) << 2) | (bool as u8 & 1);
 
@@ -655,10 +651,7 @@ fn do_fp_cond_instruction(
     fmt: Size,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
-        location: None,
-        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
-    })?;
+    let cc = get_cc(iter)?;
     let source = get_fp_register(iter)?;
     let target = get_fp_register(iter)?;
 
@@ -703,10 +696,7 @@ fn do_fp_branch_instruction(
     bool: bool,
     iter: &mut LexerCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let cc = get_integer_adjacent(iter).ok_or(AssemblerError {
-        location: None,
-        reason: AssemblerReason::ExpectedConstant(StrippedKind::Plus),
-    })?;
+    let cc = get_cc(iter)?;
     let label = get_label(iter)?;
     let temp = ((cc as u8) << 2) | (bool as u8 & 1);
 
