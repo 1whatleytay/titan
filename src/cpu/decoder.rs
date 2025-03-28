@@ -143,7 +143,7 @@ pub trait Decoder<T> {
             1 => match t & 0b11 {
                 0b00 => self.movf(s, d, t >> 2),
                 0b01 => self.movt(s, d, t >> 2),
-                _ => unreachable!(),
+                _ => return None,
             },
             2 => self.srl(t, d, sham),
             3 => self.sra(t, d, sham),
@@ -224,8 +224,7 @@ pub trait Decoder<T> {
                     16 => Size::Single,
                     17 => Size::Double,
                     20 => Size::Word,
-                    21 => unimplemented!(),
-                    _ => unreachable!(),
+                    _ => return None,
                 };
                 match (instr, ifmt) {
                     (0, Size::Single) => self.add_s(t, s, d),
@@ -243,7 +242,7 @@ pub trait Decoder<T> {
                     (17, Size::Single) => match t & 0b11 {
                         0b00 => self.movf_s(t >> 2, s, d),
                         0b01 => self.movt_s(t >> 2, s, d),
-                        _ => unreachable!(),
+                        _ => return None,
                     },
                     (18, Size::Single) => self.movz_s(t, s, d),
                     (19, Size::Single) => self.movn_s(t, s, d),
@@ -266,7 +265,7 @@ pub trait Decoder<T> {
                     (17, Size::Double) => match t & 0b11 {
                         0b00 => self.movf_d(t >> 2, s, d),
                         0b01 => self.movt_d(t >> 2, s, d),
-                        _ => unreachable!(),
+                        _ => return None,
                     },
                     (18, Size::Double) => self.movz_d(t, s, d),
                     (19, Size::Double) => self.movn_d(t, s, d),
@@ -294,7 +293,7 @@ pub trait Decoder<T> {
                 match tf {
                     0 => return Some(self.bc1f(cc, addr)),
                     1 => return Some(self.bc1t(cc, addr)),
-                    _ => unreachable!(),
+                    _ => return None,
                 }
             }
             _ => return None,
