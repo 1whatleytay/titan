@@ -918,21 +918,45 @@ impl<Mem: Memory> Decoder<Result<()>> for State<Mem> {
         Ok(())
     }
     fn cvt_s_w(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = *self.fp_register(s);
+        *self.fp_register(d) = (value as f32).to_bits();
         Ok(())
     }
     fn cvt_w_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = f32::from_bits(*self.fp_register(s));
+        *self.fp_register(d) = value as i32 as u32;
         Ok(())
     }
     fn cvt_s_d(&mut self, s: u8, d: u8) -> Result<()> {
+        let value =
+            f64::from_bits((*self.fp_register(s) as u64) | (*self.fp_register(s + 1) as u64) << 32);
+        *self.fp_register(d) = (value as f32).to_bits();
         Ok(())
     }
     fn cvt_d_s(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = f32::from_bits(*self.fp_register(s));
+        let double_cast = value as f64;
+        let result = double_cast.to_bits();
+        let lower = result as u32;
+        let upper = (result >> 32) as u32;
+        *self.fp_register(d) = lower;
+        *self.fp_register(d + 1) = upper;
         Ok(())
     }
     fn cvt_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        let value =
+            f64::from_bits((*self.fp_register(s) as u64) | (*self.fp_register(s + 1) as u64) << 32);
+        *self.fp_register(d) = value as i32 as u32;
         Ok(())
     }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = *self.fp_register(s);
+        let double_cast = value as f64;
+        let result = double_cast.to_bits();
+        let lower = result as u32;
+        let upper = (result >> 32) as u32;
+        *self.fp_register(d) = lower;
+        *self.fp_register(d + 1) = upper;
         Ok(())
     }
     fn mtc1(&mut self, t: u8, s: u8) -> Result<()> {
