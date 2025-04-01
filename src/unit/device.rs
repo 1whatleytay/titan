@@ -6,6 +6,8 @@ use crate::cpu::error::Error as CpuError;
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::memory::watched::WatchedMemory;
 use crate::cpu::memory::{Mountable, Region};
+use crate::cpu::registers::WatchedRegisters;
+use crate::cpu::registers::WhichRegister::Pc;
 use crate::cpu::state::Registers;
 use crate::cpu::{Memory, State};
 use crate::execution::executor::ExecutorMode::{Invalid, Running};
@@ -30,6 +32,7 @@ use std::{fs, thread};
 use StopCondition::{Label, MaybeLabel};
 
 pub type MemoryType = WatchedMemory<SectionMemory<DefaultResponder>>;
+pub type RegisterType = WatchedRegisters;
 pub type TrackerType = HistoryTracker;
 
 #[derive(Debug)]
@@ -50,7 +53,7 @@ impl Display for MakeUnitDeviceError {
 impl Error for MakeUnitDeviceError {}
 
 pub struct UnitDevice {
-    pub executor: Arc<Executor<MemoryType, TrackerType>>,
+    pub executor: Arc<Executor<MemoryType, RegisterType, TrackerType>>,
     pub binary: Binary,
     pub finished_pcs: Vec<u32>,
     pub syscall_handler: Option<Box<dyn Fn()>>,
@@ -254,57 +257,57 @@ impl Binary {
     }
 }
 
-impl Registers {
+impl dyn Registers {
     pub fn temporary(&self) -> [u32; 10] {
         [
-            self.get(RegisterSlot::Temporary0),
-            self.get(RegisterSlot::Temporary1),
-            self.get(RegisterSlot::Temporary2),
-            self.get(RegisterSlot::Temporary3),
-            self.get(RegisterSlot::Temporary4),
-            self.get(RegisterSlot::Temporary5),
-            self.get(RegisterSlot::Temporary6),
-            self.get(RegisterSlot::Temporary7),
-            self.get(RegisterSlot::Temporary8),
-            self.get(RegisterSlot::Temporary9),
+            self.get_l(RegisterSlot::Temporary0),
+            self.get_l(RegisterSlot::Temporary1),
+            self.get_l(RegisterSlot::Temporary2),
+            self.get_l(RegisterSlot::Temporary3),
+            self.get_l(RegisterSlot::Temporary4),
+            self.get_l(RegisterSlot::Temporary5),
+            self.get_l(RegisterSlot::Temporary6),
+            self.get_l(RegisterSlot::Temporary7),
+            self.get_l(RegisterSlot::Temporary8),
+            self.get_l(RegisterSlot::Temporary9),
         ]
     }
 
     pub fn saved(&self) -> [u32; 8] {
         [
-            self.get(RegisterSlot::Saved0),
-            self.get(RegisterSlot::Saved1),
-            self.get(RegisterSlot::Saved2),
-            self.get(RegisterSlot::Saved3),
-            self.get(RegisterSlot::Saved4),
-            self.get(RegisterSlot::Saved5),
-            self.get(RegisterSlot::Saved6),
-            self.get(RegisterSlot::Saved7),
+            self.get_l(RegisterSlot::Saved0),
+            self.get_l(RegisterSlot::Saved1),
+            self.get_l(RegisterSlot::Saved2),
+            self.get_l(RegisterSlot::Saved3),
+            self.get_l(RegisterSlot::Saved4),
+            self.get_l(RegisterSlot::Saved5),
+            self.get_l(RegisterSlot::Saved6),
+            self.get_l(RegisterSlot::Saved7),
         ]
     }
 
     pub fn parameters(&self) -> [u32; 4] {
         [
-            self.get(RegisterSlot::Parameter0),
-            self.get(RegisterSlot::Parameter1),
-            self.get(RegisterSlot::Parameter2),
-            self.get(RegisterSlot::Parameter3),
+            self.get_l(RegisterSlot::Parameter0),
+            self.get_l(RegisterSlot::Parameter1),
+            self.get_l(RegisterSlot::Parameter2),
+            self.get_l(RegisterSlot::Parameter3),
         ]
     }
 
     pub fn values(&self) -> [u32; 2] {
         [
-            self.get(RegisterSlot::Value0),
-            self.get(RegisterSlot::Value1),
+            self.get_l(RegisterSlot::Value0),
+            self.get_l(RegisterSlot::Value1),
         ]
     }
 
     pub fn other(&self) -> [u32; 4] {
         [
-            self.get(RegisterSlot::StackPointer),
-            self.get(RegisterSlot::GeneralPointer),
-            self.get(RegisterSlot::Kernel0),
-            self.get(RegisterSlot::Kernel1),
+            self.get_l(RegisterSlot::StackPointer),
+            self.get_l(RegisterSlot::GeneralPointer),
+            self.get_l(RegisterSlot::Kernel0),
+            self.get_l(RegisterSlot::Kernel1),
         ]
     }
 }
@@ -335,8 +338,10 @@ impl UnitDevice {
 
         memory.mount(heap);
 
-        let mut state = State::new(binary.entry, memory);
-        state.registers.line[29] = heap_end;
+        let mut registers = WatchedRegisters::new(binary.entry);
+        registers.backing.line[29] = heap_end;
+
+        let state = State::new(registers, memory);
 
         let tracker = HistoryTracker::new(1000);
 
@@ -368,16 +373,16 @@ impl UnitDevice {
         Ok(Self::new(Self::binary(path)?))
     }
 
-    pub fn registers(&self) -> Registers {
-        self.executor.with_state(|s| s.registers)
+    pub fn registers(&self) -> WatchedRegisters {
+        self.executor.with_state(|s| s.registers.clone())
     }
 
     pub fn get(&self, name: RegisterSlot) -> u32 {
-        self.executor.with_state(|s| s.registers.get(name))
+        self.executor.with_state(|s| s.registers.get_l(name))
     }
 
     pub fn set(&self, name: RegisterSlot, value: u32) {
-        self.executor.with_state(|s| s.registers.set(name, value))
+        self.executor.with_state(|s| s.registers.set_l(name, value))
     }
 
     pub fn has_label(&self, name: &str) -> bool {
@@ -404,7 +409,7 @@ impl UnitDevice {
         self.binary
             .labels
             .get(name)
-            .map(|v| self.executor.with_state(|s| s.registers.pc == *v))
+            .map(|v| self.executor.with_state(|s| s.registers.get(Pc) == *v))
             .unwrap_or(false)
     }
 
@@ -454,7 +459,7 @@ impl UnitDevice {
     }
 
     pub fn jump_to(&self, pc: u32) {
-        self.executor.with_state(|s| s.registers.pc = pc)
+        self.executor.with_state(|s| s.registers.set(Pc, pc))
     }
 
     pub fn jump_to_label(&self, name: &str) -> Result<(), UnitDeviceError> {
@@ -467,11 +472,11 @@ impl UnitDevice {
         Ok(())
     }
 
-    pub fn snapshot(&self) -> State<MemoryType> {
+    pub fn snapshot(&self) -> State<MemoryType, RegisterType> {
         self.executor.with_state(|s| s.clone())
     }
 
-    pub fn restore(&self, state: State<MemoryType>) {
+    pub fn restore(&self, state: State<MemoryType, RegisterType>) {
         self.executor.with_state(|s| *s = state)
     }
 
@@ -491,7 +496,7 @@ impl UnitDevice {
         match frame.mode {
             Invalid(error) => match error {
                 CpuError::CpuSyscall => {
-                    let v0 = self.executor.with_state(|s| s.registers.get(Value0));
+                    let v0 = self.executor.with_state(|s| s.registers.get_l(Value0));
 
                     if let Some(handler) = self.handlers.get(&v0) {
                         handler();
@@ -565,11 +570,11 @@ impl UnitDevice {
     ) -> Result<(), UnitDeviceError> {
         self.jump_to_label(label)?;
 
-        let last_ra = self.registers().get(ReturnAddress);
+        let last_ra = self.registers().get_l(ReturnAddress);
         let return_address = 0xEABADDEA;
 
         self.executor
-            .with_state(|s| s.registers.set(ReturnAddress, return_address));
+            .with_state(|s| s.registers.set_l(ReturnAddress, return_address));
 
         self.load_params(params);
 
@@ -579,7 +584,7 @@ impl UnitDevice {
         self.execute_until_slice(&execution_conditions)?;
 
         self.executor
-            .with_state(|s| s.registers.set(ReturnAddress, last_ra));
+            .with_state(|s| s.registers.set_l(ReturnAddress, last_ra));
 
         Ok(())
     }

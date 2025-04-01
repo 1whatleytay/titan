@@ -27,11 +27,11 @@ pub struct RegisterValue {
     pub value: u32,
 }
 
-impl Registers {
+impl dyn Registers + '_ {
     fn value(&self, name: RegisterSlot) -> RegisterValue {
         RegisterValue {
             name,
-            value: self.get(name),
+            value: self.get_l(name),
         }
     }
 }
@@ -62,7 +62,7 @@ impl MemoryErrorDescription {
         alignment: u32,
         source: RegisterSlot,
         immediate: u16,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> MemoryErrorDescription {
         MemoryErrorDescription {
             instruction,
@@ -80,7 +80,7 @@ impl TrapErrorDescription {
         reason: TrapErrorReason,
         source: RegisterSlot,
         temp: RegisterSlot,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -95,7 +95,7 @@ impl TrapErrorDescription {
         reason: TrapErrorReason,
         source: RegisterSlot,
         imm: u16,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -111,7 +111,7 @@ impl Instruction {
     pub fn describe_memory_error(
         &self,
         reason: MemoryErrorReason,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> Option<MemoryErrorDescription> {
         Some(match self {
             Lb { s, imm, .. } | Lbu { s, imm, .. } | Sb { s, imm, .. } => {
@@ -127,7 +127,7 @@ impl Instruction {
         })
     }
 
-    pub fn describe_trap_error(&self, registers: &Registers) -> Option<TrapErrorDescription> {
+    pub fn describe_trap_error(&self, registers: &dyn Registers) -> Option<TrapErrorDescription> {
         Some(match self {
             Add { s, t, .. } => {
                 TrapErrorDescription::from_temp(self.clone(), OverflowAdd, *s, *t, registers)
