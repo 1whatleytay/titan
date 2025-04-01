@@ -1,7 +1,7 @@
 use crate::unit::register::RegisterName;
 use num::ToPrimitive;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WhichRegister {
     Pc,
     Line(u8),
@@ -14,14 +14,17 @@ pub enum WhichRegister {
 pub trait Registers {
     fn get(&self, name: WhichRegister) -> u32;
     fn set(&mut self, name: WhichRegister, value: u32);
+
     fn raw(&self) -> RawRegisters;
 
+    #[inline]
     fn get_l(&self, name: RegisterName) -> u32 {
         let index = name.to_u8().unwrap();
 
         self.get(WhichRegister::Line(index))
     }
 
+    #[inline]
     fn set_l(&mut self, name: RegisterName, value: u32) {
         let index = name.to_u8().unwrap();
 
@@ -29,7 +32,7 @@ pub trait Registers {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RawRegisters {
     pub pc: u32,
     pub line: [u32; 32],
@@ -40,20 +43,8 @@ pub struct RawRegisters {
     pub cf: u32,
 }
 
-impl RawRegisters {
-    pub fn new(entry: u32) -> RawRegisters {
-        RawRegisters {
-            pc: entry,
-            line: [0; 32],
-            lo: 0,
-            hi: 0,
-            fp: [0; 32],
-            cf: 0,
-        }
-    }
-}
-
 impl Registers for RawRegisters {
+    #[inline]
     fn get(&self, name: WhichRegister) -> u32 {
         match name {
             WhichRegister::Pc => self.pc,
@@ -65,6 +56,7 @@ impl Registers for RawRegisters {
         }
     }
 
+    #[inline]
     fn set(&mut self, name: WhichRegister, value: u32) {
         match name {
             WhichRegister::Pc => self.pc = value,

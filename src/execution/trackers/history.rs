@@ -1,4 +1,5 @@
 use crate::cpu::memory::watched::{WatchEntry, WatchedMemory, LOG_SIZE};
+use crate::cpu::registers::watched::REGISTER_LOG_SIZE;
 use crate::cpu::registers::{RegisterEntry, Registers, WatchedRegisters};
 use crate::cpu::{Memory, State};
 use crate::execution::trackers::Tracker;
@@ -13,7 +14,7 @@ impl RegisterEntry {
 }
 
 pub struct HistoryEntry {
-    pub registers: SmallVec<[RegisterEntry; LOG_SIZE]>,
+    pub registers: SmallVec<[RegisterEntry; REGISTER_LOG_SIZE]>,
     pub edits: SmallVec<[WatchEntry; LOG_SIZE]>,
 }
 

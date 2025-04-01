@@ -338,8 +338,9 @@ impl UnitDevice {
 
         memory.mount(heap);
 
-        let mut registers = WatchedRegisters::new(binary.entry);
+        let mut registers = WatchedRegisters::default();
         registers.backing.line[29] = heap_end;
+        registers.backing.pc = binary.entry;
 
         let state = State::new(registers, memory);
 

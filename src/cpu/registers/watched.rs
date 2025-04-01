@@ -1,24 +1,19 @@
 use super::{registers::RawRegisters, Registers, WhichRegister};
-use crate::cpu::memory::watched::LOG_SIZE;
 use smallvec::SmallVec;
+
+pub const REGISTER_LOG_SIZE: usize = 4;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RegisterEntry(pub WhichRegister, pub u32);
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct WatchedRegisters {
     pub backing: RawRegisters,
-    pub log: SmallVec<[RegisterEntry; LOG_SIZE]>,
+    pub log: SmallVec<[RegisterEntry; REGISTER_LOG_SIZE]>,
 }
 
 impl WatchedRegisters {
-    pub fn new(entry: u32) -> Self {
-        WatchedRegisters {
-            backing: RawRegisters::new(entry),
-            log: SmallVec::new(),
-        }
-    }
-    pub fn take(&mut self) -> SmallVec<[RegisterEntry; LOG_SIZE]> {
+    pub fn take(&mut self) -> SmallVec<[RegisterEntry; REGISTER_LOG_SIZE]> {
         std::mem::take(&mut self.log)
     }
 }
