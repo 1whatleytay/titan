@@ -1,10 +1,11 @@
 use crate::cpu::memory::watched::{WatchEntry, WatchedMemory, LOG_SIZE};
 use crate::cpu::registers::watched::REGISTER_LOG_SIZE;
-use crate::cpu::registers::{RegisterEntry, Registers, WatchedRegisters};
+use crate::cpu::registers::{RegisterEntry, Registers, WatchedRegisters, WhichRegister};
 use crate::cpu::{Memory, State};
 use crate::execution::trackers::Tracker;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
+use WhichRegister::Pc;
 
 impl RegisterEntry {
     pub fn apply<Reg: Registers>(self, registers: &mut Reg) {
@@ -20,9 +21,11 @@ pub struct HistoryEntry {
 
 impl HistoryEntry {
     pub fn apply<Mem: Memory, Reg: Registers>(self, registers: &mut Reg, memory: &mut Mem) {
-        for entry in self.registers {
+        for entry in self.registers.iter().rev() {
             entry.apply(registers);
         }
+        registers.set(Pc, registers.get(Pc).wrapping_sub(4));
+
         for entry in self.edits {
             entry.apply(memory).ok(); // ignore error
         }

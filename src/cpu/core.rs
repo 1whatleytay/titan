@@ -61,9 +61,9 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
 
     pub fn step(&mut self) -> Result<()> {
         let start = self.registers.get(Pc);
-        let instruction = self.memory.get_u32(self.registers.get(Pc))?;
+        let instruction = self.memory.get_u32(start)?;
 
-        self.registers.set(Pc, start.wrapping_add(4));
+        self.registers.step_pc();
 
         self.dispatch(instruction)
             .unwrap_or(Err(CpuInvalid(instruction)))

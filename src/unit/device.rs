@@ -543,7 +543,7 @@ impl UnitDevice {
         };
 
         self.executor.with_state(|state| {
-            entry.apply(&mut state.registers, &mut state.memory.backing);
+            entry.apply(&mut state.registers.backing, &mut state.memory.backing);
         });
 
         true

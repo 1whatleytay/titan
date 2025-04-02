@@ -15,6 +15,10 @@ pub trait Registers {
     fn get(&self, name: WhichRegister) -> u32;
     fn set(&mut self, name: WhichRegister, value: u32);
 
+    fn step_pc(&mut self);
+
+    fn clear(&mut self);
+
     fn raw(&self) -> RawRegisters;
 
     #[inline]
@@ -68,7 +72,14 @@ impl Registers for RawRegisters {
         }
     }
 
+    #[inline]
+    fn step_pc(&mut self) {
+        self.pc = self.pc.wrapping_add(4);
+    }
+
     fn raw(&self) -> RawRegisters {
         self.clone()
     }
+
+    fn clear(&mut self) {}
 }

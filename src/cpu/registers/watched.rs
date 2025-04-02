@@ -1,7 +1,7 @@
 use super::{registers::RawRegisters, Registers, WhichRegister};
 use smallvec::SmallVec;
 
-pub const REGISTER_LOG_SIZE: usize = 4;
+pub const REGISTER_LOG_SIZE: usize = 1;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RegisterEntry(pub WhichRegister, pub u32);
@@ -19,15 +19,28 @@ impl WatchedRegisters {
 }
 
 impl Registers for WatchedRegisters {
+    #[inline]
     fn get(&self, name: WhichRegister) -> u32 {
         self.backing.get(name)
     }
 
+    #[inline]
     fn set(&mut self, name: WhichRegister, value: u32) {
-        self.log.push(RegisterEntry(name, value));
+        let old_value = self.backing.get(name);
+        self.log.push(RegisterEntry(name, old_value));
         self.backing.set(name, value);
     }
+
+    #[inline]
+    fn step_pc(&mut self) {
+        self.backing.step_pc();
+    }
+
     fn raw(&self) -> RawRegisters {
         self.backing.clone()
+    }
+
+    fn clear(&mut self) {
+        self.log.clear();
     }
 }
