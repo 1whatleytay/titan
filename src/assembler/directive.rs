@@ -378,7 +378,7 @@ fn do_word_directive(
 }
 
 // Don't want to deal with this until coprocessor
-fn do_float_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
+fn do_float_directive(iter: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
     Err(AssemblerError {
         location: None,
         reason: UnknownDirective("float".to_string()),
