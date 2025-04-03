@@ -1,8 +1,10 @@
 use crate::assembler::instructions::Encoding::{
-    Branch, BranchZero, Destination, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless,
-    Register, RegisterShift, Sham, Source, SpecialBranch,
+    Branch, BranchZero, Destination, FP2Register, FP3Register, FPBranch, FPCond, FPCrossMove,
+    FPMove, FPOffset, Immediate, Inputs, Jump, LoadImmediate, Offset, Parameterless, Register,
+    RegisterShift, Sham, Source, SpecialBranch,
 };
-use crate::assembler::instructions::Opcode::{Algebra, Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Algebra, Cop1, Cop1I, Func, Op, Special};
+use crate::assembler::instructions::Size::{Double, Single, Word};
 use std::collections::HashMap;
 
 pub enum Encoding {
@@ -20,13 +22,28 @@ pub enum Encoding {
     BranchZero,
     Parameterless,
     Offset,
+    FPOffset,
+    FP3Register(Size),  // Size, $, $, $
+    FP2Register(Size),  // Size, 0, $, $
+    FPMove(Size, bool), // Size, $, $, cc|bool
+    FPCond(Size),       // Size, cc, $, $
+    FPCrossMove(bool),  // direction
+    FPBranch(bool),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Size {
+    Single,
+    Double,
+    Word,
+}
 pub enum Opcode {
     Op(u8),
     Func(u8),
     Special(u8),
     Algebra(u8),
+    Cop1(u8),
+    Cop1I(u8),
 }
 
 pub struct Instruction<'a> {
@@ -35,7 +52,7 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
-pub const INSTRUCTIONS: [Instruction; 61] = [
+pub const INSTRUCTIONS: [Instruction; 115] = [
     Instruction {
         name: "sll",
         opcode: Func(0),
@@ -340,6 +357,276 @@ pub const INSTRUCTIONS: [Instruction; 61] = [
         name: "msubu",
         opcode: Algebra(5),
         encoding: Inputs,
+    },
+    Instruction {
+        name: "add.s",
+        opcode: Cop1(0),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "sub.s",
+        opcode: Cop1(1),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "mul.s",
+        opcode: Cop1(2),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "div.s",
+        opcode: Cop1(3),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "sqrt.s",
+        opcode: Cop1(4),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "abs.s",
+        opcode: Cop1(5),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "mov.s",
+        opcode: Cop1(6),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "neg.s",
+        opcode: Cop1(7),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "round.w.s",
+        opcode: Cop1(12),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "trunc.w.s",
+        opcode: Cop1(13),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "ceil.w.s",
+        opcode: Cop1(14),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "floor.w.s",
+        opcode: Cop1(15),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "add.d",
+        opcode: Cop1(0),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "sub.d",
+        opcode: Cop1(1),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "mul.d",
+        opcode: Cop1(2),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "div.d",
+        opcode: Cop1(3),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "sqrt.d",
+        opcode: Cop1(4),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "abs.d",
+        opcode: Cop1(5),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "mov.d",
+        opcode: Cop1(6),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "neg.d",
+        opcode: Cop1(7),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "round.w.d",
+        opcode: Cop1(12),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "trunc.w.d",
+        opcode: Cop1(13),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "ceil.w.d",
+        opcode: Cop1(14),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "floor.w.d",
+        opcode: Cop1(15),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "c.eq.s",
+        opcode: Cop1(0b110010),
+        encoding: FPCond(Single),
+    },
+    Instruction {
+        name: "c.le.s",
+        opcode: Cop1(0b111110),
+        encoding: FPCond(Single),
+    },
+    Instruction {
+        name: "c.lt.s",
+        opcode: Cop1(0b111100),
+        encoding: FPCond(Single),
+    },
+    Instruction {
+        name: "c.eq.d",
+        opcode: Cop1(0b110010),
+        encoding: FPCond(Double),
+    },
+    Instruction {
+        name: "c.le.d",
+        opcode: Cop1(0b111110),
+        encoding: FPCond(Double),
+    },
+    Instruction {
+        name: "c.lt.d",
+        opcode: Cop1(0b111100),
+        encoding: FPCond(Double),
+    },
+    Instruction {
+        name: "bc1t",
+        opcode: Cop1I(0b01000),
+        encoding: FPBranch(true),
+    },
+    Instruction {
+        name: "bc1f",
+        opcode: Cop1I(0b01000),
+        encoding: FPBranch(false),
+    },
+    Instruction {
+        name: "mov.s",
+        opcode: Cop1(0b000110),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "movf.s",
+        opcode: Cop1(0b010001),
+        encoding: FPMove(Single, false),
+    },
+    Instruction {
+        name: "movt.s",
+        opcode: Cop1(0b010001),
+        encoding: FPMove(Single, true),
+    },
+    Instruction {
+        name: "movn.s",
+        opcode: Cop1(0b010011),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "movz.s",
+        opcode: Cop1(0b010010),
+        encoding: FP3Register(Single),
+    },
+    Instruction {
+        name: "mov.d",
+        opcode: Cop1(0b000110),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "movf.d",
+        opcode: Cop1(0b010001),
+        encoding: FPMove(Double, false),
+    },
+    Instruction {
+        name: "movt.d",
+        opcode: Cop1(0b010001),
+        encoding: FPMove(Double, true),
+    },
+    Instruction {
+        name: "movn.d",
+        opcode: Cop1(0b010011),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "movz.d",
+        opcode: Cop1(0b010010),
+        encoding: FP3Register(Double),
+    },
+    Instruction {
+        name: "cvt.s.w",
+        opcode: Cop1(0b100000),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "cvt.s.d",
+        opcode: Cop1(0b100000),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "cvt.w.s",
+        opcode: Cop1(0b100100),
+        encoding: FP2Register(Single),
+    },
+    Instruction {
+        name: "cvt.w.d",
+        opcode: Cop1(0b100100),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "cvt.d.s",
+        opcode: Cop1(0b100001),
+        encoding: FP2Register(Double),
+    },
+    Instruction {
+        name: "cvt.d.w",
+        opcode: Cop1(0b100001),
+        encoding: FP2Register(Word),
+    },
+    Instruction {
+        name: "mfc1",
+        opcode: Cop1I(0b00000),
+        encoding: FPCrossMove(false),
+    },
+    Instruction {
+        name: "mtc1",
+        opcode: Cop1I(0b00100),
+        encoding: FPCrossMove(true),
+    },
+    Instruction {
+        name: "lwc1",
+        opcode: Op(0b110001),
+        encoding: FPOffset,
+    },
+    Instruction {
+        name: "swc1",
+        opcode: Op(0b111001),
+        encoding: FPOffset,
+    },
+    Instruction {
+        name: "ldc1",
+        opcode: Op(0b110101),
+        encoding: FPOffset,
+    },
+    Instruction {
+        name: "sdc1",
+        opcode: Op(0b111101),
+        encoding: FPOffset,
     },
 ];
 

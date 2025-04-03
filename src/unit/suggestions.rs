@@ -1,9 +1,9 @@
+use crate::assembler::registers::RegisterSlot;
 use crate::cpu::state::Registers;
 use crate::unit::instruction::Instruction::{
     Add, Addi, Div, Divu, Lb, Lbu, Lh, Lhu, Lw, Sb, Sh, Sub, Sw,
 };
 use crate::unit::instruction::{sig, sig_u32, Instruction};
-use crate::unit::register::RegisterName;
 use crate::unit::suggestions::TrapErrorReason::{
     DivByZero, OverflowAdd, OverflowOther, OverflowSub,
 };
@@ -23,15 +23,15 @@ pub struct MemoryErrorDescription {
 }
 
 pub struct RegisterValue {
-    pub name: RegisterName,
+    pub name: RegisterSlot,
     pub value: u32,
 }
 
-impl Registers {
-    fn value(&self, name: RegisterName) -> RegisterValue {
+impl dyn Registers + '_ {
+    fn value(&self, name: RegisterSlot) -> RegisterValue {
         RegisterValue {
             name,
-            value: self.get(name),
+            value: self.get_l(name),
         }
     }
 }
@@ -60,9 +60,9 @@ impl MemoryErrorDescription {
         instruction: Instruction,
         reason: MemoryErrorReason,
         alignment: u32,
-        source: RegisterName,
+        source: RegisterSlot,
         immediate: u16,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> MemoryErrorDescription {
         MemoryErrorDescription {
             instruction,
@@ -78,9 +78,9 @@ impl TrapErrorDescription {
     fn from_temp(
         instruction: Instruction,
         reason: TrapErrorReason,
-        source: RegisterName,
-        temp: RegisterName,
-        registers: &Registers,
+        source: RegisterSlot,
+        temp: RegisterSlot,
+        registers: &dyn Registers,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -93,9 +93,9 @@ impl TrapErrorDescription {
     fn from_imm(
         instruction: Instruction,
         reason: TrapErrorReason,
-        source: RegisterName,
+        source: RegisterSlot,
         imm: u16,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -111,7 +111,7 @@ impl Instruction {
     pub fn describe_memory_error(
         &self,
         reason: MemoryErrorReason,
-        registers: &Registers,
+        registers: &dyn Registers,
     ) -> Option<MemoryErrorDescription> {
         Some(match self {
             Lb { s, imm, .. } | Lbu { s, imm, .. } | Sb { s, imm, .. } => {
@@ -127,7 +127,7 @@ impl Instruction {
         })
     }
 
-    pub fn describe_trap_error(&self, registers: &Registers) -> Option<TrapErrorDescription> {
+    pub fn describe_trap_error(&self, registers: &dyn Registers) -> Option<TrapErrorDescription> {
         Some(match self {
             Add { s, t, .. } => {
                 TrapErrorDescription::from_temp(self.clone(), OverflowAdd, *s, *t, registers)

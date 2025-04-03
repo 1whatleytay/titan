@@ -3,13 +3,16 @@ use crate::assembler::binary::AddressLabel::{Constant, Label};
 use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
 use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{
-    IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol,
+    FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace,
+    StringLiteral, Symbol,
 };
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::RegisterSlot;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use TokenKind::Minus;
+
+use super::registers::FPRegisterSlot;
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -119,6 +122,30 @@ pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
+pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, AssemblerError> {
+    let token = get_token(iter)?;
+
+    match token.kind {
+        FPRegister(slot) => Ok(slot),
+        _ => Err(default_error(
+            AssemblerReason::ExpectedRegister(token.kind.strip()),
+            token,
+        )),
+    }
+}
+
+pub fn get_cc(iter: &mut LexerCursor) -> Result<u8, AssemblerError> {
+    let token = get_token(iter)?;
+
+    match token.kind {
+        IntegerLiteral(slot) => Ok(slot as u8),
+        _ => Err(default_error(
+            AssemblerReason::ExpectedConstant(token.kind.strip()),
+            token,
+        )),
+    }
+}
+
 pub enum InstructionValue {
     Slot(RegisterSlot),
     Literal(u64),
@@ -147,6 +174,44 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
             }
         }
         IntegerLiteral(value) => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            Some(*value)
+        }
+        _ => None,
+    }
+}
+
+pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<f64> {
+    let start = iter.get_position();
+
+    match &first.kind {
+        Plus | Minus => {
+            if consume {
+                iter.next(); // consume first
+            }
+            let multiplier = if first.kind == Plus { 1f64 } else { -1f64 };
+            let adjacent = iter.next_adjacent();
+            if let Some(IntegerLiteral(value)) = adjacent.map(|t| &t.kind) {
+                Some((*value as f64) * multiplier)
+            } else if let Some(FloatLiteral(value)) = adjacent.map(|t| &t.kind) {
+                Some(*value * multiplier)
+            } else {
+                iter.set_position(start);
+
+                None
+            }
+        }
+        IntegerLiteral(value) => {
+            if consume {
+                iter.next(); // consume first
+            }
+
+            Some(*value as f64)
+        }
+        FloatLiteral(value) => {
             if consume {
                 iter.next(); // consume first
             }

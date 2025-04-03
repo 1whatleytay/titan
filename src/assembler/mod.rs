@@ -10,6 +10,6 @@ mod directive;
 mod emit;
 pub mod instructions;
 pub mod line_details;
-mod registers;
+pub mod registers;
 pub mod source;
 pub mod string;
