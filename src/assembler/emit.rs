@@ -419,15 +419,13 @@ fn do_special_branch_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_immediate_instruction(
+fn emit_immediate_instruction(
     op: &Opcode,
     alt: Option<&Opcode>,
-    iter: &mut LexerCursor,
+    temp: RegisterSlot,
+    source: RegisterSlot,
+    constant: u64, // constant
 ) -> Result<EmitInstruction, AssemblerError> {
-    let temp = get_register(iter)?;
-    let source = get_register(iter)?;
-    let constant = get_constant(iter)?;
-
     let signed = constant as i64;
 
     if !(-0x8000..0x8000).contains(&signed) {
@@ -461,6 +459,18 @@ fn do_immediate_instruction(
 
         Ok(EmitInstruction::with(inst))
     }
+}
+
+fn do_immediate_instruction(
+    op: &Opcode,
+    alt: Option<&Opcode>,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let temp = get_register(iter)?;
+    let source = get_register(iter)?;
+    let constant = get_constant(iter)?;
+
+    emit_immediate_instruction(op, alt, temp, source, constant)
 }
 
 fn do_load_immediate_instruction(
@@ -985,13 +995,7 @@ fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    let addi = InstructionBuilder::from_op(&Op(8)) // addi
-        .with_source(temp)
-        .with_temp(dest)
-        .with_immediate((-(constant as i16)) as u16)
-        .0;
-
-    Ok(EmitInstruction::with(addi))
+    emit_immediate_instruction(&Op(8), Some(&Func(32)), dest, temp, (-(constant as i64)) as u64)
 }
 
 fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
@@ -999,13 +1003,7 @@ fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assem
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    let addiu = InstructionBuilder::from_op(&Op(9)) // addiu
-        .with_source(temp)
-        .with_temp(dest)
-        .with_immediate((-(constant as i16)) as u16)
-        .0;
-
-    Ok(EmitInstruction::with(addiu))
+    emit_immediate_instruction(&Op(9), Some(&Func(33)), dest, temp, (-(constant as i64)) as u64)
 }
 
 fn dispatch_pseudo(

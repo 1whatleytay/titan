@@ -475,7 +475,6 @@ fn get_float_or_labels(iter: &mut LexerCursor) -> Result<Vec<FloatOrLabel>, Asse
     Ok(result)
 }
 
-// Don't want to deal with this until coprocessor
 fn do_float_directive(
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
