@@ -388,7 +388,8 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         '$' => {
             let (rest, value) = take_name(after_leading);
 
-            if value.chars().nth(0) == Some('f') && value.chars().nth(1) != Some('p') {
+            let mut chars = value.chars();
+            if chars.next() == Some('f') && chars.next() != Some('p') {
                 FPRegisterSlot::from_string(value)
                     .map(|reg| Some((rest, TokenKind::FPRegister(reg))))
                     .ok_or_else(|| UnknownRegister(value.to_string()))

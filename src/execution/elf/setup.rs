@@ -31,8 +31,10 @@ pub fn create_simple_state<T: ListenResponder>(
 
     memory.mount(heap);
 
-    let mut registers = RawRegisters::default();
-    registers.pc = elf.header.program_entry;
+    let registers = RawRegisters {
+        pc: elf.header.program_entry,
+        ..Default::default()
+    };
 
     let mut state = State::new(registers, memory);
     state.registers.line[29] = heap_end;

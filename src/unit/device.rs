@@ -257,8 +257,15 @@ impl Binary {
     }
 }
 
-impl dyn Registers {
-    pub fn temporary(&self) -> [u32; 10] {
+pub trait RegRows {
+    fn temporary(&self) -> [u32; 10];
+    fn saved(&self) -> [u32; 8];
+    fn parameters(&self) -> [u32; 4];
+    fn values(&self) -> [u32; 2];
+    fn other(&self) -> [u32; 4];
+}
+impl<T: Registers> RegRows for T {
+    fn temporary(&self) -> [u32; 10] {
         [
             self.get_l(RegisterSlot::Temporary0),
             self.get_l(RegisterSlot::Temporary1),
@@ -273,7 +280,7 @@ impl dyn Registers {
         ]
     }
 
-    pub fn saved(&self) -> [u32; 8] {
+    fn saved(&self) -> [u32; 8] {
         [
             self.get_l(RegisterSlot::Saved0),
             self.get_l(RegisterSlot::Saved1),
@@ -286,7 +293,7 @@ impl dyn Registers {
         ]
     }
 
-    pub fn parameters(&self) -> [u32; 4] {
+    fn parameters(&self) -> [u32; 4] {
         [
             self.get_l(RegisterSlot::Parameter0),
             self.get_l(RegisterSlot::Parameter1),
@@ -295,14 +302,14 @@ impl dyn Registers {
         ]
     }
 
-    pub fn values(&self) -> [u32; 2] {
+    fn values(&self) -> [u32; 2] {
         [
             self.get_l(RegisterSlot::Value0),
             self.get_l(RegisterSlot::Value1),
         ]
     }
 
-    pub fn other(&self) -> [u32; 4] {
+    fn other(&self) -> [u32; 4] {
         [
             self.get_l(RegisterSlot::StackPointer),
             self.get_l(RegisterSlot::GeneralPointer),

@@ -1152,53 +1152,53 @@ impl Decoder<Instruction> for InstructionDecoder {
         Instruction::CEqS {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLeS {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLtS {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CEqD {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLeD {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> Instruction {
         Instruction::CLtD {
             t: t.into(),
             s: s.into(),
-            cc: cc,
+            cc,
         }
     }
     fn bc1t(&mut self, cc: u8, address: u16) -> Instruction {
         Instruction::BC1T {
-            cc: cc,
+            cc,
             offset: address,
         }
     }
     fn bc1f(&mut self, cc: u8, address: u16) -> Instruction {
         Instruction::BC1F {
-            cc: cc,
+            cc,
             offset: address,
         }
     }
@@ -1210,14 +1210,14 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
     fn movf_s(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovFS {
-            cc: cc,
+            cc,
             s: s.into(),
             d: d.into(),
         }
     }
     fn movt_s(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovTS {
-            cc: cc,
+            cc,
             s: s.into(),
             d: d.into(),
         }
@@ -1244,14 +1244,14 @@ impl Decoder<Instruction> for InstructionDecoder {
     }
     fn movf_d(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovFD {
-            cc: cc,
+            cc,
             s: s.into(),
             d: d.into(),
         }
     }
     fn movt_d(&mut self, cc: u8, s: u8, d: u8) -> Instruction {
         Instruction::MovTD {
-            cc: cc,
+            cc,
             s: s.into(),
             d: d.into(),
         }
@@ -1273,14 +1273,14 @@ impl Decoder<Instruction> for InstructionDecoder {
     fn movf(&mut self, s: u8, cc: u8, d: u8) -> Instruction {
         Instruction::MovF {
             s: s.into(),
-            cc: cc,
+            cc,
             d: d.into(),
         }
     }
     fn movt(&mut self, s: u8, cc: u8, d: u8) -> Instruction {
         Instruction::MovT {
             s: s.into(),
-            cc: cc,
+            cc,
             d: d.into(),
         }
     }
@@ -1350,14 +1350,14 @@ impl Decoder<Instruction> for InstructionDecoder {
         Instruction::Ldc1 {
             base: base.into(),
             t: t.into(),
-            offset: offset,
+            offset,
         }
     }
     fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> Instruction {
         Instruction::Sdc1 {
             base: base.into(),
             t: t.into(),
-            offset: offset,
+            offset,
         }
     }
 
@@ -1365,7 +1365,7 @@ impl Decoder<Instruction> for InstructionDecoder {
         Instruction::Lwc1 {
             base: base.into(),
             t: t.into(),
-            offset: offset,
+            offset,
         }
     }
 
@@ -1373,7 +1373,7 @@ impl Decoder<Instruction> for InstructionDecoder {
         Instruction::Swc1 {
             base: base.into(),
             t: t.into(),
-            offset: offset,
+            offset,
         }
     }
 }
