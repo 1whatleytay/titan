@@ -1,6 +1,7 @@
 use crate::cpu::memory::section::{ListenResponder, SectionMemory};
 use crate::cpu::memory::Mountable;
 use crate::cpu::memory::Region;
+use crate::cpu::registers::registers::RawRegisters;
 use crate::cpu::State;
 use crate::elf::Elf;
 
@@ -9,7 +10,7 @@ pub const SMALL_HEAP_SIZE: u32 = 0x10000u32;
 pub fn create_simple_state<T: ListenResponder>(
     elf: &Elf,
     heap_size: u32,
-) -> State<SectionMemory<T>> {
+) -> State<SectionMemory<T>, RawRegisters> {
     let mut memory = SectionMemory::new();
 
     for header in &elf.program_headers {
@@ -30,7 +31,12 @@ pub fn create_simple_state<T: ListenResponder>(
 
     memory.mount(heap);
 
-    let mut state = State::new(elf.header.program_entry, memory);
+    let registers = RawRegisters {
+        pc: elf.header.program_entry,
+        ..Default::default()
+    };
+
+    let mut state = State::new(registers, memory);
     state.registers.line[29] = heap_end;
 
     state

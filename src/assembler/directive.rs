@@ -2,8 +2,8 @@ use crate::assembler::assembler_util::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
 use crate::assembler::assembler_util::{
-    default_start, get_constant, get_integer, get_integer_adjacent, get_label, get_string,
-    pc_for_region, AssemblerError,
+    default_start, get_constant, get_float, get_integer, get_integer_adjacent, get_label,
+    get_string, pc_for_region, AssemblerError,
 };
 use crate::assembler::binary::AddressLabel::Label;
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
@@ -377,19 +377,120 @@ fn do_word_directive(
     Ok(())
 }
 
-// Don't want to deal with this until coprocessor
-fn do_float_directive(iter: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
-    Err(AssemblerError {
-        location: None,
-        reason: UnknownDirective("float".to_string()),
-    })
+struct FloatInfo {
+    value: f64,
+    count: u64,
 }
 
-fn do_double_directive(_: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
-    Err(AssemblerError {
-        location: None,
-        reason: UnknownDirective("double".to_string()),
-    })
+fn grab_float_value(
+    value: &Token,
+    iter: &mut LexerCursor,
+) -> Result<Option<FloatInfo>, AssemblerError> {
+    let Some(value) = get_float(value, iter, true) else {
+        return Ok(None);
+    };
+
+    let next_up = iter.seek_without(is_adjacent_kind);
+
+    let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
+        iter.next();
+
+        let Some(token) = iter.next_adjacent() else {
+            return Err(AssemblerError {
+                location: None,
+                reason: EndOfFile,
+            });
+        };
+
+        let Some(value) = get_integer(token, iter, false) else {
+            return Err(AssemblerError {
+                location: Some(token.location),
+                reason: ExpectedConstant(token.kind.strip()),
+            });
+        };
+
+        if value > REPEAT_LIMIT {
+            return Err(AssemblerError {
+                location: Some(token.location),
+                reason: ConstantOutOfRange(0, REPEAT_LIMIT as i64),
+            });
+        }
+
+        value
+    } else {
+        1u64
+    };
+
+    Ok(Some(FloatInfo { value, count }))
+}
+
+fn get_floats(iter: &mut LexerCursor) -> Result<Vec<FloatInfo>, AssemblerError> {
+    let mut result: Vec<FloatInfo> = vec![];
+
+    while let Some(value) = iter.seek_without(is_solid_kind) {
+        let Some(constant) = grab_float_value(value, iter)? else {
+            break;
+        };
+
+        result.push(constant);
+    }
+    Ok(result)
+}
+
+fn do_float_directive(
+    iter: &mut LexerCursor,
+    builder: &mut BinaryBuilder,
+) -> Result<(), AssemblerError> {
+    let values = get_floats(iter)?;
+
+    let region = builder.region().ok_or(MISSING_REGION)?;
+
+    align_with_zeros(region, 4)?;
+
+    for value in values {
+        if value.count > REPEAT_LIMIT {
+            continue;
+        }
+
+        let mut array = [0u8; 4];
+        LittleEndian::write_f32(&mut array, value.value as f32);
+
+        region.raw.data.reserve(4 * value.count as usize);
+
+        for _ in 0..value.count {
+            region.raw.data.extend_from_slice(&array);
+        }
+    }
+
+    Ok(())
+}
+
+fn do_double_directive(
+    iter: &mut LexerCursor,
+    builder: &mut BinaryBuilder,
+) -> Result<(), AssemblerError> {
+    let values = get_floats(iter)?;
+
+    let region = builder.region().ok_or(MISSING_REGION)?;
+
+    align_with_zeros(region, 8)?;
+
+    for value in values {
+        if value.count > REPEAT_LIMIT {
+            continue;
+        }
+
+        let mut array = [0u8; 8];
+        LittleEndian::write_f64(&mut array, value.value);
+
+        region.raw.data.reserve(8 * value.count as usize);
+
+        for _ in 0..value.count {
+            region.raw.data.extend_from_slice(&array);
+        }
+    }
+
+    Ok(())
 }
 
 fn do_entry_directive(

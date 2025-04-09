@@ -10,7 +10,7 @@ use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::cursor::LexerCursor;
-use crate::assembler::instructions::Opcode::{Func, Op, Special};
+use crate::assembler::instructions::Opcode::{Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
 use crate::assembler::registers::RegisterSlot;
@@ -20,16 +20,26 @@ use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
 
+use super::assembler_util::{get_cc, get_fp_register};
+use super::instructions::Size;
+use super::registers::FPRegisterSlot;
+
 fn instruction_base(op: &Opcode) -> u32 {
     match op {
         Op(key) => (*key as u32 & 0b111111) << 26,
         Func(key) => *key as u32 & 0b111111, // opcode: 0
         Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
+        Cop1(key) => (*key as u32 & 0b111111) | (17 << 26),
+        Cop1I(key) => ((*key as u32 & 0b11111) << 21) | (17 << 26),
     }
 }
 
 fn register_source(slot: RegisterSlot) -> u32 {
+    slot.to_u32().unwrap()
+}
+
+fn fp_register_source(slot: FPRegisterSlot) -> u32 {
     slot.to_u32().unwrap()
 }
 
@@ -43,6 +53,16 @@ impl InstructionBuilder {
     fn with_slot_offset<const OFFSET: u32>(mut self, slot: RegisterSlot) -> InstructionBuilder {
         self.0 &= !(0b11111 << OFFSET);
         self.0 |= register_source(slot) << OFFSET;
+
+        self
+    }
+
+    fn with_fp_slot_offset<const OFFSET: u32>(
+        mut self,
+        slot: FPRegisterSlot,
+    ) -> InstructionBuilder {
+        self.0 &= !(0b11111 << OFFSET);
+        self.0 |= fp_register_source(slot) << OFFSET;
 
         self
     }
@@ -69,6 +89,45 @@ impl InstructionBuilder {
     fn with_sham(mut self, sham: u8) -> InstructionBuilder {
         self.0 &= !(0b11111 << 6);
         self.0 |= (sham as u32) << 6;
+
+        self
+    }
+
+    fn with_fp_source(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<11>(slot)
+    }
+    fn with_fp_source_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 11);
+        self.0 |= (value as u32) << 11;
+
+        self
+    }
+    fn with_fp_dest(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<6>(slot)
+    }
+    fn with_fp_dest_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 6);
+        self.0 |= (value as u32) << 6;
+
+        self
+    }
+    fn with_fp_temp(self, slot: FPRegisterSlot) -> InstructionBuilder {
+        self.with_fp_slot_offset::<16>(slot)
+    }
+    fn with_fp_temp_value(mut self, value: u8) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 16);
+        self.0 |= (value as u32) << 16;
+
+        self
+    }
+    fn with_fp_fmt(mut self, fmt: Size) -> InstructionBuilder {
+        let fmt_val = match fmt {
+            Size::Single => 0b00,
+            Size::Double => 0b01,
+            Size::Word => 0b10,
+        } | 0b10000;
+        self.0 &= !(0b11111 << 21);
+        self.0 |= fmt_val << 21;
 
         self
     }
@@ -518,6 +577,152 @@ fn do_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
+fn do_fp_offset_instruction(
+    op: &Opcode,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let temp = get_fp_register(iter)?;
+
+    let offset = get_offset_or_label(iter)?;
+
+    let (immediate, register, mut instructions) = make_offset_or_label(offset);
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_source(register)
+        .with_fp_temp(temp)
+        .with_immediate(immediate)
+        .0;
+
+    instructions.push((inst, None));
+
+    Ok(EmitInstruction { instructions })
+}
+
+fn do_fp_three_register_instruction(
+    op: &Opcode,
+    fmt: Size,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+    let temp = get_fp_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest(dest)
+        .with_fp_source(source)
+        .with_fp_temp(temp)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_2register_instruction(
+    op: &Opcode,
+    fmt: Size,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest(dest)
+        .with_fp_source(source)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_move_instruction(
+    op: &Opcode,
+    fmt: Size,
+    bool: bool,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_fp_register(iter)?;
+    let source = get_fp_register(iter)?;
+    let cc = get_cc(iter)?;
+
+    let temp = ((cc as u8) << 2) | (bool as u8 & 1);
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest(dest)
+        .with_fp_source(source)
+        .with_fp_temp_value(temp)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_cond_instruction(
+    op: &Opcode,
+    fmt: Size,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let cc = get_cc(iter)?;
+    let source = get_fp_register(iter)?;
+    let target = get_fp_register(iter)?;
+
+    let temp = (cc as u8) << 2;
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_dest_value(temp)
+        .with_fp_source(source)
+        .with_fp_temp(target)
+        .with_fp_fmt(fmt)
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_cross_move_instruction(
+    op: &Opcode,
+    reg: bool,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let t = if reg {
+        get_fp_register(iter)?.to_u8()
+    } else {
+        get_register(iter)?.to_u8()
+    };
+    let s = if reg {
+        get_register(iter)?.to_u8()
+    } else {
+        get_fp_register(iter)?.to_u8()
+    };
+
+    let inst = InstructionBuilder::from_op(op)
+        .with_fp_temp_value(t.unwrap())
+        .with_fp_source_value(s.unwrap())
+        .0;
+
+    Ok(EmitInstruction::with(inst))
+}
+
+fn do_fp_branch_instruction(
+    op: &Opcode,
+    bool: bool,
+    iter: &mut LexerCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let cc = get_cc(iter)?;
+    let label = get_label(iter)?;
+    let temp = ((cc as u8) << 2) | (bool as u8 & 1);
+
+    let inst = InstructionBuilder::from_op(op).with_fp_temp_value(temp).0;
+
+    let instructions = vec![(
+        inst,
+        Some(InstructionLabel {
+            label,
+            kind: Branch,
+        }),
+    )];
+
+    Ok(EmitInstruction { instructions })
+}
+
 fn do_nop_instruction(_: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
     let instruction = InstructionBuilder::from_op(&Func(0)).0;
 
@@ -790,7 +995,13 @@ fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    emit_immediate_instruction(&Op(8), Some(&Func(32)), dest, temp, (-(constant as i64)) as u64)
+    emit_immediate_instruction(
+        &Op(8),
+        Some(&Func(32)),
+        dest,
+        temp,
+        (-(constant as i64)) as u64,
+    )
 }
 
 fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
@@ -798,7 +1009,13 @@ fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assem
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    emit_immediate_instruction(&Op(9), Some(&Func(33)), dest, temp, (-(constant as i64)) as u64)
+    emit_immediate_instruction(
+        &Op(9),
+        Some(&Func(33)),
+        dest,
+        temp,
+        (-(constant as i64)) as u64,
+    )
 }
 
 fn dispatch_pseudo(
@@ -868,6 +1085,13 @@ fn dispatch_instruction(
         Encoding::BranchZero => do_branch_zero_instruction(op, iter),
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
+        Encoding::FPOffset => do_fp_offset_instruction(op, iter),
+        Encoding::FP3Register(fmt) => do_fp_three_register_instruction(op, *fmt, iter),
+        Encoding::FP2Register(fmt) => do_fp_2register_instruction(op, *fmt, iter),
+        Encoding::FPMove(size, other) => do_fp_move_instruction(op, *size, *other, iter),
+        Encoding::FPCond(fmt) => do_fp_cond_instruction(op, *fmt, iter),
+        Encoding::FPCrossMove(reg) => do_fp_cross_move_instruction(op, *reg, iter),
+        Encoding::FPBranch(fmt) => do_fp_branch_instruction(op, *fmt, iter),
     }?;
 
     Ok(emit)

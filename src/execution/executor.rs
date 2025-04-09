@@ -1,4 +1,6 @@
 use crate::cpu::error::Error;
+use crate::cpu::registers::registers::RawRegisters;
+use crate::cpu::registers::WhichRegister::Pc;
 use crate::cpu::state::Registers;
 use crate::cpu::{Memory, State};
 use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Running};
@@ -18,28 +20,28 @@ pub enum ExecutorMode {
 // Addresses
 type Breakpoints = HashSet<u32>;
 
-pub struct ExecutorState<Mem: Memory, Track: Tracker<Mem>> {
+pub struct ExecutorState<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> {
     mode: ExecutorMode,
 
-    state: State<Mem>,
+    state: State<Mem, Reg>,
     breakpoints: Breakpoints,
     batch: usize,
 
     tracker: Track,
 }
 
-pub struct Executor<Mem: Memory, Track: Tracker<Mem>> {
-    mutex: parking_lot::Mutex<ExecutorState<Mem, Track>>,
+pub struct Executor<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> {
+    mutex: parking_lot::Mutex<ExecutorState<Mem, Reg, Track>>,
 }
 
 #[derive(Debug)]
 pub struct DebugFrame {
     pub mode: ExecutorMode,
-    pub registers: Registers,
+    pub registers: RawRegisters,
 }
 
-impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
-    fn new(state: State<Mem>, tracker: Track) -> ExecutorState<Mem, Track> {
+impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> ExecutorState<Mem, Reg, Track> {
+    fn new(state: State<Mem, Reg>, tracker: Track) -> ExecutorState<Mem, Reg, Track> {
         ExecutorState {
             mode: Paused,
             state,
@@ -52,14 +54,14 @@ impl<Mem: Memory, Track: Tracker<Mem>> ExecutorState<Mem, Track> {
     pub fn frame(&self) -> DebugFrame {
         DebugFrame {
             mode: self.mode,
-            registers: self.state.registers,
+            registers: self.state.registers.raw(),
         }
     }
 
     // Returns true if the CPU was interrupted.
     // If true, see self.frame() for details (ex. the mode)
     pub fn cycle(&mut self, no_breakpoints: bool) -> bool {
-        if !no_breakpoints && self.breakpoints.contains(&self.state.registers.pc) {
+        if !no_breakpoints && self.breakpoints.contains(&self.state.registers.get(Pc)) {
             self.mode = Breakpoint;
 
             return true;
@@ -87,14 +89,14 @@ pub struct BatchResult {
     pub interrupted: bool,
 }
 
-impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
-    pub fn new(state: State<Mem>, tracker: Track) -> Executor<Mem, Track> {
+impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, Track> {
+    pub fn new(state: State<Mem, Reg>, tracker: Track) -> Executor<Mem, Reg, Track> {
         Executor {
             mutex: parking_lot::Mutex::new(ExecutorState::new(state, tracker)),
         }
     }
 
-    pub fn from_state(state: State<Mem>) -> Executor<Mem, EmptyTracker> {
+    pub fn from_state(state: State<Mem, Reg>) -> Executor<Mem, Reg, EmptyTracker> {
         Executor {
             mutex: parking_lot::Mutex::new(ExecutorState::new(state, EmptyTracker {})),
         }
@@ -112,7 +114,7 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
         self.mutex.lock().mode = mode
     }
 
-    pub fn with_state<T, F: FnOnce(&mut State<Mem>) -> T>(&self, f: F) -> T {
+    pub fn with_state<T, F: FnOnce(&mut State<Mem, Reg>) -> T>(&self, f: F) -> T {
         let mut lock = self.mutex.lock();
 
         f(&mut lock.state)
@@ -137,7 +139,8 @@ impl<Mem: Memory, Track: Tracker<Mem>> Executor<Mem, Track> {
             lock.mode = Running
         }
 
-        lock.state.registers.pc += 4;
+        let new_pc = lock.state.registers.get(Pc) + 4;
+        lock.state.registers.set(Pc, new_pc);
     }
 
     pub fn set_breakpoints(&self, breakpoints: Breakpoints) {

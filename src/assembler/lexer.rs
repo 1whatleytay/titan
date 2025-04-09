@@ -11,10 +11,12 @@ use crate::assembler::lexer::LexerReason::{
 };
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::lexer::TokenKind::{
-    Colon, Comma, Comment, Directive, IntegerLiteral, LeftBrace, NewLine, Parameter, Register,
-    RightBrace, StringLiteral, Symbol,
+    Colon, Comma, Comment, Directive, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine,
+    Parameter, Register, RightBrace, StringLiteral, Symbol,
 };
 use crate::assembler::registers::RegisterSlot;
+
+use super::registers::FPRegisterSlot;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
@@ -41,7 +43,9 @@ pub enum StrippedKind {
     Directive,
     Parameter,
     Register,
+    FPRegister,
     IntegerLiteral,
+    FloatLiteral,
     StringLiteral,
     Symbol,
     Plus,
@@ -53,13 +57,15 @@ pub enum StrippedKind {
     RightBrace,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
-    Comment(&'a str),       // #*\n
-    Directive(&'a str),     // .*
-    Parameter(&'a str),     // %*
-    Register(RegisterSlot), // $*
-    IntegerLiteral(u64),    // 123 -> also characters
+    Comment(&'a str),           // #*\n
+    Directive(&'a str),         // .*
+    Parameter(&'a str),         // %*
+    Register(RegisterSlot),     // $*
+    FPRegister(FPRegisterSlot), // $f*
+    IntegerLiteral(u64),        // 123 -> also characters
+    FloatLiteral(f64),          // 123.0
     StringLiteral(String),
     Symbol(SymbolName<'a>),
     Plus,
@@ -81,7 +87,9 @@ impl Display for StrippedKind {
                 StrippedKind::Directive => "Directive",
                 StrippedKind::Parameter => "Parameter",
                 StrippedKind::Register => "Register",
+                StrippedKind::FPRegister => "Floating Point Register",
                 StrippedKind::IntegerLiteral => "Integer Literal",
+                StrippedKind::FloatLiteral => "Float Literal",
                 StrippedKind::StringLiteral => "String Literal",
                 StrippedKind::Symbol => "Symbol",
                 StrippedKind::Plus => "Plus",
@@ -103,7 +111,9 @@ impl TokenKind<'_> {
             Directive(_) => StrippedKind::Directive,
             Parameter(_) => StrippedKind::Parameter,
             Register(_) => StrippedKind::Register,
+            FPRegister(_) => StrippedKind::FPRegister,
             IntegerLiteral(_) => StrippedKind::IntegerLiteral,
+            FloatLiteral(_) => StrippedKind::FloatLiteral,
             StringLiteral(_) => StrippedKind::StringLiteral,
             Symbol(_) => StrippedKind::Symbol,
             Plus => StrippedKind::Plus,
@@ -244,6 +254,10 @@ fn take_name(input: &str) -> (&str, &str) {
     take_split(input, |c| !is_hard(c))
 }
 
+fn take_numeric_name(input: &str) -> (&str, &str) {
+    take_split(input, |c| !is_hard(c) || c == '+' || c == '-')
+}
+
 // MARS does not seem to support \x, \u or \U escapes (which require variable consumption).
 // We will not support it either then.
 fn escape(c: char) -> char {
@@ -285,10 +299,19 @@ fn string_body(mut input: &str, quote: char) -> Option<(&str, String)> {
     Some((input, result))
 }
 
-fn integer_decimal(input: &str) -> Option<(&str, u64)> {
-    let (input, value) = take_name(input);
+enum NumericLiteral {
+    Integer(u64),
+    Float(f64),
+}
 
-    Some((input, u64::from_str(value).ok()?))
+fn numeric_decimal(input: &str) -> Option<(&str, NumericLiteral)> {
+    let (input, value) = take_numeric_name(input);
+
+    if value.contains('e') || value.contains('.') {
+        return Some((input, NumericLiteral::Float(f64::from_str(value).ok()?)));
+    }
+
+    Some((input, NumericLiteral::Integer(u64::from_str(value).ok()?)))
 }
 
 fn integer_hexadecimal(input: &str) -> Option<(&str, u64)> {
@@ -323,12 +346,18 @@ fn integer_character(input: &str) -> Option<(&str, u64)> {
     Some((&input[1..], body.chars().next()? as u64))
 }
 
-fn integer_literal(input: &str) -> Option<(&str, u64)> {
+fn numeric_literal(input: &str) -> Option<(&str, NumericLiteral)> {
     match input {
-        _ if input.starts_with("0x") => integer_hexadecimal(input),
-        _ if input.starts_with("0b") => integer_binary(input),
-        _ if input.starts_with('\'') => integer_character(input),
-        _ => integer_decimal(input),
+        _ if input.starts_with("0x") => {
+            integer_hexadecimal(input).map(|(a, b)| (a, NumericLiteral::Integer(b)))
+        }
+        _ if input.starts_with("0b") => {
+            integer_binary(input).map(|(a, b)| (a, NumericLiteral::Integer(b)))
+        }
+        _ if input.starts_with('\'') => {
+            integer_character(input).map(|(a, b)| (a, NumericLiteral::Integer(b as u64)))
+        }
+        _ => numeric_decimal(input),
     }
 }
 
@@ -359,10 +388,17 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         '$' => {
             let (rest, value) = take_name(after_leading);
 
-            RegisterSlot::from_string(value)
-                .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
-                .map(|slot| Some((rest, Register(slot))))
-                .ok_or_else(|| UnknownRegister(value.to_string()))
+            let mut chars = value.chars();
+            if chars.next() == Some('f') && chars.next() != Some('p') {
+                FPRegisterSlot::from_string(value)
+                    .map(|reg| Some((rest, TokenKind::FPRegister(reg))))
+                    .ok_or_else(|| UnknownRegister(value.to_string()))
+            } else {
+                RegisterSlot::from_string(value)
+                    .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
+                    .map(|slot| Some((rest, Register(slot))))
+                    .ok_or_else(|| UnknownRegister(value.to_string()))
+            }
         }
         '+' => Ok(Some((&input[1..], Plus))),
         '-' => Ok(Some((&input[1..], Minus))),
@@ -371,8 +407,11 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         ')' => Ok(Some((&input[1..], RightBrace))),
         ':' => Ok(Some((&input[1..], Colon))),
         '\n' => Ok(Some((&input[1..], NewLine))),
-        '0'..='9' | '\'' => integer_literal(input)
-            .map(|(out, value)| Some((out, IntegerLiteral(value))))
+        '0'..='9' | '\'' => numeric_literal(input)
+            .map(|(out, value)| match value {
+                NumericLiteral::Integer(value) => Some((out, IntegerLiteral(value))),
+                NumericLiteral::Float(value) => Some((out, FloatLiteral(value))),
+            })
             .ok_or(ImproperLiteral),
         '\"' => string_body(after_leading, '\"')
             .map(|(out, body)| Some((&out[1..], StringLiteral(body))))

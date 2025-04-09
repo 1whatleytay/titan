@@ -1,3 +1,5 @@
+use crate::assembler::instructions::Size;
+
 // noinspection SpellCheckingInspection
 pub trait Decoder<T> {
     fn add(&mut self, s: u8, t: u8, d: u8) -> T;
@@ -71,6 +73,63 @@ pub trait Decoder<T> {
     fn trap(&mut self) -> T;
     fn syscall(&mut self) -> T;
 
+    fn add_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sub_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn mul_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn div_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sqrt_s(&mut self, s: u8, d: u8) -> T;
+    fn abs_s(&mut self, s: u8, d: u8) -> T;
+    fn neg_s(&mut self, s: u8, d: u8) -> T;
+    fn floor_w_s(&mut self, s: u8, d: u8) -> T;
+    fn ceil_w_s(&mut self, s: u8, d: u8) -> T;
+    fn round_w_s(&mut self, s: u8, d: u8) -> T;
+    fn trunc_w_s(&mut self, s: u8, d: u8) -> T;
+    fn add_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sub_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn mul_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn div_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn sqrt_d(&mut self, s: u8, d: u8) -> T;
+    fn abs_d(&mut self, s: u8, d: u8) -> T;
+    fn neg_d(&mut self, s: u8, d: u8) -> T;
+    fn floor_w_d(&mut self, s: u8, d: u8) -> T;
+    fn ceil_w_d(&mut self, s: u8, d: u8) -> T;
+    fn round_w_d(&mut self, s: u8, d: u8) -> T;
+    fn trunc_w_d(&mut self, s: u8, d: u8) -> T;
+    fn c_eq_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> T;
+    fn bc1t(&mut self, cc: u8, address: u16) -> T;
+    fn bc1f(&mut self, cc: u8, address: u16) -> T;
+    fn mov_s(&mut self, s: u8, d: u8) -> T;
+    fn movf_s(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movt_s(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movn_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movz_s(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn mov_d(&mut self, s: u8, d: u8) -> T;
+    fn movf_d(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movt_d(&mut self, cc: u8, s: u8, d: u8) -> T;
+    fn movn_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movz_d(&mut self, t: u8, s: u8, d: u8) -> T;
+    fn movf(&mut self, s: u8, cc: u8, d: u8) -> T;
+    fn movt(&mut self, s: u8, cc: u8, d: u8) -> T;
+    fn movn(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn movz(&mut self, s: u8, t: u8, d: u8) -> T;
+    fn cvt_s_w(&mut self, s: u8, d: u8) -> T;
+    fn cvt_w_s(&mut self, s: u8, d: u8) -> T;
+    fn cvt_s_d(&mut self, s: u8, d: u8) -> T;
+    fn cvt_d_s(&mut self, s: u8, d: u8) -> T;
+    fn cvt_d_w(&mut self, s: u8, d: u8) -> T;
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> T;
+    fn mtc1(&mut self, t: u8, s: u8) -> T;
+    fn mfc1(&mut self, t: u8, s: u8) -> T;
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+    fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> T;
+
     fn dispatch_rtype(&mut self, instruction: u32) -> Option<T> {
         let func = instruction & 0x3F;
 
@@ -81,6 +140,11 @@ pub trait Decoder<T> {
 
         Some(match func {
             0 => self.sll(t, d, sham),
+            1 => match t & 0b11 {
+                0b00 => self.movf(s, d, t >> 2),
+                0b01 => self.movt(s, d, t >> 2),
+                _ => return None,
+            },
             2 => self.srl(t, d, sham),
             3 => self.sra(t, d, sham),
             4 => self.sllv(s, t, d),
@@ -88,6 +152,8 @@ pub trait Decoder<T> {
             7 => self.srav(s, t, d),
             8 => self.jr(s),
             9 => self.jalr(s),
+            10 => self.movz(s, t, d),
+            11 => self.movn(s, t, d),
             12 => self.syscall(),
             16 => self.mfhi(d),
             17 => self.mthi(s),
@@ -145,6 +211,95 @@ pub trait Decoder<T> {
         })
     }
 
+    fn dispatch_cop1(&mut self, instruction: u32) -> Option<T> {
+        let fmt = (instruction >> 21) & 0b11111;
+
+        let t = ((instruction >> 16) & 0x1F) as u8;
+        let s = ((instruction >> 11) & 0x1F) as u8;
+        let d = ((instruction >> 6) & 0x1F) as u8;
+        Some(match fmt {
+            16 | 17 | 20 | 21 => {
+                let instr = instruction & 0b111111;
+                let ifmt = match fmt {
+                    16 => Size::Single,
+                    17 => Size::Double,
+                    20 => Size::Word,
+                    _ => return None,
+                };
+                match (instr, ifmt) {
+                    (0, Size::Single) => self.add_s(t, s, d),
+                    (1, Size::Single) => self.sub_s(t, s, d),
+                    (2, Size::Single) => self.mul_s(t, s, d),
+                    (3, Size::Single) => self.div_s(t, s, d),
+                    (4, Size::Single) => self.sqrt_s(s, d),
+                    (5, Size::Single) => self.abs_s(s, d),
+                    (6, Size::Single) => self.mov_s(s, d),
+                    (7, Size::Single) => self.neg_s(s, d),
+                    (12, Size::Single) => self.round_w_s(s, d),
+                    (13, Size::Single) => self.trunc_w_s(s, d),
+                    (14, Size::Single) => self.ceil_w_s(s, d),
+                    (15, Size::Single) => self.floor_w_s(s, d),
+                    (17, Size::Single) => match t & 0b11 {
+                        0b00 => self.movf_s(t >> 2, s, d),
+                        0b01 => self.movt_s(t >> 2, s, d),
+                        _ => return None,
+                    },
+                    (18, Size::Single) => self.movz_s(t, s, d),
+                    (19, Size::Single) => self.movn_s(t, s, d),
+                    (50, Size::Single) => self.c_eq_s(t, s, d >> 2),
+                    (60, Size::Single) => self.c_lt_s(t, s, d >> 2),
+                    (62, Size::Single) => self.c_le_s(t, s, d >> 2),
+
+                    (0, Size::Double) => self.add_d(t, s, d),
+                    (1, Size::Double) => self.sub_d(t, s, d),
+                    (2, Size::Double) => self.mul_d(t, s, d),
+                    (3, Size::Double) => self.div_d(t, s, d),
+                    (4, Size::Double) => self.sqrt_d(s, d),
+                    (5, Size::Double) => self.abs_d(s, d),
+                    (6, Size::Double) => self.mov_d(s, d),
+                    (7, Size::Double) => self.neg_d(s, d),
+                    (12, Size::Double) => self.round_w_d(s, d),
+                    (13, Size::Double) => self.trunc_w_d(s, d),
+                    (14, Size::Double) => self.ceil_w_d(s, d),
+                    (15, Size::Double) => self.floor_w_d(s, d),
+                    (17, Size::Double) => match t & 0b11 {
+                        0b00 => self.movf_d(t >> 2, s, d),
+                        0b01 => self.movt_d(t >> 2, s, d),
+                        _ => return None,
+                    },
+                    (18, Size::Double) => self.movz_d(t, s, d),
+                    (19, Size::Double) => self.movn_d(t, s, d),
+                    (50, Size::Double) => self.c_eq_d(t, s, d >> 2),
+                    (60, Size::Double) => self.c_lt_d(t, s, d >> 2),
+                    (62, Size::Double) => self.c_le_d(t, s, d >> 2),
+
+                    (33, Size::Single) => self.cvt_d_s(s, d),
+                    (33, Size::Word) => self.cvt_d_w(s, d),
+                    (32, Size::Double) => self.cvt_s_d(s, d),
+                    (32, Size::Word) => self.cvt_s_w(s, d),
+                    (36, Size::Single) => self.cvt_w_s(s, d),
+                    (36, Size::Double) => self.cvt_w_d(s, d),
+
+                    _ => return None,
+                }
+            }
+            0b00000 => self.mfc1(t, s),
+            0b00100 => self.mtc1(t, s),
+            0b01000 => {
+                let tf = t & 0b11;
+                let cc = (t >> 2) & 0b111;
+
+                let addr = (instruction & 0xFFFF) as u16;
+                match tf {
+                    0 => return Some(self.bc1f(cc, addr)),
+                    1 => return Some(self.bc1t(cc, addr)),
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        })
+    }
+
     fn dispatch(&mut self, instruction: u32) -> Option<T> {
         let opcode = instruction >> 26;
 
@@ -170,6 +325,7 @@ pub trait Decoder<T> {
             13 => self.ori(s, t, imm),
             14 => self.xori(s, t, imm),
             15 => self.lui(t, imm),
+            17 => return self.dispatch_cop1(instruction),
             24 => self.llo(t, imm),
             25 => self.lhi(t, imm),
             26 => self.trap(),
@@ -183,6 +339,10 @@ pub trait Decoder<T> {
             41 => self.sh(s, t, imm),
             43 => self.sw(s, t, imm),
 
+            49 => self.lwc1(s, t, imm),
+            53 => self.ldc1(s, t, imm),
+            57 => self.swc1(s, t, imm),
+            61 => self.sdc1(s, t, imm),
             _ => return None,
         })
     }

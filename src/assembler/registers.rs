@@ -120,3 +120,120 @@ impl Display for RegisterSlot {
         write!(f, "${}", self.as_string())
     }
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ToPrimitive, FromPrimitive)]
+pub enum FPRegisterSlot {
+    F0 = 0,
+    F1 = 1,
+    F2 = 2,
+    F3 = 3,
+    F4 = 4,
+    F5 = 5,
+    F6 = 6,
+    F7 = 7,
+    F8 = 8,
+    F9 = 9,
+    F10 = 10,
+    F11 = 11,
+    F12 = 12,
+    F13 = 13,
+    F14 = 14,
+    F15 = 15,
+    F16 = 16,
+    F17 = 17,
+    F18 = 18,
+    F19 = 19,
+    F20 = 20,
+    F21 = 21,
+    F22 = 22,
+    F23 = 23,
+    F24 = 24,
+    F25 = 25,
+    F26 = 26,
+    F27 = 27,
+    F28 = 28,
+    F29 = 29,
+    F30 = 30,
+    F31 = 31,
+}
+impl FPRegisterSlot {
+    pub fn from_string(input: &str) -> Option<FPRegisterSlot> {
+        Some(match input {
+            "f0" => FPRegisterSlot::F0,
+            "f1" => FPRegisterSlot::F1,
+            "f2" => FPRegisterSlot::F2,
+            "f3" => FPRegisterSlot::F3,
+            "f4" => FPRegisterSlot::F4,
+            "f5" => FPRegisterSlot::F5,
+            "f6" => FPRegisterSlot::F6,
+            "f7" => FPRegisterSlot::F7,
+            "f8" => FPRegisterSlot::F8,
+            "f9" => FPRegisterSlot::F9,
+            "f10" => FPRegisterSlot::F10,
+            "f11" => FPRegisterSlot::F11,
+            "f12" => FPRegisterSlot::F12,
+            "f13" => FPRegisterSlot::F13,
+            "f14" => FPRegisterSlot::F14,
+            "f15" => FPRegisterSlot::F15,
+            "f16" => FPRegisterSlot::F16,
+            "f17" => FPRegisterSlot::F17,
+            "f18" => FPRegisterSlot::F18,
+            "f19" => FPRegisterSlot::F19,
+            "f20" => FPRegisterSlot::F20,
+            "f21" => FPRegisterSlot::F21,
+            "f22" => FPRegisterSlot::F22,
+            "f23" => FPRegisterSlot::F23,
+            "f24" => FPRegisterSlot::F24,
+            "f25" => FPRegisterSlot::F25,
+            "f26" => FPRegisterSlot::F26,
+            "f27" => FPRegisterSlot::F27,
+            "f28" => FPRegisterSlot::F28,
+            "f29" => FPRegisterSlot::F29,
+            "f30" => FPRegisterSlot::F30,
+            "f31" => FPRegisterSlot::F31,
+            _ => return None,
+        })
+    }
+
+    pub fn as_string(&self) -> &str {
+        match self {
+            FPRegisterSlot::F0 => "f0",
+            FPRegisterSlot::F1 => "f1",
+            FPRegisterSlot::F2 => "f2",
+            FPRegisterSlot::F3 => "f3",
+            FPRegisterSlot::F4 => "f4",
+            FPRegisterSlot::F5 => "f5",
+            FPRegisterSlot::F6 => "f6",
+            FPRegisterSlot::F7 => "f7",
+            FPRegisterSlot::F8 => "f8",
+            FPRegisterSlot::F9 => "f9",
+            FPRegisterSlot::F10 => "f10",
+            FPRegisterSlot::F11 => "f11",
+            FPRegisterSlot::F12 => "f12",
+            FPRegisterSlot::F13 => "f13",
+            FPRegisterSlot::F14 => "f14",
+            FPRegisterSlot::F15 => "f15",
+            FPRegisterSlot::F16 => "f16",
+            FPRegisterSlot::F17 => "f17",
+            FPRegisterSlot::F18 => "f18",
+            FPRegisterSlot::F19 => "f19",
+            FPRegisterSlot::F20 => "f20",
+            FPRegisterSlot::F21 => "f21",
+            FPRegisterSlot::F22 => "f22",
+            FPRegisterSlot::F23 => "f23",
+            FPRegisterSlot::F24 => "f24",
+            FPRegisterSlot::F25 => "f25",
+            FPRegisterSlot::F26 => "f26",
+            FPRegisterSlot::F27 => "f27",
+            FPRegisterSlot::F28 => "f28",
+            FPRegisterSlot::F29 => "f29",
+            FPRegisterSlot::F30 => "f30",
+            FPRegisterSlot::F31 => "f31",
+        }
+    }
+}
+impl Display for FPRegisterSlot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${}", self.as_string())
+    }
+}

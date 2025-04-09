@@ -1,9 +1,9 @@
+use crate::assembler::registers::RegisterSlot;
 use crate::cpu::state::Registers;
 use crate::unit::instruction::Instruction::{
     Add, Addi, Div, Divu, Lb, Lbu, Lh, Lhu, Lw, Sb, Sh, Sub, Sw,
 };
 use crate::unit::instruction::{sig, sig_u32, Instruction};
-use crate::unit::register::RegisterName;
 use crate::unit::suggestions::TrapErrorReason::{
     DivByZero, OverflowAdd, OverflowOther, OverflowSub,
 };
@@ -23,15 +23,18 @@ pub struct MemoryErrorDescription {
 }
 
 pub struct RegisterValue {
-    pub name: RegisterName,
+    pub name: RegisterSlot,
     pub value: u32,
 }
 
-impl Registers {
-    fn value(&self, name: RegisterName) -> RegisterValue {
+pub trait RegValue {
+    fn value(&self, name: RegisterSlot) -> RegisterValue;
+}
+impl<T: Registers> RegValue for T {
+    fn value(&self, name: RegisterSlot) -> RegisterValue {
         RegisterValue {
             name,
-            value: self.get(name),
+            value: self.get_l(name),
         }
     }
 }
@@ -56,13 +59,13 @@ pub struct TrapErrorDescription {
 }
 
 impl MemoryErrorDescription {
-    fn new(
+    fn new<Reg: RegValue>(
         instruction: Instruction,
         reason: MemoryErrorReason,
         alignment: u32,
-        source: RegisterName,
+        source: RegisterSlot,
         immediate: u16,
-        registers: &Registers,
+        registers: &Reg,
     ) -> MemoryErrorDescription {
         MemoryErrorDescription {
             instruction,
@@ -75,12 +78,12 @@ impl MemoryErrorDescription {
 }
 
 impl TrapErrorDescription {
-    fn from_temp(
+    fn from_temp<Reg: RegValue>(
         instruction: Instruction,
         reason: TrapErrorReason,
-        source: RegisterName,
-        temp: RegisterName,
-        registers: &Registers,
+        source: RegisterSlot,
+        temp: RegisterSlot,
+        registers: &Reg,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -90,12 +93,12 @@ impl TrapErrorDescription {
         }
     }
 
-    fn from_imm(
+    fn from_imm<Reg: RegValue>(
         instruction: Instruction,
         reason: TrapErrorReason,
-        source: RegisterName,
+        source: RegisterSlot,
         imm: u16,
-        registers: &Registers,
+        registers: &Reg,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -108,10 +111,10 @@ impl TrapErrorDescription {
 
 // Keeping error suggestions separate from interpreting to avoid potential performance impacts.
 impl Instruction {
-    pub fn describe_memory_error(
+    pub fn describe_memory_error<Reg: RegValue>(
         &self,
         reason: MemoryErrorReason,
-        registers: &Registers,
+        registers: &Reg,
     ) -> Option<MemoryErrorDescription> {
         Some(match self {
             Lb { s, imm, .. } | Lbu { s, imm, .. } | Sb { s, imm, .. } => {
@@ -127,7 +130,10 @@ impl Instruction {
         })
     }
 
-    pub fn describe_trap_error(&self, registers: &Registers) -> Option<TrapErrorDescription> {
+    pub fn describe_trap_error<Reg: RegValue>(
+        &self,
+        registers: &Reg,
+    ) -> Option<TrapErrorDescription> {
         Some(match self {
             Add { s, t, .. } => {
                 TrapErrorDescription::from_temp(self.clone(), OverflowAdd, *s, *t, registers)

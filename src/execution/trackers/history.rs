@@ -1,18 +1,30 @@
 use crate::cpu::memory::watched::{WatchEntry, WatchedMemory, LOG_SIZE};
-use crate::cpu::state::Registers;
+use crate::cpu::registers::watched::REGISTER_LOG_SIZE;
+use crate::cpu::registers::{RegisterEntry, Registers, WatchedRegisters, WhichRegister};
 use crate::cpu::{Memory, State};
 use crate::execution::trackers::Tracker;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
+use WhichRegister::Pc;
+
+impl RegisterEntry {
+    pub fn apply<Reg: Registers>(self, registers: &mut Reg) {
+        let RegisterEntry(name, value) = self;
+        registers.set(name, value);
+    }
+}
 
 pub struct HistoryEntry {
-    pub registers: Registers,
+    pub registers: SmallVec<[RegisterEntry; REGISTER_LOG_SIZE]>,
     pub edits: SmallVec<[WatchEntry; LOG_SIZE]>,
 }
 
 impl HistoryEntry {
-    pub fn apply<Mem: Memory>(self, registers: &mut Registers, memory: &mut Mem) {
-        *registers = self.registers;
+    pub fn apply<Mem: Memory, Reg: Registers>(self, registers: &mut Reg, memory: &mut Mem) {
+        for entry in self.registers.iter().rev() {
+            entry.apply(registers);
+        }
+        registers.set(Pc, registers.get(Pc).wrapping_sub(4));
 
         for entry in self.edits {
             entry.apply(memory).ok(); // ignore error
@@ -22,14 +34,12 @@ impl HistoryEntry {
 
 pub struct HistoryTracker {
     buffer: VecDeque<HistoryEntry>,
-    registers: Option<Registers>,
 }
 
 impl HistoryTracker {
     pub fn new(capacity: usize) -> HistoryTracker {
         HistoryTracker {
             buffer: VecDeque::with_capacity(capacity),
-            registers: None,
         }
     }
 
@@ -57,17 +67,12 @@ impl HistoryTracker {
     }
 }
 
-impl<Mem: Memory> Tracker<WatchedMemory<Mem>> for HistoryTracker {
-    fn pre_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
-        self.registers = Some(state.registers)
-    }
+impl<Mem: Memory> Tracker<WatchedMemory<Mem>, WatchedRegisters> for HistoryTracker {
+    fn pre_track(&mut self, state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {}
 
-    fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>>) {
-        let Some(registers) = self.registers else {
-            return;
-        };
+    fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {
         let entry = HistoryEntry {
-            registers,
+            registers: state.registers.take(),
             edits: state.memory.take(),
         };
 
