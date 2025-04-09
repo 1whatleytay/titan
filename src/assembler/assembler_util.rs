@@ -113,36 +113,39 @@ fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
 pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        Register(slot) => Ok(slot),
-        _ => Err(default_error(
+    if let Register(slot) = token.kind {
+        Ok(slot)
+    } else {
+        Err(default_error(
             AssemblerReason::ExpectedRegister(token.kind.strip()),
             token,
-        )),
+        ))
     }
 }
 
 pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        FPRegister(slot) => Ok(slot),
-        _ => Err(default_error(
+    if let FPRegister(slot) = token.kind {
+        Ok(slot)
+    } else {
+        Err(default_error(
             AssemblerReason::ExpectedRegister(token.kind.strip()),
             token,
-        )),
+        ))
     }
 }
 
 pub fn get_cc(iter: &mut LexerCursor) -> Result<u8, AssemblerError> {
     let token = get_token(iter)?;
 
-    match token.kind {
-        IntegerLiteral(slot) => Ok(slot as u8),
-        _ => Err(default_error(
+    if let IntegerLiteral(slot) = token.kind {
+        Ok(slot as u8)
+    } else {
+        Err(default_error(
             AssemblerReason::ExpectedConstant(token.kind.strip()),
             token,
-        )),
+        ))
     }
 }
 
@@ -194,14 +197,13 @@ pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option
             }
             let multiplier = if first.kind == Plus { 1f64 } else { -1f64 };
             let adjacent = iter.next_adjacent();
-            if let Some(IntegerLiteral(value)) = adjacent.map(|t| &t.kind) {
-                Some((*value as f64) * multiplier)
-            } else if let Some(FloatLiteral(value)) = adjacent.map(|t| &t.kind) {
-                Some(*value * multiplier)
-            } else {
-                iter.set_position(start);
-
-                None
+            match adjacent.map(|t| &t.kind) {
+                Some(IntegerLiteral(value)) => Some((*value as f64) * multiplier),
+                Some(FloatLiteral(value)) => Some(*value * multiplier),
+                _ => {
+                    iter.set_position(start);
+                    None
+                }
             }
         }
         IntegerLiteral(value) => {

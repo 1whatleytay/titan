@@ -27,7 +27,10 @@ pub struct RegisterValue {
     pub value: u32,
 }
 
-impl dyn Registers + '_ {
+pub trait RegValue {
+    fn value(&self, name: RegisterSlot) -> RegisterValue;
+}
+impl<T: Registers> RegValue for T {
     fn value(&self, name: RegisterSlot) -> RegisterValue {
         RegisterValue {
             name,
@@ -56,13 +59,13 @@ pub struct TrapErrorDescription {
 }
 
 impl MemoryErrorDescription {
-    fn new(
+    fn new<Reg: RegValue>(
         instruction: Instruction,
         reason: MemoryErrorReason,
         alignment: u32,
         source: RegisterSlot,
         immediate: u16,
-        registers: &dyn Registers,
+        registers: &Reg,
     ) -> MemoryErrorDescription {
         MemoryErrorDescription {
             instruction,
@@ -75,12 +78,12 @@ impl MemoryErrorDescription {
 }
 
 impl TrapErrorDescription {
-    fn from_temp(
+    fn from_temp<Reg: RegValue>(
         instruction: Instruction,
         reason: TrapErrorReason,
         source: RegisterSlot,
         temp: RegisterSlot,
-        registers: &dyn Registers,
+        registers: &Reg,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -90,12 +93,12 @@ impl TrapErrorDescription {
         }
     }
 
-    fn from_imm(
+    fn from_imm<Reg: RegValue>(
         instruction: Instruction,
         reason: TrapErrorReason,
         source: RegisterSlot,
         imm: u16,
-        registers: &dyn Registers,
+        registers: &Reg,
     ) -> TrapErrorDescription {
         TrapErrorDescription {
             instruction,
@@ -108,10 +111,10 @@ impl TrapErrorDescription {
 
 // Keeping error suggestions separate from interpreting to avoid potential performance impacts.
 impl Instruction {
-    pub fn describe_memory_error(
+    pub fn describe_memory_error<Reg: RegValue>(
         &self,
         reason: MemoryErrorReason,
-        registers: &dyn Registers,
+        registers: &Reg,
     ) -> Option<MemoryErrorDescription> {
         Some(match self {
             Lb { s, imm, .. } | Lbu { s, imm, .. } | Sb { s, imm, .. } => {
@@ -127,7 +130,10 @@ impl Instruction {
         })
     }
 
-    pub fn describe_trap_error(&self, registers: &dyn Registers) -> Option<TrapErrorDescription> {
+    pub fn describe_trap_error<Reg: RegValue>(
+        &self,
+        registers: &Reg,
+    ) -> Option<TrapErrorDescription> {
         Some(match self {
             Add { s, t, .. } => {
                 TrapErrorDescription::from_temp(self.clone(), OverflowAdd, *s, *t, registers)

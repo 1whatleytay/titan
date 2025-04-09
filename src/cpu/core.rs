@@ -36,8 +36,14 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
         }
     }
 
-    fn fp(&mut self, index: u8) -> u32 {
+    fn fp_raw(&mut self, index: u8) -> u32 {
         self.registers.get(Fp(index))
+    }
+    fn fp(&mut self, index: u8) -> f32 {
+        f32::from_bits(self.fp_raw(index))
+    }
+    fn fp_double(&mut self, index: u8) -> f64 {
+        f64::from_bits(self.fp_raw(index) as u64 | ((self.fp_raw(index + 1) as u64) << 32))
     }
 
     fn set_fp(&mut self, index: u8, value: u32) {
@@ -587,88 +593,88 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn add_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
 
         self.set_fp(d, (a + b).to_bits());
 
         Ok(())
     }
     fn sub_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
 
         self.set_fp(d, (a - b).to_bits());
 
         Ok(())
     }
     fn mul_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
 
         self.set_fp(d, (a * b).to_bits());
 
         Ok(())
     }
     fn div_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
 
         self.set_fp(d, (a / b).to_bits());
 
         Ok(())
     }
     fn sqrt_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, a.sqrt().to_bits());
 
         Ok(())
     }
     fn abs_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, a.abs().to_bits());
 
         Ok(())
     }
     fn neg_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, (-a).to_bits());
 
         Ok(())
     }
     fn floor_w_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, u32::from_le_bytes((a.floor() as i32).to_le_bytes()));
 
         Ok(())
     }
     fn ceil_w_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, u32::from_le_bytes((a.ceil() as i32).to_le_bytes()));
 
         Ok(())
     }
     fn round_w_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, u32::from_le_bytes((a.round() as i32).to_le_bytes()));
 
         Ok(())
     }
     fn trunc_w_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
+        let a = self.fp(s);
 
         self.set_fp(d, u32::from_le_bytes((a.trunc() as i32).to_le_bytes()));
         Ok(())
     }
     fn add_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
-        let b = f64::from_bits(self.fp(t) as u64 | ((self.fp(t + 1) as u64) << 32));
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
 
         let result = (a + b).to_bits();
         let lower = result as u32;
@@ -678,8 +684,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn sub_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
-        let b = f64::from_bits(self.fp(t) as u64 | ((self.fp(t + 1) as u64) << 32));
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
 
         let result = (a - b).to_bits();
         let lower = result as u32;
@@ -689,8 +695,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn mul_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
-        let b = f64::from_bits(self.fp(t) as u64 | ((self.fp(t + 1) as u64) << 32));
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
         let result = (a * b).to_bits();
         let lower = result as u32;
         let upper = (result >> 32) as u32;
@@ -699,8 +705,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn div_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
-        let b = f64::from_bits(self.fp(t) as u64 | ((self.fp(t + 1) as u64) << 32));
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
         let result = (a / b).to_bits();
         let lower = result as u32;
         let upper = (result >> 32) as u32;
@@ -709,7 +715,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn sqrt_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let result = a.sqrt().to_bits();
         let lower = result as u32;
         let upper = (result >> 32) as u32;
@@ -718,7 +724,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn abs_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let result = a.abs().to_bits();
         let lower = result as u32;
         let upper = (result >> 32) as u32;
@@ -727,7 +733,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn neg_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let result = (-a).to_bits();
         let lower = result as u32;
         let upper = (result >> 32) as u32;
@@ -736,36 +742,36 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn floor_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let val = u64::from_le_bytes((a.floor() as i64).to_le_bytes());
         self.set_fp(d, val as u32);
         self.set_fp(d + 1, (val >> 32) as u32);
         Ok(())
     }
     fn ceil_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let val = u64::from_le_bytes((a.ceil() as i64).to_le_bytes());
         self.set_fp(d, val as u32);
         self.set_fp(d + 1, (val >> 32) as u32);
         Ok(())
     }
     fn round_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let val = u64::from_le_bytes((a.round() as i64).to_le_bytes());
         self.set_fp(d, val as u32);
         self.set_fp(d + 1, (val >> 32) as u32);
         Ok(())
     }
     fn trunc_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | ((self.fp(s + 1) as u64) << 32));
+        let a = self.fp_double(s);
         let val = u64::from_le_bytes((a.trunc() as i64).to_le_bytes());
         self.set_fp(d, val as u32);
         self.set_fp(d + 1, (val >> 32) as u32);
         Ok(())
     }
     fn c_eq_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
         let value = a == b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -773,8 +779,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn c_le_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
         let value = a <= b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -782,8 +788,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn c_lt_s(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f32::from_bits(self.fp(s));
-        let b = f32::from_bits(self.fp(t));
+        let a = self.fp(s);
+        let b = self.fp(t);
         let value = a < b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -791,8 +797,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn c_eq_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | (self.fp(s + 1) as u64) << 32);
-        let b = f64::from_bits(self.fp(t) as u64 | (self.fp(t + 1) as u64) << 32);
+        let a = self.fp_double(t);
+        let b = self.fp_double(s);
         let value = a == b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -800,8 +806,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn c_le_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | (self.fp(s + 1) as u64) << 32);
-        let b = f64::from_bits(self.fp(t) as u64 | (self.fp(t + 1) as u64) << 32);
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
         let value = a <= b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -809,8 +815,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn c_lt_d(&mut self, t: u8, s: u8, cc: u8) -> Result<()> {
-        let a = f64::from_bits(self.fp(s) as u64 | (self.fp(s + 1) as u64) << 32);
-        let b = f64::from_bits(self.fp(t) as u64 | (self.fp(t + 1) as u64) << 32);
+        let a = self.fp_double(s);
+        let b = self.fp_double(t);
         let value = a < b;
         let bit = 1 << cc;
         let cf = self.registers.get(Cf);
@@ -832,7 +838,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn mov_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = self.fp(s);
+        let value = self.fp_raw(s);
         self.set_fp(d, value);
         Ok(())
     }
@@ -851,23 +857,23 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn movn_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(t));
+        let value = self.fp(t);
         if value != 0.0 {
             return self.mov_s(s, d);
         }
         Ok(())
     }
     fn movz_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(t));
+        let value = self.fp(t);
         if value == 0.0 {
             return self.mov_s(s, d);
         }
         Ok(())
     }
     fn mov_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = self.fp(s);
+        let value = self.fp_raw(s);
         self.set_fp(d, value);
-        let value = self.fp(s + 1);
+        let value = self.fp_raw(s + 1);
         self.set_fp(d + 1, value);
         Ok(())
     }
@@ -885,14 +891,14 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn movn_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let value = f64::from_bits((self.fp(t) as u64) | (self.fp(t + 1) as u64) << 32);
+        let value = self.fp_double(t);
         if value != 0.0 {
             return self.mov_d(s, d);
         }
         Ok(())
     }
     fn movz_d(&mut self, t: u8, s: u8, d: u8) -> Result<()> {
-        let value = f64::from_bits((self.fp(t) as u64) | (self.fp(t + 1) as u64) << 32);
+        let value = self.fp_double(t);
         if value == 0.0 {
             return self.mov_d(s, d);
         }
@@ -915,7 +921,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn movn(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(t));
+        let value = self.fp(t);
         if value != 0.0 {
             let value = self.reg(s);
             self.set_reg(d, value);
@@ -923,7 +929,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn movz(&mut self, s: u8, t: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(t));
+        let value = self.fp(t);
         if value == 0.0 {
             let value = self.reg(s);
             self.set_reg(d, value);
@@ -931,22 +937,22 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn cvt_s_w(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = self.fp(s);
+        let value = self.fp_raw(s);
         self.set_fp(d, (value as f32).to_bits());
         Ok(())
     }
     fn cvt_w_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(s));
+        let value = self.fp(s);
         self.set_fp(d, value as i32 as u32);
         Ok(())
     }
     fn cvt_s_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = f64::from_bits((self.fp(s) as u64) | (self.fp(s + 1) as u64) << 32);
+        let value = self.fp_double(s);
         self.set_fp(d, (value as f32).to_bits());
         Ok(())
     }
     fn cvt_d_s(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = f32::from_bits(self.fp(s));
+        let value = self.fp(s);
         let double_cast = value as f64;
         let result = double_cast.to_bits();
         let lower = result as u32;
@@ -956,12 +962,12 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn cvt_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = f64::from_bits((self.fp(s) as u64) | (self.fp(s + 1) as u64) << 32);
+        let value = self.fp_double(s);
         self.set_fp(d, value as i32 as u32);
         Ok(())
     }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = self.fp(s);
+        let value = self.fp_raw(s);
         let double_cast = value as f64;
         let result = double_cast.to_bits();
         let lower = result as u32;
@@ -977,7 +983,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         Ok(())
     }
     fn mfc1(&mut self, t: u8, s: u8) -> Result<()> {
-        let value = self.fp(s);
+        let value = self.fp_raw(s);
         self.set_reg(t, value);
 
         Ok(())
@@ -990,8 +996,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
     fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
-        let value = self.fp(t);
-        let value2 = self.fp(t + 1);
+        let value = self.fp_raw(t);
+        let value2 = self.fp_raw(t + 1);
         self.memory.set_u32(address as u32, value)?;
         self.memory.set_u32(address as u32 + 4, value2)?;
         Ok(())
@@ -1004,7 +1010,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
     fn swc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
-        let value = self.fp(t);
+        let value = self.fp_raw(t);
         self.memory.set_u32(address as u32, value)?;
         Ok(())
     }

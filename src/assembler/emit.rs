@@ -598,7 +598,7 @@ fn do_fp_offset_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_fp_3register_instruction(
+fn do_fp_three_register_instruction(
     op: &Opcode,
     fmt: Size,
     iter: &mut LexerCursor,
@@ -995,7 +995,13 @@ fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    emit_immediate_instruction(&Op(8), Some(&Func(32)), dest, temp, (-(constant as i64)) as u64)
+    emit_immediate_instruction(
+        &Op(8),
+        Some(&Func(32)),
+        dest,
+        temp,
+        (-(constant as i64)) as u64,
+    )
 }
 
 fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
@@ -1003,7 +1009,13 @@ fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assem
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
 
-    emit_immediate_instruction(&Op(9), Some(&Func(33)), dest, temp, (-(constant as i64)) as u64)
+    emit_immediate_instruction(
+        &Op(9),
+        Some(&Func(33)),
+        dest,
+        temp,
+        (-(constant as i64)) as u64,
+    )
 }
 
 fn dispatch_pseudo(
@@ -1074,7 +1086,7 @@ fn dispatch_instruction(
         Encoding::Parameterless => do_parameterless_instruction(op, iter),
         Encoding::Offset => do_offset_instruction(op, iter),
         Encoding::FPOffset => do_fp_offset_instruction(op, iter),
-        Encoding::FP3Register(fmt) => do_fp_3register_instruction(op, *fmt, iter),
+        Encoding::FP3Register(fmt) => do_fp_three_register_instruction(op, *fmt, iter),
         Encoding::FP2Register(fmt) => do_fp_2register_instruction(op, *fmt, iter),
         Encoding::FPMove(size, other) => do_fp_move_instruction(op, *size, *other, iter),
         Encoding::FPCond(fmt) => do_fp_cond_instruction(op, *fmt, iter),
