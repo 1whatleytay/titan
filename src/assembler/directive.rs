@@ -382,11 +382,6 @@ struct FloatInfo {
     count: u64,
 }
 
-enum FloatOrLabel {
-    Float(FloatInfo),
-    Label(NamedLabel),
-}
-
 fn grab_float_value(
     value: &Token,
     iter: &mut LexerCursor,
@@ -429,48 +424,15 @@ fn grab_float_value(
     Ok(Some(FloatInfo { value, count }))
 }
 
-fn get_float_or_labels(iter: &mut LexerCursor) -> Result<Vec<FloatOrLabel>, AssemblerError> {
-    let mut result: Vec<FloatOrLabel> = vec![];
+fn get_floats(iter: &mut LexerCursor) -> Result<Vec<FloatInfo>, AssemblerError> {
+    let mut result: Vec<FloatInfo> = vec![];
 
     while let Some(value) = iter.seek_without(is_solid_kind) {
-        let start = iter.get_position();
-
-        let item = if let TokenKind::Symbol(name) = &value.kind {
-            // This is workaroundy, but a symbol can also be a label
-
-            iter.next();
-
-            let (_, token) = iter.peek_adjacent();
-
-            let do_skip = match token.map(|x| &x.kind) {
-                Some(Colon) => true,     // label
-                Some(LeftBrace) => true, // Macro
-                _ => false,
-            };
-
-            // This is obviously a sign that the directive section has to be reworked.
-            if do_skip {
-                iter.set_position(start);
-
-                break;
-            }
-
-            let address = NamedLabel {
-                name: name.get().to_string(),
-                location: value.location,
-                offset: 0,
-            };
-
-            FloatOrLabel::Label(address)
-        } else {
-            let Some(constant) = grab_float_value(value, iter)? else {
-                break;
-            };
-
-            FloatOrLabel::Float(constant)
+        let Some(constant) = grab_float_value(value, iter)? else {
+            break;
         };
 
-        result.push(item);
+        result.push(constant);
     }
     Ok(result)
 }
@@ -479,41 +441,24 @@ fn do_float_directive(
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
-    let values = get_float_or_labels(iter)?;
+    let values = get_floats(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
     align_with_zeros(region, 4)?;
 
     for value in values {
-        match value {
-            FloatOrLabel::Label(label) => {
-                let offset = region.raw.data.len();
+        if value.count > REPEAT_LIMIT {
+            continue;
+        }
 
-                region.raw.data.extend_from_slice(&[0u8; 4]);
-                region.labels.push(BinaryBuilderLabel {
-                    offset,
-                    location: label.location,
-                    label: InstructionLabel {
-                        kind: InstructionLabelKind::Full,
-                        label: Label(label),
-                    },
-                })
-            }
-            FloatOrLabel::Float(value) => {
-                if value.count > REPEAT_LIMIT {
-                    continue;
-                }
+        let mut array = [0u8; 4];
+        LittleEndian::write_f32(&mut array, value.value as f32);
 
-                let mut array = [0u8; 4];
-                LittleEndian::write_f32(&mut array, value.value as f32);
+        region.raw.data.reserve(4 * value.count as usize);
 
-                region.raw.data.reserve(4 * value.count as usize);
-
-                for _ in 0..value.count {
-                    region.raw.data.extend_from_slice(&array);
-                }
-            }
+        for _ in 0..value.count {
+            region.raw.data.extend_from_slice(&array);
         }
     }
 
@@ -524,41 +469,24 @@ fn do_double_directive(
     iter: &mut LexerCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
-    let values = get_float_or_labels(iter)?;
+    let values = get_floats(iter)?;
 
     let region = builder.region().ok_or(MISSING_REGION)?;
 
     align_with_zeros(region, 8)?;
 
     for value in values {
-        match value {
-            FloatOrLabel::Label(label) => {
-                let offset = region.raw.data.len();
+        if value.count > REPEAT_LIMIT {
+            continue;
+        }
 
-                region.raw.data.extend_from_slice(&[0u8; 8]);
-                region.labels.push(BinaryBuilderLabel {
-                    offset,
-                    location: label.location,
-                    label: InstructionLabel {
-                        kind: InstructionLabelKind::Full,
-                        label: Label(label),
-                    },
-                })
-            }
-            FloatOrLabel::Float(value) => {
-                if value.count > REPEAT_LIMIT {
-                    continue;
-                }
+        let mut array = [0u8; 8];
+        LittleEndian::write_f64(&mut array, value.value);
 
-                let mut array = [0u8; 8];
-                LittleEndian::write_f64(&mut array, value.value);
+        region.raw.data.reserve(8 * value.count as usize);
 
-                region.raw.data.reserve(8 * value.count as usize);
-
-                for _ in 0..value.count {
-                    region.raw.data.extend_from_slice(&array);
-                }
-            }
+        for _ in 0..value.count {
+            region.raw.data.extend_from_slice(&array);
         }
     }
 
