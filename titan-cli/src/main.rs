@@ -1,24 +1,24 @@
+use clap::{Parser, Subcommand};
 use std::fs;
 use std::fs::File;
 use std::path::PathBuf;
 use std::time::Instant;
-use clap::{Parser, Subcommand};
 use titan::elf::Elf;
 
 use anyhow::Result;
 use titan::assembler::string::assemble_from_path;
 use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
+use titan::cpu::registers::registers::RawRegisters;
 use titan::cpu::State;
-use titan::execution::Executor;
 use titan::execution::elf::setup::create_simple_state;
 use titan::execution::trackers::empty::EmptyTracker;
-use titan::cpu::registers::registers::RawRegisters;
+use titan::execution::Executor;
 
 #[derive(Subcommand, Debug)]
 enum Command {
     Build { filename: String },
     Run { filename: String },
-    Test { filename: String }
+    Test { filename: String },
 }
 
 impl Command {
@@ -37,7 +37,7 @@ struct Args {
     command: Command,
 
     #[arg(short, long)]
-    emit: Option<String>
+    emit: Option<String>,
 }
 
 fn run(args: Args) -> Result<()> {
@@ -64,14 +64,19 @@ fn run(args: Args) -> Result<()> {
 
             let instant = Instant::now();
 
-            let state: State<SectionMemory<DefaultResponder>, RawRegisters> = create_simple_state(&elf, 0x100000);
-            let debugger = Executor::new(state, EmptyTracker { });
+            let state: State<SectionMemory<DefaultResponder>, RawRegisters> =
+                create_simple_state(&elf, 0x100000);
+            let debugger = Executor::new(state, EmptyTracker {});
 
             let frame = debugger.run(false);
 
             let end = instant.elapsed();
 
-            println!("Running finished in {}ms with mode: {:?}.", end.as_millis(), frame.mode);
+            println!(
+                "Running finished in {}ms with mode: {:?}.",
+                end.as_millis(),
+                frame.mode
+            );
         }
     }
 

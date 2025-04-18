@@ -1,4 +1,5 @@
 use num::FromPrimitive;
+pub use titan_shared::assembler::lexer::Location;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
@@ -125,12 +126,6 @@ impl TokenKind<'_> {
             RightBrace => StrippedKind::RightBrace,
         }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Location {
-    pub source: usize,
-    pub index: usize,
 }
 
 #[derive(Clone, Debug)]

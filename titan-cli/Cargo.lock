@@ -325,6 +325,7 @@ dependencies = [
  "num-traits",
  "parking_lot",
  "smallvec",
+ "titan_shared",
  "typed-arena",
 ]
 
@@ -335,6 +336,17 @@ dependencies = [
  "anyhow",
  "clap",
  "titan",
+]
+
+[[package]]
+name = "titan_shared"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "num-derive",
+ "num-traits",
+ "smallvec",
 ]
 
 [[package]]

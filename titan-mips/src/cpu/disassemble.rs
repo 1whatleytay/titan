@@ -1,23 +1,6 @@
 use crate::cpu::decoder::Decoder;
 use num_traits::abs;
-
-pub trait LabelProvider {
-    fn label_for(&mut self, address: u32) -> String;
-}
-
-#[derive(Default)]
-pub struct HexLabelProvider {}
-
-impl LabelProvider for HexLabelProvider {
-    fn label_for(&mut self, address: u32) -> String {
-        format!("0x{address:08x}")
-    }
-}
-
-pub struct Disassembler<Provider: LabelProvider> {
-    pub pc: u32,
-    pub labels: Provider,
-}
+use titan_shared::cpu::disassemble::{Disassembler, LabelProvider};
 
 fn jump_dest(pc: u32, imm: u32) -> u32 {
     ((pc + 4) & 0xFC000000) | (imm << 2)

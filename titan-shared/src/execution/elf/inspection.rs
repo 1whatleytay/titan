@@ -1,5 +1,4 @@
-use crate::cpu::decoder::Decoder;
-use crate::cpu::disassemble::{Disassembler, LabelProvider};
+use crate::cpu::disassemble::{Disassembler, Dispatchable, LabelProvider};
 use crate::elf::header::{BinaryType, Endian};
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags, ProgramHeaderType};
 use crate::elf::Elf;
@@ -7,7 +6,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 
-struct LabelManager {
+pub struct LabelManager {
     entry: Option<u32>,
     labels: HashSet<u32>,
 }
@@ -135,22 +134,19 @@ impl Inspection {
     }
 
     // Assumption: Every instruction is the same size.
-    fn disassemble(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<String> {
+    fn disassemble<Disas: Dispatchable<String, LabelManager>>(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<String> {
         let mut instructions = Cursor::new(data);
 
         let mut result = vec![];
 
-        let mut disassembler = Disassembler {
-            pc: address,
-            labels: manager,
-        };
+        let mut disassembler = Disas::new(address, manager);
 
         while let Ok(instruction) = instructions.read_u32::<LittleEndian>() {
             let text = disassembler
                 .dispatch(instruction)
                 .unwrap_or_else(|| format!("INVALID # 0x{instruction:08x}"));
 
-            disassembler.pc += 4;
+            disassembler.update_pc();
 
             result.push(text)
         }
@@ -158,7 +154,7 @@ impl Inspection {
         result
     }
 
-    pub fn new(named: Option<&str>, elf: &Elf) -> Inspection {
+    pub fn new<Disas: Dispatchable<String, LabelManager>>(named: Option<&str>, elf: &Elf) -> Inspection {
         let mut lines: Vec<String> = Inspection::description(named, elf)
             .iter()
             .map(|text| format!("# {text}"))
@@ -175,7 +171,7 @@ impl Inspection {
             .map(|head| {
                 (
                     head,
-                    Inspection::disassemble(head.virtual_address, &head.data, &mut manager),
+                    Inspection::disassemble::<Disas>(head.virtual_address, &head.data, &mut manager),
                 )
             })
             .collect();
