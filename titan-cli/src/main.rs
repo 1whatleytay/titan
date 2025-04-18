@@ -12,6 +12,7 @@ use titan::cpu::State;
 use titan::execution::Executor;
 use titan::execution::elf::setup::create_simple_state;
 use titan::execution::trackers::empty::EmptyTracker;
+use titan::cpu::registers::registers::RawRegisters;
 
 #[derive(Subcommand, Debug)]
 enum Command {
@@ -63,10 +64,10 @@ fn run(args: Args) -> Result<()> {
 
             let instant = Instant::now();
 
-            let state: State<SectionMemory<DefaultResponder>> = create_simple_state(&elf, 0x100000);
+            let state: State<SectionMemory<DefaultResponder>, RawRegisters> = create_simple_state(&elf, 0x100000);
             let debugger = Executor::new(state, EmptyTracker { });
 
-            let frame = debugger.run();
+            let frame = debugger.run(false);
 
             let end = instant.elapsed();
 

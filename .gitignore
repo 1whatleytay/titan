@@ -1,5 +1,6 @@
 target
-/Cargo.lock
+titan-mips/Cargo.lock
+titan-riscv/Cargo.lock
 
 .DS_Store
 .idea

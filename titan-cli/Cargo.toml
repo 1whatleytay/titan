@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.2.4", features = ["derive"] }
 anyhow = "1.0.71"
-titan = { path = ".." }
+titan = { path = "../titan-mips" }
