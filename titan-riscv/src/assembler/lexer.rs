@@ -1,11 +1,10 @@
-use num::FromPrimitive;
 pub use titan_shared::assembler::lexer::Location;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
-use std::str::FromStr;
+
 use SymbolName::Owned;
-use titan_shared::assembler::lexer::{is_hard, numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
+use titan_shared::assembler::lexer::{numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
 use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::LexerReason::{
@@ -13,12 +12,9 @@ use crate::assembler::lexer::LexerReason::{
 };
 use crate::assembler::lexer::SymbolName::Slice;
 use crate::assembler::lexer::TokenKind::{
-    Colon, Comma, Comment, Directive, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine,
-    Parameter, Register, RightBrace, StringLiteral, Symbol,
+    Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine,
+    Parameter, RightBrace, StringLiteral, Symbol,
 };
-use crate::assembler::registers::RegisterSlot;
-
-use super::registers::FPRegisterSlot;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
@@ -44,8 +40,6 @@ pub enum StrippedKind {
     Comment,
     Directive,
     Parameter,
-    Register,
-    FPRegister,
     IntegerLiteral,
     FloatLiteral,
     StringLiteral,
@@ -64,8 +58,6 @@ pub enum TokenKind<'a> {
     Comment(&'a str),           // #*\n
     Directive(&'a str),         // .*
     Parameter(&'a str),         // %*
-    Register(RegisterSlot),     // $*
-    FPRegister(FPRegisterSlot), // $f*
     IntegerLiteral(u64),        // 123 -> also characters
     FloatLiteral(f64),          // 123.0
     StringLiteral(String),
@@ -88,8 +80,6 @@ impl Display for StrippedKind {
                 StrippedKind::Comment => "Comment",
                 StrippedKind::Directive => "Directive",
                 StrippedKind::Parameter => "Parameter",
-                StrippedKind::Register => "Register",
-                StrippedKind::FPRegister => "Floating Point Register",
                 StrippedKind::IntegerLiteral => "Integer Literal",
                 StrippedKind::FloatLiteral => "Float Literal",
                 StrippedKind::StringLiteral => "String Literal",
@@ -112,8 +102,6 @@ impl TokenKind<'_> {
             Comment(_) => StrippedKind::Comment,
             Directive(_) => StrippedKind::Directive,
             Parameter(_) => StrippedKind::Parameter,
-            Register(_) => StrippedKind::Register,
-            FPRegister(_) => StrippedKind::FPRegister,
             IntegerLiteral(_) => StrippedKind::IntegerLiteral,
             FloatLiteral(_) => StrippedKind::FloatLiteral,
             StringLiteral(_) => StrippedKind::StringLiteral,
@@ -170,6 +158,48 @@ impl Display for LexerError {
 
 impl Error for LexerError {}
 
+fn is_hard(c: char) -> bool {
+    c.is_whitespace() || is_explicit_hard(c)
+}
+
+
+// I want the ability to precompute a hash table, so this is done via match.
+fn is_explicit_hard(c: char) -> bool {
+    matches!(
+        c,
+        ':' | ';'
+            | ','
+            | '{'
+            | '}'
+            | '+'
+            | '-'
+            | '='
+            | '/'
+            | '@'
+            | '#'
+            | '$'
+            | '%'
+            | '^'
+            | '&'
+            | '|'
+            | '*'
+            | '('
+            | ')'
+            | '!'
+            | '?'
+            | '<'
+            | '>'
+            | '~'
+            | '['
+            | ']'
+            | '\\'
+            | '\"'
+            | '\''
+    )
+}
+
+
+
 
 fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);
@@ -195,21 +225,6 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
 
             Some((rest, Parameter(value)))
         }),
-        '$' => {
-            let (rest, value) = take_name(after_leading);
-
-            let mut chars = value.chars();
-            if chars.next() == Some('f') && chars.next() != Some('p') {
-                FPRegisterSlot::from_string(value)
-                    .map(|reg| Some((rest, TokenKind::FPRegister(reg))))
-                    .ok_or_else(|| UnknownRegister(value.to_string()))
-            } else {
-                RegisterSlot::from_string(value)
-                    .or_else(|| RegisterSlot::from_u64(u64::from_str(value).ok()?))
-                    .map(|slot| Some((rest, Register(slot))))
-                    .ok_or_else(|| UnknownRegister(value.to_string()))
-            }
-        }
         '+' => Ok(Some((&input[1..], Plus))),
         '-' => Ok(Some((&input[1..], Minus))),
         ',' => Ok(Some((&input[1..], Comma))),

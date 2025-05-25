@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+num = "0.4.1"
+titan_shared = { path = "../titan-shared" }

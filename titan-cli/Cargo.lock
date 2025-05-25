@@ -318,7 +318,6 @@ dependencies = [
 name = "titan"
 version = "0.1.0"
 dependencies = [
- "bitflags",
  "byteorder",
  "num",
  "num-derive",
