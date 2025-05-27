@@ -1,17 +1,13 @@
-use crate::assembler::assembler_util::AssemblerReason::{
+use crate::assembler::utilities::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::assembler_util::{
-    default_start, get_constant, get_float, get_integer, get_integer_adjacent, get_label,
-    get_string, pc_for_region, AssemblerError,
-};
-use crate::assembler::binary::AddressLabel::Label;
-use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use crate::assembler::binary::{BinarySection, NamedLabel};
+use crate::assembler::utilities::{default_start, get_constant, get_float, get_integer, get_integer_adjacent, get_label, get_string, is_adjacent, is_solid, pc_for_region, AssemblerError, TokenCursor};
+use titan_shared::assembler::binary::AddressLabel::Label;
+use titan_shared::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
+use titan_shared::assembler::binary::{BinarySection, NamedLabel};
 use crate::assembler::binary_builder::{
     BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind,
 };
-use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::lexer::TokenKind::{Colon, NewLine};
 use crate::assembler::lexer::{Location, Token, TokenKind};
 use byteorder::{ByteOrder, LittleEndian};
@@ -24,7 +20,7 @@ const MISSING_REGION: AssemblerError = AssemblerError {
 
 fn do_seek_directive(
     mode: BinarySection,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let address = get_integer_adjacent(iter);
@@ -37,8 +33,8 @@ fn do_seek_directive(
     Ok(())
 }
 
-fn do_globl_directive(iter: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
-    iter.collect_without(|kind| kind == &NewLine);
+fn do_globl_directive(iter: &mut TokenCursor, _: &mut BinaryBuilder) -> Result<(), AssemblerError> {
+    iter.collect_without(|token| &token.kind == &NewLine);
 
     // Ignore, dummy directive since no multi-file support at the moment.
 
@@ -46,7 +42,7 @@ fn do_globl_directive(iter: &mut LexerCursor, _: &mut BinaryBuilder) -> Result<(
 }
 
 fn do_ascii_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
@@ -58,7 +54,7 @@ fn do_ascii_directive(
 }
 
 fn do_asciiz_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let mut bytes = get_string(iter)?.into_bytes();
@@ -90,7 +86,7 @@ fn align_with_zeros(region: &mut BinaryBuilderRegion, align: u32) -> Result<(), 
 }
 
 fn do_align_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let shift = get_constant(iter)?;
@@ -125,7 +121,7 @@ fn do_align_directive(
 }
 
 fn do_space_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let region = builder.region().ok_or(MISSING_REGION)?;
@@ -166,13 +162,13 @@ enum ConstantOrLabel {
 
 fn grab_value(
     value: &Token,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<Option<ConstantInfo>, AssemblerError> {
     let Some(value) = get_integer(value, iter, true) else {
         return Ok(None);
     };
 
-    let next_up = iter.seek_without(is_adjacent_kind);
+    let next_up = iter.seek_without(is_adjacent);
 
     let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
         iter.next();
@@ -206,10 +202,10 @@ fn grab_value(
     Ok(Some(ConstantInfo { value, count }))
 }
 
-fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>, AssemblerError> {
+fn get_constant_or_labels(iter: &mut TokenCursor) -> Result<Vec<ConstantOrLabel>, AssemblerError> {
     let mut result: Vec<ConstantOrLabel> = vec![];
 
-    while let Some(value) = iter.seek_without(is_solid_kind) {
+    while let Some(value) = iter.seek_without(is_solid) {
         let start = iter.get_position();
 
         let item = if let TokenKind::Symbol(name) = &value.kind {
@@ -253,10 +249,10 @@ fn get_constant_or_labels(iter: &mut LexerCursor) -> Result<Vec<ConstantOrLabel>
     Ok(result)
 }
 
-fn get_constants(iter: &mut LexerCursor) -> Result<Vec<ConstantInfo>, AssemblerError> {
+fn get_constants(iter: &mut TokenCursor) -> Result<Vec<ConstantInfo>, AssemblerError> {
     let mut result = vec![];
 
-    while let Some(value) = iter.seek_without(is_solid_kind) {
+    while let Some(value) = iter.seek_without(is_solid) {
         let Some(constant) = grab_value(value, iter)? else {
             break;
         };
@@ -268,7 +264,7 @@ fn get_constants(iter: &mut LexerCursor) -> Result<Vec<ConstantInfo>, AssemblerE
 }
 
 fn do_byte_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let values = get_constants(iter)?;
@@ -294,7 +290,7 @@ fn do_byte_directive(
 }
 
 fn do_half_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let values = get_constants(iter)?;
@@ -322,7 +318,7 @@ fn do_half_directive(
 }
 
 fn do_word_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     // Being extra cautious for when these features are enabled.
@@ -384,13 +380,13 @@ struct FloatInfo {
 
 fn grab_float_value(
     value: &Token,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<Option<FloatInfo>, AssemblerError> {
     let Some(value) = get_float(value, iter, true) else {
         return Ok(None);
     };
 
-    let next_up = iter.seek_without(is_adjacent_kind);
+    let next_up = iter.seek_without(is_adjacent);
 
     let count = if next_up.map(|x| x.kind == Colon).unwrap_or(false) {
         iter.next();
@@ -424,10 +420,10 @@ fn grab_float_value(
     Ok(Some(FloatInfo { value, count }))
 }
 
-fn get_floats(iter: &mut LexerCursor) -> Result<Vec<FloatInfo>, AssemblerError> {
+fn get_floats(iter: &mut TokenCursor) -> Result<Vec<FloatInfo>, AssemblerError> {
     let mut result: Vec<FloatInfo> = vec![];
 
-    while let Some(value) = iter.seek_without(is_solid_kind) {
+    while let Some(value) = iter.seek_without(is_solid) {
         let Some(constant) = grab_float_value(value, iter)? else {
             break;
         };
@@ -438,7 +434,7 @@ fn get_floats(iter: &mut LexerCursor) -> Result<Vec<FloatInfo>, AssemblerError> 
 }
 
 fn do_float_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let values = get_floats(iter)?;
@@ -466,7 +462,7 @@ fn do_float_directive(
 }
 
 fn do_double_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let values = get_floats(iter)?;
@@ -494,7 +490,7 @@ fn do_double_directive(
 }
 
 fn do_entry_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let label = get_label(iter)?;
@@ -505,7 +501,7 @@ fn do_entry_directive(
 }
 
 fn do_extern_directive(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     _: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let location = iter.get_position();
@@ -523,7 +519,7 @@ fn do_extern_directive(
 pub fn do_directive(
     directive: &str,
     location: Location,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
 ) -> Result<(), AssemblerError> {
     let lowercase = directive.to_lowercase();

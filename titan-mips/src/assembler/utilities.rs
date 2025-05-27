@@ -1,18 +1,48 @@
-use crate::assembler::assembler_util::InstructionValue::{Literal, Slot};
-use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
-use crate::assembler::cursor::{is_adjacent_kind, LexerCursor};
-use crate::assembler::lexer::TokenKind::{
-    FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace,
-    StringLiteral, Symbol,
-};
+use crate::assembler::utilities::InstructionValue::{Literal, Slot};
+use crate::assembler::lexer::TokenKind::{Comma, Comment, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol};
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
-use crate::assembler::registers::RegisterSlot;
+use crate::assembler::registers::{FPRegisterSlot, RegisterSlot};
+use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use titan_shared::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
+use titan_shared::assembler::binary::AddressLabel::{Constant, Label};
 use TokenKind::Minus;
 
-use super::registers::FPRegisterSlot;
+pub fn is_solid_kind(kind: &TokenKind) -> bool {
+    match kind {
+        Comment(_) => false,
+        NewLine => false,
+        _ => true,
+    }
+}
+
+pub fn is_adjacent_kind(kind: &TokenKind) -> bool {
+    match kind {
+        Comment(_) => false,
+        Comma => false, // Completely ignored by MARS.
+        _ => true,
+    }
+}
+
+
+pub fn is_solid(token: &Token) -> bool {
+    is_solid_kind(&token.kind)
+}
+
+pub fn is_adjacent(token: &Token) -> bool {
+    is_adjacent_kind(&token.kind)
+}
+
+pub struct TokenInsights;
+
+impl<'a, 'b> TokenCursorInsights<'b, Token<'a>> for TokenInsights {
+    fn is_adjacent(&self, token: &'b Token<'a>) -> bool {
+        is_adjacent_kind(&token.kind)
+    }
+}
+
+pub type TokenCursor<'a, 'b> = BaseTokenCursor<'b, Token<'a>, TokenInsights>;
 
 #[derive(Debug)]
 pub enum AssemblerReason {
@@ -93,7 +123,7 @@ pub fn pc_for_region(
 
 impl Error for AssemblerError {}
 
-pub fn get_token<'a, 'b>(iter: &mut LexerCursor<'a, 'b>) -> Result<&'b Token<'a>, AssemblerError> {
+pub fn get_token<'a, 'b>(iter: &mut TokenCursor<'a, 'b>) -> Result<&'b Token<'a>, AssemblerError> {
     iter.next_adjacent().ok_or(AssemblerError {
         location: None,
         reason: AssemblerReason::EndOfFile,
@@ -110,7 +140,7 @@ fn default_error(reason: AssemblerReason, token: &Token) -> AssemblerError {
     AssemblerError { location, reason }
 }
 
-pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerError> {
+pub fn get_register(iter: &mut TokenCursor) -> Result<RegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Register(slot) = token.kind {
@@ -123,7 +153,7 @@ pub fn get_register(iter: &mut LexerCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
-pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, AssemblerError> {
+pub fn get_fp_register(iter: &mut TokenCursor) -> Result<FPRegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     if let FPRegister(slot) = token.kind {
@@ -136,7 +166,7 @@ pub fn get_fp_register(iter: &mut LexerCursor) -> Result<FPRegisterSlot, Assembl
     }
 }
 
-pub fn get_cc(iter: &mut LexerCursor) -> Result<u8, AssemblerError> {
+pub fn get_cc(iter: &mut TokenCursor) -> Result<u8, AssemblerError> {
     let token = get_token(iter)?;
 
     if let IntegerLiteral(slot) = token.kind {
@@ -155,7 +185,7 @@ pub enum InstructionValue {
 }
 
 // first -> pointed to but NOT consumed yet, this method call will consume it
-pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<u64> {
+pub fn get_integer(first: &Token, iter: &mut TokenCursor, consume: bool) -> Option<u64> {
     let start = iter.get_position();
 
     match &first.kind {
@@ -187,7 +217,7 @@ pub fn get_integer(first: &Token, iter: &mut LexerCursor, consume: bool) -> Opti
     }
 }
 
-pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option<f64> {
+pub fn get_float(first: &Token, iter: &mut TokenCursor, consume: bool) -> Option<f64> {
     let start = iter.get_position();
 
     match &first.kind {
@@ -224,15 +254,15 @@ pub fn get_float(first: &Token, iter: &mut LexerCursor, consume: bool) -> Option
     }
 }
 
-pub fn get_integer_adjacent(iter: &mut LexerCursor) -> Option<u64> {
-    if let Some(token) = iter.seek_without(is_adjacent_kind) {
+pub fn get_integer_adjacent(iter: &mut TokenCursor) -> Option<u64> {
+    if let Some(token) = iter.seek_without(is_adjacent) {
         get_integer(token, iter, true)
     } else {
         None
     }
 }
 
-pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerError> {
+pub fn get_value(iter: &mut TokenCursor) -> Result<InstructionValue, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Some(value) = get_integer(token, iter, false) {
@@ -248,8 +278,8 @@ pub fn get_value(iter: &mut LexerCursor) -> Result<InstructionValue, AssemblerEr
     }
 }
 
-pub fn maybe_get_value(iter: &mut LexerCursor) -> Option<InstructionValue> {
-    let value = iter.seek_without(is_adjacent_kind)?;
+pub fn maybe_get_value(iter: &mut TokenCursor) -> Option<InstructionValue> {
+    let value = iter.seek_without(is_adjacent)?;
 
     if let Some(value) = get_integer(value, iter, true) {
         Some(Literal(value))
@@ -265,7 +295,7 @@ pub fn maybe_get_value(iter: &mut LexerCursor) -> Option<InstructionValue> {
     }
 }
 
-pub fn get_constant(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
+pub fn get_constant(iter: &mut TokenCursor) -> Result<u64, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Some(value) = get_integer(token, iter, false) {
@@ -278,7 +308,7 @@ pub fn get_constant(iter: &mut LexerCursor) -> Result<u64, AssemblerError> {
     }
 }
 
-pub fn get_string(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
+pub fn get_string(iter: &mut TokenCursor) -> Result<String, AssemblerError> {
     let token = get_token(iter)?;
 
     match &token.kind {
@@ -290,7 +320,7 @@ pub fn get_string(iter: &mut LexerCursor) -> Result<String, AssemblerError> {
     }
 }
 
-fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
+fn to_label(token: &Token, iter: &mut TokenCursor) -> Result<AddressLabel, AssemblerError> {
     if let Some(value) = get_integer(token, iter, false) {
         Ok(Constant(value))
     } else {
@@ -322,7 +352,7 @@ fn to_label(token: &Token, iter: &mut LexerCursor) -> Result<AddressLabel, Assem
     }
 }
 
-pub fn get_label(iter: &mut LexerCursor) -> Result<AddressLabel, AssemblerError> {
+pub fn get_label(iter: &mut TokenCursor) -> Result<AddressLabel, AssemblerError> {
     to_label(get_token(iter)?, iter)
 }
 
@@ -331,11 +361,11 @@ pub enum OffsetOrLabel {
     Offset(AddressLabel, RegisterSlot),
 }
 
-pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, AssemblerError> {
+pub fn get_offset_or_label(iter: &mut TokenCursor) -> Result<OffsetOrLabel, AssemblerError> {
     let label = to_label(get_token(iter)?, iter);
 
     let is_offset = iter
-        .seek_without(is_adjacent_kind)
+        .seek_without(is_adjacent)
         .map(|token| token.kind == LeftBrace)
         .unwrap_or(false);
 
@@ -359,7 +389,7 @@ pub fn get_offset_or_label(iter: &mut LexerCursor) -> Result<OffsetOrLabel, Asse
         }
 
         Ok(OffsetOrLabel::Offset(
-            label.unwrap_or(AddressLabel::Constant(0)),
+            label.unwrap_or(Constant(0)), // Taylor: Is this right? Seems suspicious.
             register,
         ))
     } else {

@@ -1,15 +1,11 @@
-use crate::assembler::assembler_util::AssemblerReason::{
+use crate::assembler::utilities::AssemblerReason::{
     ConstantOutOfRange, MissingRegion, UnknownInstruction,
 };
-use crate::assembler::assembler_util::{
-    default_start, get_constant, get_label, get_offset_or_label, get_register, get_value,
-    maybe_get_value, pc_for_region, AssemblerError, InstructionValue, OffsetOrLabel,
-};
-use crate::assembler::binary::{AddressLabel, BinaryBreakpoint};
+use crate::assembler::utilities::{default_start, get_constant, get_label, get_offset_or_label, get_register, get_value, maybe_get_value, pc_for_region, AssemblerError, InstructionValue, TokenCursor, OffsetOrLabel};
+use titan_shared::assembler::binary::{AddressLabel, BinaryBreakpoint};
 use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
-use crate::assembler::cursor::LexerCursor;
 use crate::assembler::instructions::Opcode::{Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::{Encoding, Instruction, Opcode};
 use crate::assembler::lexer::Location;
@@ -20,7 +16,7 @@ use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use Opcode::Algebra;
 
-use super::assembler_util::{get_cc, get_fp_register};
+use super::utilities::{get_cc, get_fp_register};
 use super::instructions::Size;
 use super::registers::FPRegisterSlot;
 
@@ -289,7 +285,7 @@ fn emit_unpack_value(
 
 fn do_register_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
@@ -310,7 +306,7 @@ fn do_register_instruction(
 
 fn do_register_shift_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -329,7 +325,7 @@ fn do_register_shift_instruction(
 
 fn do_source_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
 
@@ -340,7 +336,7 @@ fn do_source_instruction(
 
 fn do_destination_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
@@ -351,7 +347,7 @@ fn do_destination_instruction(
 
 fn do_inputs_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let first = get_register(iter)?;
     let second = get_register(iter)?;
@@ -384,7 +380,7 @@ fn do_inputs_instruction(
 
 fn do_sham_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
@@ -401,7 +397,7 @@ fn do_sham_instruction(
 
 fn do_special_branch_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
@@ -464,7 +460,7 @@ fn emit_immediate_instruction(
 fn do_immediate_instruction(
     op: &Opcode,
     alt: Option<&Opcode>,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
     let source = get_register(iter)?;
@@ -475,7 +471,7 @@ fn do_immediate_instruction(
 
 fn do_load_immediate_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -490,7 +486,7 @@ fn do_load_immediate_instruction(
 
 fn do_jump_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
 
@@ -503,7 +499,7 @@ fn do_jump_instruction(
 
 fn do_branch_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -529,7 +525,7 @@ fn do_branch_instruction(
 
 fn do_branch_zero_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register(iter)?;
     let label = get_label(iter)?;
@@ -549,7 +545,7 @@ fn do_branch_zero_instruction(
 
 fn do_parameterless_instruction(
     op: &Opcode,
-    _: &mut LexerCursor,
+    _: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let inst = InstructionBuilder::from_op(op).0;
 
@@ -558,7 +554,7 @@ fn do_parameterless_instruction(
 
 fn do_offset_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_register(iter)?;
 
@@ -579,7 +575,7 @@ fn do_offset_instruction(
 
 fn do_fp_offset_instruction(
     op: &Opcode,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let temp = get_fp_register(iter)?;
 
@@ -601,7 +597,7 @@ fn do_fp_offset_instruction(
 fn do_fp_three_register_instruction(
     op: &Opcode,
     fmt: Size,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_fp_register(iter)?;
     let source = get_fp_register(iter)?;
@@ -620,7 +616,7 @@ fn do_fp_three_register_instruction(
 fn do_fp_2register_instruction(
     op: &Opcode,
     fmt: Size,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_fp_register(iter)?;
     let source = get_fp_register(iter)?;
@@ -638,7 +634,7 @@ fn do_fp_move_instruction(
     op: &Opcode,
     fmt: Size,
     bool: bool,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_fp_register(iter)?;
     let source = get_fp_register(iter)?;
@@ -659,7 +655,7 @@ fn do_fp_move_instruction(
 fn do_fp_cond_instruction(
     op: &Opcode,
     fmt: Size,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let cc = get_cc(iter)?;
     let source = get_fp_register(iter)?;
@@ -680,7 +676,7 @@ fn do_fp_cond_instruction(
 fn do_fp_cross_move_instruction(
     op: &Opcode,
     reg: bool,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let t = if reg {
         get_fp_register(iter)?.to_u8()
@@ -704,7 +700,7 @@ fn do_fp_cross_move_instruction(
 fn do_fp_branch_instruction(
     op: &Opcode,
     bool: bool,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let cc = get_cc(iter)?;
     let label = get_label(iter)?;
@@ -723,13 +719,13 @@ fn do_fp_branch_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_nop_instruction(_: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_nop_instruction(_: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let instruction = InstructionBuilder::from_op(&Func(0)).0;
 
     Ok(EmitInstruction::with(instruction))
 }
 
-fn do_abs_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_abs_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -758,7 +754,7 @@ fn do_abs_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
 }
 
 fn do_branch_custom_instruction(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     greater_than: bool,
     result_true: bool,
     unsigned: bool,
@@ -803,7 +799,7 @@ fn do_branch_custom_instruction(
 }
 
 fn do_set_custom_instruction(
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     greater_than: bool,
     result_true: bool,
     unsigned: bool,
@@ -843,7 +839,7 @@ fn do_set_custom_instruction(
     Ok(EmitInstruction { instructions })
 }
 
-fn do_seq_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_seq_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -873,7 +869,7 @@ fn do_seq_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
     Ok(EmitInstruction { instructions })
 }
 
-fn do_sne_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_sne_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
     let temp = get_value(iter)?;
@@ -897,7 +893,7 @@ fn do_sne_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
     Ok(EmitInstruction { instructions })
 }
 
-fn do_neg_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_neg_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -910,7 +906,7 @@ fn do_neg_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
     Ok(EmitInstruction::with(sub))
 }
 
-fn do_negu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_negu_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -923,7 +919,7 @@ fn do_negu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     Ok(EmitInstruction::with(subu))
 }
 
-fn do_not_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_not_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -936,7 +932,7 @@ fn do_not_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembl
     Ok(EmitInstruction::with(nor))
 }
 
-fn do_li_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_li_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let constant = get_constant(iter)?;
 
@@ -948,7 +944,7 @@ fn do_li_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemble
     Ok(EmitInstruction { instructions })
 }
 
-fn do_la_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_la_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let label = get_label(iter)?;
 
@@ -957,7 +953,7 @@ fn do_la_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemble
     Ok(EmitInstruction { instructions })
 }
 
-fn do_move_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_move_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let source = get_register(iter)?;
 
@@ -970,7 +966,7 @@ fn do_move_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     Ok(EmitInstruction::with(addu))
 }
 
-fn do_b_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_b_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
 
     let beq = InstructionBuilder::from_op(&Op(4)) // beq
@@ -990,7 +986,7 @@ fn do_b_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assembler
 }
 
 // MARS seems to load the instruction itself like `li`. I'm not sure about this! Do it yourself!
-fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_subi_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -1004,7 +1000,7 @@ fn do_subi_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assemb
     )
 }
 
-fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_subiu_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let temp = get_register(iter)?;
     let constant = get_constant(iter)?;
@@ -1020,7 +1016,7 @@ fn do_subiu_instruction(iter: &mut LexerCursor) -> Result<EmitInstruction, Assem
 
 fn dispatch_pseudo(
     instruction: &str,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
 ) -> Result<Option<EmitInstruction>, AssemblerError> {
     Ok(Some(match instruction {
         "nop" => do_nop_instruction(iter),
@@ -1058,7 +1054,7 @@ fn dispatch_pseudo(
 
 fn dispatch_instruction(
     instruction: &str,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     map: &HashMap<&str, &Instruction>,
 ) -> Result<EmitInstruction, AssemblerError> {
     let Some(instruction) = map.get(&instruction) else {
@@ -1100,7 +1096,7 @@ fn dispatch_instruction(
 pub fn do_instruction(
     instruction: &str,
     location: Location,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
     map: &HashMap<&str, &Instruction>,
 ) -> Result<(), AssemblerError> {

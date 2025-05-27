@@ -1,11 +1,8 @@
-use crate::assembler::assembler_util::AssemblerReason::{
+use crate::assembler::utilities::AssemblerReason::{
     DuplicateLabel, MissingRegion, UnexpectedToken,
 };
-use crate::assembler::assembler_util::{pc_for_region, AssemblerError};
-use crate::assembler::binary::Binary;
-use crate::assembler::binary::BinarySection::Text;
+use crate::assembler::utilities::{is_adjacent, is_solid, pc_for_region, AssemblerError, TokenCursor, TokenInsights};
 use crate::assembler::binary_builder::BinaryBuilder;
-use crate::assembler::cursor::{is_adjacent_kind, is_solid_kind, LexerCursor};
 use crate::assembler::directive::do_directive;
 use crate::assembler::emit::do_instruction;
 use crate::assembler::instructions::instructions_map;
@@ -13,6 +10,8 @@ use crate::assembler::instructions::Instruction;
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, Minus, Plus, Symbol};
 use crate::assembler::lexer::{Location, Token, TokenKind};
 use std::collections::HashMap;
+use titan_shared::assembler::binary::Binary;
+use titan_shared::assembler::binary::BinarySection::Text;
 
 enum SymbolType {
     Label,
@@ -22,7 +21,7 @@ enum SymbolType {
 fn do_symbol(
     name: &str,
     location: Location,
-    iter: &mut LexerCursor,
+    iter: &mut TokenCursor,
     builder: &mut BinaryBuilder,
     map: &HashMap<&str, &Instruction>,
 ) -> Result<SymbolType, AssemblerError> {
@@ -33,7 +32,7 @@ fn do_symbol(
         reason: MissingRegion,
     })?;
 
-    match iter.seek_without(is_adjacent_kind) {
+    match iter.seek_without(is_adjacent) {
         Some(token) if token.kind == TokenKind::Colon => {
             iter.next(); // consume
 
@@ -60,7 +59,7 @@ fn do_symbol(
 }
 
 pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary, AssemblerError> {
-    let mut cursor = LexerCursor::new(items);
+    let mut cursor = TokenCursor::new(items, TokenInsights);
 
     let map = instructions_map(instructions);
 
@@ -69,7 +68,7 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
 
     let mut last_directive = Option::<(&str, Location)>::None;
 
-    while let Some(token) = cursor.seek_without(is_solid_kind) {
+    while let Some(token) = cursor.seek_without(is_solid) {
         match &token.kind {
             Plus | Minus | IntegerLiteral(_) => {
                 let Some((directive, start)) = last_directive else {

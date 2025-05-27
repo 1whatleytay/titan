@@ -68,7 +68,7 @@ impl HistoryTracker {
 }
 
 impl<Mem: Memory> Tracker<WatchedMemory<Mem>, WatchedRegisters> for HistoryTracker {
-    fn pre_track(&mut self, state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {}
+    fn pre_track(&mut self, _state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {}
 
     fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {
         let entry = HistoryEntry {

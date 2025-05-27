@@ -1,4 +1,4 @@
-use crate::cpu::disassemble::{Disassembler, Dispatchable, LabelProvider};
+use crate::cpu::disassemble::{Dispatchable, LabelProvider};
 use crate::elf::header::{BinaryType, Endian};
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags, ProgramHeaderType};
 use crate::elf::Elf;

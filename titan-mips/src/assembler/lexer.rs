@@ -6,6 +6,7 @@ use std::ptr;
 use std::str::FromStr;
 use SymbolName::Owned;
 use titan_shared::assembler::lexer::{is_hard, numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
+use titan_shared::assembler::source::{LexerProvider, TokenProvider};
 use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::LexerReason::{
@@ -25,6 +26,11 @@ pub enum SymbolName<'a> {
     Slice(&'a str),
     Owned(String),
 }
+
+// Temporary Trait Alias
+pub trait MipsTokenProvider<'a> : TokenProvider<Token<'a>, LexerError> { }
+
+impl<'a, T: TokenProvider<Token<'a>, LexerError>> MipsTokenProvider<'a> for T { }
 
 impl<'a> SymbolName<'a> {
     pub fn get<'b: 'a>(&'b self) -> &'b str {
@@ -269,4 +275,12 @@ pub fn lex_with_source(mut input: &str, source: usize) -> Result<Vec<Token>, Lex
 
 pub fn lex(input: &str) -> Result<Vec<Token>, LexerError> {
     lex_with_source(input, 0)
+}
+
+pub struct MipsLexerProvider;
+
+impl<'a> LexerProvider<'a, Token<'a>, LexerError> for MipsLexerProvider {
+    fn lex(&self, source: &'a str, id: usize) -> Result<Vec<Token<'a>>, LexerError> {
+        lex_with_source(source, id)
+    }
 }

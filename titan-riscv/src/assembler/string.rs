@@ -1,14 +1,14 @@
-use crate::assembler::assembler_util::AssemblerError;
-use crate::assembler::binary::Binary;
+use crate::assembler::utilities::AssemblerError;
 use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
-use crate::assembler::lexer::{lex, LexerError, Location};
+use crate::assembler::lexer::{lex, LexerError, Location, RiscVLexerProvider};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
-use crate::assembler::source::{FileProviderPool, HoldingProvider};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
+use titan_shared::assembler::binary::Binary;
+use titan_shared::assembler::source::{FileProviderPool, HoldingProvider};
 
 #[derive(Debug)]
 pub enum SourceError {
@@ -68,7 +68,7 @@ pub fn assemble_from(source: &str) -> Result<Binary, SourceError> {
 }
 
 pub fn assemble_from_path(source: String, path: PathBuf) -> Result<Binary, SourceError> {
-    let pool = FileProviderPool::new();
+    let pool = FileProviderPool::new(RiscVLexerProvider);
 
     let provider = pool.provider_sourced(source, path.into())?.to_provider();
 

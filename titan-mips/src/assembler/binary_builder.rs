@@ -1,9 +1,9 @@
-use crate::assembler::assembler_util::AssemblerError;
-use crate::assembler::assembler_util::AssemblerReason::{
+use crate::assembler::utilities::AssemblerError;
+use crate::assembler::utilities::AssemblerReason::{
     JumpOutOfRange, MissingInstruction, UnknownLabel,
 };
-use crate::assembler::binary::AddressLabel::{Constant, Label};
-use crate::assembler::binary::{
+use titan_shared::assembler::binary::AddressLabel::{Constant, Label};
+use titan_shared::assembler::binary::{
     AddressLabel, Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
 };
 use crate::assembler::binary_builder::BinarySection::Text;

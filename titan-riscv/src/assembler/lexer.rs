@@ -2,19 +2,23 @@ pub use titan_shared::assembler::lexer::Location;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
-
+use num_traits::FromPrimitive;
 use SymbolName::Owned;
 use titan_shared::assembler::lexer::{numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
+use titan_shared::assembler::source::{LexerProvider, TokenProvider};
 use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::LexerReason::{
     ImproperLiteral, InvalidString, Stuck, UnexpectedCharacter, UnknownRegister,
 };
 use crate::assembler::lexer::SymbolName::Slice;
-use crate::assembler::lexer::TokenKind::{
-    Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine,
-    Parameter, RightBrace, StringLiteral, Symbol,
-};
+use crate::assembler::lexer::TokenKind::{Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Parameter, Register, RightBrace, StringLiteral, Symbol};
+use crate::assembler::registers::RegisterSlot;
+
+// Temporary Trait Alias
+pub trait RiscVTokenProvider<'a> : TokenProvider<Token<'a>, LexerError> { }
+
+impl<'a, T: TokenProvider<Token<'a>, LexerError>> RiscVTokenProvider<'a> for T { }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
@@ -40,6 +44,7 @@ pub enum StrippedKind {
     Comment,
     Directive,
     Parameter,
+    Register,
     IntegerLiteral,
     FloatLiteral,
     StringLiteral,
@@ -58,6 +63,7 @@ pub enum TokenKind<'a> {
     Comment(&'a str),           // #*\n
     Directive(&'a str),         // .*
     Parameter(&'a str),         // %*
+    Register(RegisterSlot),     // t0, sp, v0, or r0-r31
     IntegerLiteral(u64),        // 123 -> also characters
     FloatLiteral(f64),          // 123.0
     StringLiteral(String),
@@ -80,6 +86,7 @@ impl Display for StrippedKind {
                 StrippedKind::Comment => "Comment",
                 StrippedKind::Directive => "Directive",
                 StrippedKind::Parameter => "Parameter",
+                StrippedKind::Register => "Register",
                 StrippedKind::IntegerLiteral => "Integer Literal",
                 StrippedKind::FloatLiteral => "Float Literal",
                 StrippedKind::StringLiteral => "String Literal",
@@ -102,6 +109,7 @@ impl TokenKind<'_> {
             Comment(_) => StrippedKind::Comment,
             Directive(_) => StrippedKind::Directive,
             Parameter(_) => StrippedKind::Parameter,
+            Register(_) => StrippedKind::Register,
             IntegerLiteral(_) => StrippedKind::IntegerLiteral,
             FloatLiteral(_) => StrippedKind::FloatLiteral,
             StringLiteral(_) => StrippedKind::StringLiteral,
@@ -198,8 +206,17 @@ fn is_explicit_hard(c: char) -> bool {
     )
 }
 
+fn pick_numbered_register(name: &str) -> Option<RegisterSlot> {
+    if name.starts_with('r') {
+        if let Ok(value) = name[1..].parse::<u32>() {
+            if (0 ..= 31).contains(&value) {
+                return RegisterSlot::from_u32(value)
+            }
+        }
+    }
 
-
+    None
+}
 
 fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);
@@ -245,7 +262,15 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         _ => Ok({
             let (rest, value) = take_name(input);
 
-            Some((rest, Symbol(Slice(value))))
+            let slot = RegisterSlot::from_string(value)
+                .or_else(|| pick_numbered_register(value));
+
+            // Check for any matching registers first!
+            if let Some(slot) = slot {
+                Some((rest, Register(slot)))
+            } else {
+                Some((rest, Symbol(Slice(value))))
+            }
         }),
     }
 }
@@ -284,4 +309,12 @@ pub fn lex_with_source(mut input: &str, source: usize) -> Result<Vec<Token>, Lex
 
 pub fn lex(input: &str) -> Result<Vec<Token>, LexerError> {
     lex_with_source(input, 0)
+}
+
+pub struct RiscVLexerProvider;
+
+impl<'a> LexerProvider<'a, Token<'a>, LexerError> for RiscVLexerProvider {
+    fn lex(&self, source: &'a str, id: usize) -> Result<Vec<Token<'a>>, LexerError> {
+        lex_with_source(source, id)
+    }
 }

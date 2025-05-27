@@ -1,4 +1,4 @@
-use crate::assembler::binary::{Binary, RawRegion, RegionFlags};
+use titan_shared::assembler::binary::Binary;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{Parameter0, ReturnAddress, Value0};
 use crate::assembler::string::{assemble_from_path, SourceError};

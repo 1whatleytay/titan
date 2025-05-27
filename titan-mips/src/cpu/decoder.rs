@@ -1,5 +1,3 @@
-use titan_shared::cpu::disassemble::Dispatchable;
-
 use crate::assembler::instructions::Size;
 
 // noinspection SpellCheckingInspection

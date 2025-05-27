@@ -8,7 +8,7 @@ use crate::assembler::preprocessor::PreprocessorReason::{
     ExpectedSymbol, FailedToFindFile, FailedToLexFile, IncludeUnsupported, MacroParameterCount,
     MacroUnknownParameter, RecursiveExpansion, RecursiveInclude,
 };
-use crate::assembler::lexer::MipsTokenProvider as TokenProvider;
+use crate::assembler::lexer::RiscVTokenProvider as TokenProvider;
 use titan_shared::assembler::source::ExtendError;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
