@@ -5,7 +5,6 @@ use crate::assembler::instructions::Encoding::{
 };
 use crate::assembler::instructions::Opcode::{Algebra, Cop1, Cop1I, Func, Op, Special};
 use crate::assembler::instructions::Size::{Double, Single, Word};
-use std::collections::HashMap;
 
 pub enum Encoding {
     Register,                  // $, $, $, opcode: 0
@@ -629,12 +628,3 @@ pub const INSTRUCTIONS: [Instruction; 115] = [
         encoding: FPOffset,
     },
 ];
-
-pub fn instructions_map<'a, 'b>(
-    instructions: &'b [Instruction<'a>],
-) -> HashMap<&'a str, &'b Instruction<'a>> {
-    instructions
-        .iter()
-        .map(|instruction| (instruction.name, instruction))
-        .collect()
-}

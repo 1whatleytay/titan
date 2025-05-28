@@ -126,6 +126,7 @@ dependencies = [
 name = "riscv"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "num",
  "num-derive",
  "num-traits",

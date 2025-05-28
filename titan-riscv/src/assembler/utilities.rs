@@ -1,6 +1,5 @@
 use crate::assembler::utilities::InstructionValue::{Literal, Slot};
-use titan_shared::assembler::binary::AddressLabel::{Constant, Label};
-use titan_shared::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
+use titan_shared::assembler::binary::RawRegion;
 use crate::assembler::lexer::TokenKind::{Comma, Comment, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol};
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::RegisterSlot;

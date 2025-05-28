@@ -2,8 +2,8 @@ use crate::assembler::utilities::AssemblerReason::{
     ConstantOutOfRange, MissingRegion, UnknownInstruction,
 };
 use crate::assembler::utilities::{default_start, get_constant, get_label, get_offset_or_label, get_register, get_value, maybe_get_value, pc_for_region, AssemblerError, InstructionValue, TokenCursor, OffsetOrLabel};
-use titan_shared::assembler::binary::{AddressLabel, BinaryBreakpoint};
-use crate::assembler::binary_builder::BinaryBuilder;
+use titan_shared::assembler::binary::BinaryBreakpoint;
+use crate::assembler::binary_builder::{AddressLabel, BinaryBuilder};
 use crate::assembler::binary_builder::InstructionLabelKind::{Branch, Jump, Lower, Upper};
 use crate::assembler::binary_builder::{BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::instructions::Opcode::{Cop1, Cop1I, Func, Op, Special};

@@ -5,9 +5,10 @@ use crate::assembler::registers::{FPRegisterSlot, RegisterSlot};
 use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use titan_shared::assembler::binary::{AddressLabel, NamedLabel, RawRegion};
-use titan_shared::assembler::binary::AddressLabel::{Constant, Label};
+use titan_shared::assembler::binary::RawRegion;
 use TokenKind::Minus;
+use crate::assembler::binary_builder::{AddressLabel, NamedLabel};
+use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 
 pub fn is_solid_kind(kind: &TokenKind) -> bool {
     match kind {

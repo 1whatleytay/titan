@@ -31,19 +31,6 @@ impl BinarySection {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct NamedLabel {
-    pub name: String,
-    pub location: Location,
-    pub offset: u64,
-}
-
-#[derive(Clone, Debug)]
-pub enum AddressLabel {
-    Constant(u64),
-    Label(NamedLabel), // usize -> start, offset
-}
-
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct RegionFlags: u32 {
