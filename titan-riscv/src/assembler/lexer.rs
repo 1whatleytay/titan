@@ -207,7 +207,7 @@ fn is_explicit_hard(c: char) -> bool {
 }
 
 fn pick_numbered_register(name: &str) -> Option<RegisterSlot> {
-    if name.starts_with('r') {
+    if name.starts_with(&['r', 'x']) {
         if let Ok(value) = name[1..].parse::<u32>() {
             if (0 ..= 31).contains(&value) {
                 return RegisterSlot::from_u32(value)

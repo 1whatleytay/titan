@@ -7,3 +7,5 @@ pub mod preprocessor;
 pub mod registers;
 pub mod core;
 mod instructions;
+mod emit;
+mod directive;
