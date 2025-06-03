@@ -20,115 +20,131 @@
 // use super::instructions::Size;
 // use super::registers::FPRegisterSlot;
 //
-// fn instruction_base(op: &Opcode) -> u32 {
-//     match op {
-//         Op(key) => (*key as u32 & 0b111111) << 26,
-//         Func(key) => *key as u32 & 0b111111, // opcode: 0
-//         Special(key) => ((*key as u32 & 0b111111) << 16) | (1 << 26), // opcode: 1
-//         Algebra(key) => *key as u32 & 0b111111 | (28 << 26),
-//         Cop1(key) => (*key as u32 & 0b111111) | (17 << 26),
-//         Cop1I(key) => ((*key as u32 & 0b11111) << 21) | (17 << 26),
-//     }
-// }
-//
-// fn register_source(slot: RegisterSlot) -> u32 {
-//     slot.to_u32().unwrap()
-// }
-//
-// fn fp_register_source(slot: FPRegisterSlot) -> u32 {
-//     slot.to_u32().unwrap()
-// }
-//
-// struct InstructionBuilder(u32);
-//
-// impl InstructionBuilder {
-//     fn from_op(op: &Opcode) -> InstructionBuilder {
-//         InstructionBuilder(instruction_base(op))
-//     }
-//
-//     fn with_slot_offset<const OFFSET: u32>(mut self, slot: RegisterSlot) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << OFFSET);
-//         self.0 |= register_source(slot) << OFFSET;
-//
-//         self
-//     }
-//
-//     fn with_fp_slot_offset<const OFFSET: u32>(
-//         mut self,
-//         slot: FPRegisterSlot,
-//     ) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << OFFSET);
-//         self.0 |= fp_register_source(slot) << OFFSET;
-//
-//         self
-//     }
-//
-//     fn with_dest(self, slot: RegisterSlot) -> InstructionBuilder {
-//         self.with_slot_offset::<11>(slot)
-//     }
-//
-//     fn with_temp(self, slot: RegisterSlot) -> InstructionBuilder {
-//         self.with_slot_offset::<16>(slot)
-//     }
-//
-//     fn with_source(self, slot: RegisterSlot) -> InstructionBuilder {
-//         self.with_slot_offset::<21>(slot)
-//     }
-//
-//     fn with_immediate(mut self, imm: u16) -> InstructionBuilder {
-//         self.0 &= 0xFFFF0000;
-//         self.0 |= imm as u32;
-//
-//         self
-//     }
-//
-//     fn with_sham(mut self, sham: u8) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << 6);
-//         self.0 |= (sham as u32) << 6;
-//
-//         self
-//     }
-//
-//     fn with_fp_source(self, slot: FPRegisterSlot) -> InstructionBuilder {
-//         self.with_fp_slot_offset::<11>(slot)
-//     }
-//     fn with_fp_source_value(mut self, value: u8) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << 11);
-//         self.0 |= (value as u32) << 11;
-//
-//         self
-//     }
-//     fn with_fp_dest(self, slot: FPRegisterSlot) -> InstructionBuilder {
-//         self.with_fp_slot_offset::<6>(slot)
-//     }
-//     fn with_fp_dest_value(mut self, value: u8) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << 6);
-//         self.0 |= (value as u32) << 6;
-//
-//         self
-//     }
-//     fn with_fp_temp(self, slot: FPRegisterSlot) -> InstructionBuilder {
-//         self.with_fp_slot_offset::<16>(slot)
-//     }
-//     fn with_fp_temp_value(mut self, value: u8) -> InstructionBuilder {
-//         self.0 &= !(0b11111 << 16);
-//         self.0 |= (value as u32) << 16;
-//
-//         self
-//     }
-//     fn with_fp_fmt(mut self, fmt: Size) -> InstructionBuilder {
-//         let fmt_val = match fmt {
-//             Size::Single => 0b00,
-//             Size::Double => 0b01,
-//             Size::Word => 0b10,
-//         } | 0b10000;
-//         self.0 &= !(0b11111 << 21);
-//         self.0 |= fmt_val << 21;
-//
-//         self
-//     }
-// }
-//
+
+fn instruction_base(op: &Opcode) -> u32 {
+    fn get_flags(flags: bool) -> u32 {
+        if flags {
+            0b0100000 << 25
+        } else {
+            0
+        }
+    }
+
+    match op {
+        Opcode::Op(key) => *key as u32 & 0b1111111,
+        Opcode::BranchFunc(func) => ((*func as u32) << 12) | 0b1100011,
+        Opcode::LoadFunc(func) => ((*func as u32) << 12) | 0b0000011,
+        Opcode::ImmediateFunc(func, flags) => ((*func as u32) << 12) | 0b0010011 | get_flags(*flags),
+        Opcode::StoreFunc(func) => ((*func as u32) << 12) | 0b0100011,
+        Opcode::RegisterFunc(func, flags) => ((*func as u32) << 12) | 0b0110011 | get_flags(*flags),
+        Opcode::Executive(value) => ((*value as u32) << 20) | 0b1110011,
+    }
+}
+
+fn register_source(slot: RegisterSlot) -> u32 {
+    slot.to_u32().unwrap()
+}
+
+struct InstructionBuilder(u32);
+
+impl InstructionBuilder {
+    fn from_op(op: &Opcode) -> InstructionBuilder {
+        InstructionBuilder(instruction_base(op))
+    }
+
+    fn with_rs1(mut self, slot: RegisterSlot) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 15);
+        self.0 |= register_source(slot) << 15;
+
+        self
+    }
+
+    fn with_rs2(mut self, slot: RegisterSlot) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 20);
+        self.0 |= register_source(slot) << 20;
+
+        self
+    }
+
+    fn with_rd(mut self, slot: RegisterSlot) -> InstructionBuilder {
+        self.0 &= !(0b11111 << 7);
+        self.0 |= register_source(slot) << 7;
+
+        self
+    }
+
+    fn with_normal_imm(mut self, value: u16) -> InstructionBuilder { // 12 bits
+        self.0 &= !(0b111111111111 << 20);
+        self.0 |= (value as u32) << 20;
+
+        self
+    }
+
+    fn with_branch_imm(mut self, value: u16) -> InstructionBuilder { // 12 bits
+        // 12, 10:5, 4:1, 11
+
+        self.0 &= !(0b1111111 << 25); // clear 25-31 (7 bits)
+        self.0 &= !(0b11111 << 7); // clear 7-11 (5 bits)
+
+        let bit11 = (value as u32 & (0b1 << 11)) >> 11;
+        let bit10 = (value as u32 & (0b1 << 10)) >> 10;
+        let bit4to9 = (value as u32 & (0b111111 << 4)) >> 4;
+        let bit0to3 = value as u32 & (0b1111);
+
+        self.0 |= bit10 << 7;
+        self.0 |= bit0to3 << 8;
+        self.0 |= bit4to9 << 25;
+        self.0 |= bit11 << 31;
+
+        self
+    }
+
+    fn with_store_imm(mut self, value: u16) -> InstructionBuilder { // 12 bits
+        self.0 &= !(0b1111111 << 25); // clear 25-31 (7 bits)
+        self.0 &= !(0b11111 << 7); // clear 7-11 (5 bits)
+
+        let bit0to4 = value as u32 & 0b11111;
+        let bit5to11 = (value as u32 & (0b111111 << 5)) >> 5;
+
+        self.0 |= bit0to4 << 7;
+        self.0 |= bit5to11 << 25;
+
+        self
+    }
+
+    fn with_sham(mut self, value: u8) -> InstructionBuilder { // 5 bits
+        self.0 &= !(0b11111 << 20); // clear 20-24
+
+        self.0 |= (value as u32 & 0b11111) << 20;
+
+        self
+    }
+
+    fn with_jal_imm(mut self, value: u32) -> InstructionBuilder { // 20 bits
+        self.0 &= !(0b11111111111111111111 << 20); // clear 12-31
+
+        let bit19 = (value & (0b1 << 19)) >> 19;
+        let bit0to9 = value & (0b1111111111);
+        let bit10 = (value & (0b1 << 10)) >> 10;
+        let bit11to18 = (value & (0b11111111 << 11)) >> 11;
+
+        self.0 |= bit11to18 << 12;
+        self.0 |= bit10 << 20;
+        self.0 |= bit0to9 << 21;
+        self.0 |= bit19 << 31;
+
+        self
+    }
+
+    fn with_upper_imm(mut self, value: u32) -> InstructionBuilder { // 20 bits
+        self.0 &= !(0b11111111111111111111 << 20); // clear 12-31
+
+        self.0 |= value << 12;
+
+        self
+    }
+}
+
 type InstructionPair = (u32, Option<InstructionLabel>);
 
 struct EmitInstruction {
@@ -1054,10 +1070,12 @@ impl EmitInstruction {
 
 use std::collections::HashMap;
 use byteorder::{LittleEndian, WriteBytesExt};
+use num_traits::ToPrimitive;
 use titan_shared::assembler::binary::BinaryBreakpoint;
 use titan_shared::assembler::lexer::Location;
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel};
-use crate::assembler::instructions::{Encoding, Instruction};
+use crate::assembler::instructions::{Encoding, Instruction, Opcode};
+use crate::assembler::registers::RegisterSlot;
 use crate::assembler::utilities::{default_start, get_constant, get_label, get_register, pc_for_region, AssemblerError, TokenCursor};
 use crate::assembler::utilities::AssemblerReason::{MissingRegion, UnknownInstruction};
 
