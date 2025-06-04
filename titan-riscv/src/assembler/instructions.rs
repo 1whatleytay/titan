@@ -2,28 +2,27 @@ use crate::assembler::instructions::Encoding::{
     ArithmeticImmediate, Branch, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single,
     UpperImmediate,
 };
-use crate::assembler::instructions::Opcode::{
+use crate::assembler::instructions::BaseOpcode::{
     BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc,
 };
 use Encoding::Registers;
 
 pub enum Encoding {
     // Empty
-    UpperImmediate,
-    JumpImmediate, // Special Immediate Encoding
-    Branch,
-    JumpOffset, // Same token layout as offset load, except also allows just one register argument
-    OffsetLoad,
-    OffsetStore,
-    ArithmeticImmediate,
-    Sham,
-    Registers,
-    Single,
+    UpperImmediate { op: BaseOpcode },
+    JumpImmediate { op: BaseOpcode }, // Special Immediate Encoding
+    Branch { op: BaseOpcode },
+    JumpOffset { op: BaseOpcode }, // Same token layout as offset load, except also allows just one register argument
+    OffsetLoad { op: BaseOpcode },
+    OffsetStore { op: BaseOpcode },
+    ArithmeticImmediate { op: BaseOpcode },
+    Sham { op: BaseOpcode },
+    Registers { op: BaseOpcode },
+    Single { op: BaseOpcode },
     // Fences are TODO - They have a pretty involved encoding.
 }
 
-pub enum Opcode {
-    // Empty
+pub enum BaseOpcode {
     Op(u8),
     BranchFunc(u8), // Op = 1100011, 3 bits (0=EQ/1=LT, 0=SIGNED/1=UNSIGNED, 0=NORMAL,1=NOT)
     LoadFunc(u8),   // Op = 0000011, 3 bits (UNS,WORD,HALF)
@@ -33,235 +32,229 @@ pub enum Opcode {
     Executive(u16), // Op = 1110011
 }
 
+pub enum CompressedOpcode {
+
+}
+
 pub struct Instruction<'a> {
     pub name: &'a str,
-    pub opcode: Opcode,
+    // pub opcode: Opcode,
     pub encoding: Encoding,
 }
 
-pub const LUI_OP: Opcode = Op(0b0110111);
-pub const ADDI_OP: Opcode = ImmediateFunc(0b000, false);
-pub const XORI_OP: Opcode = ImmediateFunc(0b100, false);
-pub const SLLI_OP: Opcode = ImmediateFunc(0b001, false);
-pub const SRLI_OP: Opcode = ImmediateFunc(0b101, false);
-pub const SRAI_OP: Opcode = ImmediateFunc(0b101, true);
+pub const LUI_OP: BaseOpcode = Op(0b0110111);
+pub const ADDI_OP: BaseOpcode = ImmediateFunc(0b000, false);
+pub const XORI_OP: BaseOpcode = ImmediateFunc(0b100, false);
+pub const SLLI_OP: BaseOpcode = ImmediateFunc(0b001, false);
+pub const SRLI_OP: BaseOpcode = ImmediateFunc(0b101, false);
+pub const SRAI_OP: BaseOpcode = ImmediateFunc(0b101, true);
 
-pub const SUB_OP: Opcode = RegisterFunc(0b000, true);
+pub const SUB_OP: BaseOpcode = RegisterFunc(0b000, true);
 
-pub const JAL_OP: Opcode = Op(0b1101111);
-pub const JALR_OP: Opcode = Op(0b1100111);
+pub const JAL_OP: BaseOpcode = Op(0b1101111);
+pub const JALR_OP: BaseOpcode = Op(0b1100111);
 
-pub const BEQ_OP: Opcode = BranchFunc(0b000);
-pub const BNE_OP: Opcode = BranchFunc(0b001);
+pub const BEQ_OP: BaseOpcode = BranchFunc(0b000);
+pub const BNE_OP: BaseOpcode = BranchFunc(0b001);
 
-pub const BLT_OP: Opcode = BranchFunc(0b100);
-pub const BGE_OP: Opcode = BranchFunc(0b101);
-pub const BLTU_OP: Opcode = BranchFunc(0b110);
-pub const BGEU_OP: Opcode = BranchFunc(0b111);
+pub const BLT_OP: BaseOpcode = BranchFunc(0b100);
+pub const BGE_OP: BaseOpcode = BranchFunc(0b101);
+pub const BLTU_OP: BaseOpcode = BranchFunc(0b110);
+pub const BGEU_OP: BaseOpcode = BranchFunc(0b111);
 
-pub const SLT_OP: Opcode = RegisterFunc(0b010, false);
-pub const SLTU_OP: Opcode = RegisterFunc(0b011, false);
+pub const SLT_OP: BaseOpcode = RegisterFunc(0b010, false);
+pub const SLTU_OP: BaseOpcode = RegisterFunc(0b011, false);
 
-pub const SLTI_OP: Opcode = ImmediateFunc(0b010, false);
-pub const SLTIU_OP: Opcode = ImmediateFunc(0b011, false);
+pub const SLTI_OP: BaseOpcode = ImmediateFunc(0b010, false);
+pub const SLTIU_OP: BaseOpcode = ImmediateFunc(0b011, false);
 
 // https://www.vicilogic.com/static/ext/RISCV/RV32I_BaseInstructionSet.pdf
 pub const INSTRUCTIONS: [Instruction; 39] = [
     // Empty
     Instruction {
         name: "lui",
-        opcode: LUI_OP,
-        encoding: UpperImmediate,
+        encoding: UpperImmediate { op: LUI_OP },
     },
     Instruction {
         name: "auipc",
-        opcode: Op(0b0010111),
-        encoding: UpperImmediate,
+        encoding: UpperImmediate { op: Op(0b0010111) },
     },
     Instruction {
         name: "jal",
-        opcode: JAL_OP,
-        encoding: JumpImmediate,
+        encoding: JumpImmediate { op: JAL_OP },
     },
     Instruction {
         name: "beq",
-        opcode: BEQ_OP,
-        encoding: Branch,
+        encoding: Branch { op: BEQ_OP },
     },
     Instruction {
         name: "bne",
-        opcode: BNE_OP,
-        encoding: Branch,
+        encoding: Branch { op: BNE_OP },
     },
     Instruction {
         name: "blt",
-        opcode: BLT_OP,
-        encoding: Branch,
+        encoding: Branch { op: BLT_OP },
     },
     Instruction {
         name: "bge",
-        opcode: BGE_OP,
-        encoding: Branch,
+        encoding: Branch { op: BGE_OP },
     },
     Instruction {
         name: "bltu",
-        opcode: BLTU_OP,
-        encoding: Branch,
+        encoding: Branch { op: BLTU_OP },
     },
     Instruction {
         name: "bgeu",
-        opcode: BGEU_OP,
-        encoding: Branch,
+        encoding: Branch { op: BGEU_OP },
     },
     Instruction {
         name: "jalr",
-        opcode: JALR_OP,
-        encoding: JumpOffset,
+        encoding: JumpOffset { op: JALR_OP },
     },
     Instruction {
         name: "lb",
-        opcode: LoadFunc(0b000),
-        encoding: OffsetLoad,
+        encoding: OffsetLoad { op: LoadFunc(0b000) },
     },
     Instruction {
         name: "lh",
-        opcode: LoadFunc(0b001),
-        encoding: OffsetLoad,
+        encoding: OffsetLoad { op: LoadFunc(0b001) },
     },
     Instruction {
         name: "lw",
-        opcode: LoadFunc(0b010),
-        encoding: OffsetLoad,
+        encoding: OffsetLoad { op: LoadFunc(0b010) },
     },
     Instruction {
         name: "lbu",
-        opcode: LoadFunc(0b100),
-        encoding: OffsetLoad,
+        encoding: OffsetLoad { op: LoadFunc(0b100) },
     },
     Instruction {
         name: "lhu",
-        opcode: LoadFunc(0b101),
-        encoding: OffsetLoad,
+        encoding: OffsetLoad { op: LoadFunc(0b101) },
     },
     Instruction {
         name: "addi",
-        opcode: ADDI_OP,
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: ADDI_OP },
     },
     Instruction {
         name: "slti",
-        opcode: SLTI_OP,
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: SLTI_OP },
     },
     Instruction {
         name: "sltiu",
-        opcode: SLTIU_OP,
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: SLTIU_OP },
     },
     Instruction {
         name: "xori",
-        opcode: XORI_OP,
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: XORI_OP },
     },
     Instruction {
         name: "ori",
-        opcode: ImmediateFunc(0b110, false),
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: ImmediateFunc(0b110, false) },
     },
     Instruction {
         name: "andi",
-        opcode: ImmediateFunc(0b111, false),
-        encoding: ArithmeticImmediate,
+        encoding: ArithmeticImmediate { op: ImmediateFunc(0b111, false) },
     },
     Instruction {
         name: "sb",
-        opcode: StoreFunc(0b000),
-        encoding: OffsetStore,
+        encoding: OffsetStore { op: StoreFunc(0b000) },
     },
     Instruction {
         name: "sh",
-        opcode: StoreFunc(0b001),
-        encoding: OffsetStore,
+        encoding: OffsetStore { op: StoreFunc(0b001) },
     },
     Instruction {
         name: "sw",
-        opcode: StoreFunc(0b010),
-        encoding: OffsetStore,
+        encoding: OffsetStore { op: StoreFunc(0b010) },
     },
     Instruction {
         name: "slli",
-        opcode: SLLI_OP,
-        encoding: Sham,
+        encoding: Sham { op: SLLI_OP },
     },
     Instruction {
         name: "srli",
-        opcode: SRLI_OP,
-        encoding: Sham,
+        encoding: Sham { op: SRLI_OP },
     },
     Instruction {
         name: "srai",
-        opcode: SRAI_OP,
-        encoding: Sham,
+        encoding: Sham { op: SRAI_OP },
     },
     Instruction {
         name: "add",
-        opcode: RegisterFunc(0b000, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b000, false) },
     },
     Instruction {
         name: "sub",
-        opcode: SUB_OP,
-        encoding: Registers,
+        encoding: Registers { op: SUB_OP },
     },
     Instruction {
         name: "sll",
-        opcode: RegisterFunc(0b001, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b001, false) },
     },
     Instruction {
         name: "slt",
-        opcode: SLT_OP,
-        encoding: Registers,
+        encoding: Registers { op: SLT_OP },
     },
     Instruction {
         name: "sltu",
-        opcode: SLTU_OP,
-        encoding: Registers,
+        encoding: Registers { op: SLTU_OP },
     },
     Instruction {
         name: "xor",
-        opcode: RegisterFunc(0b100, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b100, false) },
     },
     Instruction {
         name: "srl",
-        opcode: RegisterFunc(0b101, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b101, false) },
     },
     Instruction {
         name: "sra",
-        opcode: RegisterFunc(0b101, true),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b101, true) },
     },
     Instruction {
         name: "or",
-        opcode: RegisterFunc(0b110, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b110, false) },
     },
     Instruction {
         name: "and",
-        opcode: RegisterFunc(0b111, false),
-        encoding: Registers,
+        encoding: Registers { op: RegisterFunc(0b111, false) },
     },
     // No Fence
     Instruction {
         name: "ecall",
-        opcode: Executive(0b0),
-        encoding: Single,
+        encoding: Single { op: Executive(0b0) },
     },
     Instruction {
         name: "ebreak",
-        opcode: Executive(0b1),
-        encoding: Single,
+        encoding: Single { op: Executive(0b1) },
     },
+    /*
+        c.lwsp
+        c.swsp
+        c.lw
+        c.sw
+        c.j
+        c.jal
+        c.jr
+        c.jalr
+        c.beqz
+        c.bnez
+        c.li
+        c.lui
+        c.addi
+        c.addi16sp
+        c.addi4spn
+        c.slli
+        c.srli
+        c.srai
+        c.andi
+        c.mv
+        c.add
+        c.and
+        c.or
+        c.xor
+        c.sub
+        c.nop
+        c.ebreak
+     */
 ];

@@ -4,10 +4,7 @@ use crate::assembler::binary_builder::InstructionLabelKind::{
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::emit::InstructionKind::{Base, Compressed};
 use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
-use crate::assembler::instructions::{
-    ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, Encoding, Instruction, JAL_OP,
-    JALR_OP, LUI_OP, Opcode, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP,
-};
+use crate::assembler::instructions::{ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, Encoding, Instruction, JAL_OP, JALR_OP, LUI_OP, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP, BaseOpcode};
 use crate::assembler::lexer::TokenKind;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::utilities::AssemblerReason::{MissingRegion, UnknownInstruction};
@@ -46,7 +43,7 @@ impl EmitInstruction {
 }
 
 fn do_upper_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -63,7 +60,7 @@ fn do_upper_instruction(
 }
 
 fn do_jump_immediate_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let is_register = iter
@@ -111,7 +108,7 @@ fn do_jump_immediate_instruction(
 }
 
 fn do_branch_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let src1 = get_register(iter)?;
@@ -137,7 +134,7 @@ fn do_branch_instruction(
 }
 
 fn do_jump_offset_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -173,7 +170,7 @@ fn do_jump_offset_instruction(
 }
 
 fn do_offset_load_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -190,7 +187,7 @@ fn do_offset_load_instruction(
 }
 
 fn do_offset_store_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let src = get_register(iter)?;
@@ -207,7 +204,7 @@ fn do_offset_store_instruction(
 }
 
 fn do_arithmetic_immediate_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -226,7 +223,7 @@ fn do_arithmetic_immediate_instruction(
 }
 
 fn do_sham_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -245,7 +242,7 @@ fn do_sham_instruction(
 }
 
 fn do_registers_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
@@ -262,7 +259,7 @@ fn do_registers_instruction(
 }
 
 fn do_single_instruction(
-    op: &Opcode,
+    op: &BaseOpcode,
     _iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     // No params.
@@ -752,20 +749,18 @@ fn dispatch_instruction(
             reason: UnknownInstruction(instruction.to_string()),
         });
     };
-
-    let op = &instruction.opcode;
-
+    
     let emit = match &instruction.encoding {
-        Encoding::UpperImmediate => do_upper_instruction(op, iter),
-        Encoding::JumpImmediate => do_jump_immediate_instruction(op, iter),
-        Encoding::JumpOffset => do_jump_offset_instruction(op, iter),
-        Encoding::Branch => do_branch_instruction(op, iter),
-        Encoding::OffsetLoad => do_offset_load_instruction(op, iter),
-        Encoding::OffsetStore => do_offset_store_instruction(op, iter),
-        Encoding::ArithmeticImmediate => do_arithmetic_immediate_instruction(op, iter),
-        Encoding::Sham => do_sham_instruction(op, iter),
-        Encoding::Registers => do_registers_instruction(op, iter),
-        Encoding::Single => do_single_instruction(op, iter),
+        Encoding::UpperImmediate { op } => do_upper_instruction(op, iter),
+        Encoding::JumpImmediate { op } => do_jump_immediate_instruction(op, iter),
+        Encoding::JumpOffset { op } => do_jump_offset_instruction(op, iter),
+        Encoding::Branch { op } => do_branch_instruction(op, iter),
+        Encoding::OffsetLoad { op } => do_offset_load_instruction(op, iter),
+        Encoding::OffsetStore { op } => do_offset_store_instruction(op, iter),
+        Encoding::ArithmeticImmediate { op } => do_arithmetic_immediate_instruction(op, iter),
+        Encoding::Sham { op } => do_sham_instruction(op, iter),
+        Encoding::Registers { op } => do_registers_instruction(op, iter),
+        Encoding::Single { op } => do_single_instruction(op, iter),
     }?;
 
     Ok(emit)

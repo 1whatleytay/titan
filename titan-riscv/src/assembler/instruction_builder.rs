@@ -1,23 +1,27 @@
-use crate::assembler::instructions::Opcode;
+use crate::assembler::instructions::{BaseOpcode, CompressedOpcode};
 use crate::assembler::registers::RegisterSlot;
 use num_traits::ToPrimitive;
 
-fn instruction_base(op: &Opcode) -> u32 {
+fn instruction_base(op: &BaseOpcode) -> u32 {
     fn get_flags(flags: bool) -> u32 {
         if flags { 0b0100000 << 25 } else { 0 }
     }
 
     match op {
-        Opcode::Op(key) => *key as u32 & 0b1111111,
-        Opcode::BranchFunc(func) => ((*func as u32) << 12) | 0b1100011,
-        Opcode::LoadFunc(func) => ((*func as u32) << 12) | 0b0000011,
-        Opcode::ImmediateFunc(func, flags) => {
+        BaseOpcode::Op(key) => *key as u32 & 0b1111111,
+        BaseOpcode::BranchFunc(func) => ((*func as u32) << 12) | 0b1100011,
+        BaseOpcode::LoadFunc(func) => ((*func as u32) << 12) | 0b0000011,
+        BaseOpcode::ImmediateFunc(func, flags) => {
             ((*func as u32) << 12) | 0b0010011 | get_flags(*flags)
         }
-        Opcode::StoreFunc(func) => ((*func as u32) << 12) | 0b0100011,
-        Opcode::RegisterFunc(func, flags) => ((*func as u32) << 12) | 0b0110011 | get_flags(*flags),
-        Opcode::Executive(value) => ((*value as u32) << 20) | 0b1110011,
+        BaseOpcode::StoreFunc(func) => ((*func as u32) << 12) | 0b0100011,
+        BaseOpcode::RegisterFunc(func, flags) => ((*func as u32) << 12) | 0b0110011 | get_flags(*flags),
+        BaseOpcode::Executive(value) => ((*value as u32) << 20) | 0b1110011,
     }
+}
+
+fn instruction_compressed(op: &CompressedOpcode) -> u16 {
+    panic!()
 }
 
 fn register_source(slot: RegisterSlot) -> u32 {
@@ -27,7 +31,7 @@ fn register_source(slot: RegisterSlot) -> u32 {
 pub struct InstructionBuilder(pub u32);
 
 impl InstructionBuilder {
-    pub fn from_op(op: &Opcode) -> InstructionBuilder {
+    pub fn from_op(op: &BaseOpcode) -> InstructionBuilder {
         InstructionBuilder(instruction_base(op))
     }
 
@@ -135,6 +139,14 @@ impl InstructionBuilder {
         self.0 |= value << 12;
 
         self
+    }
+}
+
+pub struct CompressedInstructionBuilder(pub u16);
+
+impl CompressedInstructionBuilder {
+    pub fn from_op(op: &CompressedOpcode) -> CompressedInstructionBuilder {
+        CompressedInstructionBuilder(instruction_compressed(op))
     }
 }
 
