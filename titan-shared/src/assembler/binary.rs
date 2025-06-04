@@ -3,6 +3,7 @@ use crate::assembler::lexer::Location;
 use bitflags::bitflags;
 use std::collections::HashMap;
 use std::hash::Hash;
+use crate::elf::header::InstructionSet;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinarySection {
@@ -76,6 +77,7 @@ pub struct BinaryBreakpoint {
 
 #[derive(Clone, Debug)]
 pub struct Binary {
+    pub instruction_set: InstructionSet,
     pub entry: u32,
     pub regions: Vec<RawRegion>,
     pub breakpoints: Vec<BinaryBreakpoint>, // pc -> offset
@@ -148,18 +150,13 @@ impl Binary {
         source_breakpoints(&self.breakpoints, source, id)
     }
 
-    pub fn new() -> Binary {
+    pub fn new(instruction_set: InstructionSet) -> Binary {
         Binary {
+            instruction_set,
             entry: Text.default_address(),
             regions: vec![],
             breakpoints: vec![],
             labels: HashMap::new(),
         }
-    }
-}
-
-impl Default for Binary {
-    fn default() -> Self {
-        Self::new()
     }
 }

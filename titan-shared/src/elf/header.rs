@@ -22,7 +22,7 @@ pub enum Endian {
     Big = 2,
 }
 
-#[derive(FromPrimitive, ToPrimitive, PartialEq, Debug)]
+#[derive(FromPrimitive, ToPrimitive, PartialEq, Debug, Copy, Clone)]
 pub enum InstructionSet {
     Generic = 0x00,
     Sparc = 0x02,

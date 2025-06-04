@@ -1,5 +1,5 @@
 use Encoding::Registers;
-use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, JumpImmediate, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate};
+use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate};
 use crate::assembler::instructions::Opcode::{BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc};
 
 pub enum Encoding {
@@ -7,6 +7,7 @@ pub enum Encoding {
     UpperImmediate,
     JumpImmediate, // Special Immediate Encoding
     Branch,
+    JumpOffset, // Same token layout as offset load, except also allows just one register argument
     OffsetLoad,
     OffsetStore,
     ArithmeticImmediate,
@@ -33,12 +34,38 @@ pub struct Instruction<'a> {
     pub encoding: Encoding,
 }
 
+pub const LUI_OP: Opcode = Op(0b0110111);
+pub const ADDI_OP: Opcode = ImmediateFunc(0b000, false);
+pub const XORI_OP: Opcode = ImmediateFunc(0b100, false);
+pub const SLLI_OP: Opcode = ImmediateFunc(0b001, false);
+pub const SRLI_OP: Opcode = ImmediateFunc(0b101, false);
+pub const SRAI_OP: Opcode = ImmediateFunc(0b101, true);
+
+pub const SUB_OP: Opcode = RegisterFunc(0b000, true);
+
+pub const JAL_OP: Opcode = Op(0b1101111);
+pub const JALR_OP: Opcode = Op(0b1100111);
+
+pub const BEQ_OP: Opcode = BranchFunc(0b000);
+pub const BNE_OP: Opcode = BranchFunc(0b001);
+
+pub const BLT_OP: Opcode = BranchFunc(0b100);
+pub const BGE_OP: Opcode = BranchFunc(0b101);
+pub const BLTU_OP: Opcode = BranchFunc(0b110);
+pub const BGEU_OP: Opcode = BranchFunc(0b111);
+
+pub const SLT_OP: Opcode = RegisterFunc(0b010, false);
+pub const SLTU_OP: Opcode = RegisterFunc(0b011, false);
+
+pub const SLTI_OP: Opcode = ImmediateFunc(0b010, false);
+pub const SLTIU_OP: Opcode = ImmediateFunc(0b011, false);
+
 // https://www.vicilogic.com/static/ext/RISCV/RV32I_BaseInstructionSet.pdf
 pub const INSTRUCTIONS: [Instruction; 39] = [
     // Empty
     Instruction {
         name: "lui",
-        opcode: Op(0b0110111),
+        opcode: LUI_OP,
         encoding: UpperImmediate,
     },
     Instruction {
@@ -48,43 +75,43 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
     },
     Instruction {
         name: "jal",
-        opcode: Op(0b1101111),
+        opcode: JAL_OP,
         encoding: JumpImmediate,
     },
     Instruction {
         name: "beq",
-        opcode: BranchFunc(0b000),
+        opcode: BEQ_OP,
         encoding: Branch,
     },
     Instruction {
         name: "bne",
-        opcode: BranchFunc(0b001),
+        opcode: BNE_OP,
         encoding: Branch,
     },
     Instruction {
         name: "blt",
-        opcode: BranchFunc(0b100),
+        opcode: BLT_OP,
         encoding: Branch,
     },
     Instruction {
         name: "bge",
-        opcode: BranchFunc(0b101),
+        opcode: BGE_OP,
         encoding: Branch,
     },
     Instruction {
         name: "bltu",
-        opcode: BranchFunc(0b110),
+        opcode: BLTU_OP,
         encoding: Branch,
     },
     Instruction {
         name: "bgeu",
-        opcode: BranchFunc(0b111),
+        opcode: BGEU_OP,
         encoding: Branch,
     },
     Instruction {
         name: "jalr",
-        opcode: Op(0b1100111),
-        encoding: OffsetLoad,
+        opcode: JALR_OP,
+        encoding: JumpOffset,
     },
     Instruction {
         name: "lb",
@@ -113,22 +140,22 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
     },
     Instruction {
         name: "addi",
-        opcode: ImmediateFunc(0b000, false),
+        opcode: ADDI_OP,
         encoding: ArithmeticImmediate,
     },
     Instruction {
         name: "slti",
-        opcode: ImmediateFunc(0b010, false),
+        opcode: SLTI_OP,
         encoding: ArithmeticImmediate,
     },
     Instruction {
         name: "sltiu",
-        opcode: ImmediateFunc(0b011, false),
+        opcode: SLTIU_OP,
         encoding: ArithmeticImmediate,
     },
     Instruction {
         name: "xori",
-        opcode: ImmediateFunc(0b100, false),
+        opcode: XORI_OP,
         encoding: ArithmeticImmediate,
     },
     Instruction {
@@ -158,17 +185,17 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
     },
     Instruction {
         name: "slli",
-        opcode: ImmediateFunc(0b001, false),
+        opcode: SLLI_OP,
         encoding: Sham,
     },
     Instruction {
         name: "srli",
-        opcode: ImmediateFunc(0b101, false),
+        opcode: SRLI_OP,
         encoding: Sham,
     },
     Instruction {
         name: "srai",
-        opcode: ImmediateFunc(0b101, true),
+        opcode: SRAI_OP,
         encoding: Sham,
     },
     Instruction {
@@ -178,7 +205,7 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
     },
     Instruction {
         name: "sub",
-        opcode: RegisterFunc(0b000, true),
+        opcode: SUB_OP,
         encoding: Registers,
     },
     Instruction {
@@ -188,12 +215,12 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
     },
     Instruction {
         name: "slt",
-        opcode: RegisterFunc(0b010, false),
+        opcode: SLT_OP,
         encoding: Registers,
     },
     Instruction {
         name: "sltu",
-        opcode: RegisterFunc(0b011, false),
+        opcode: SLTU_OP,
         encoding: Registers,
     },
     Instruction {

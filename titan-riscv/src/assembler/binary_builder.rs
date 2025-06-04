@@ -10,6 +10,7 @@ use crate::assembler::lexer::Location;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
+use titan_shared::elf::header::InstructionSet;
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
 
@@ -56,7 +57,7 @@ fn add_label(
 
     Ok(match label.kind {
         InstructionLabelKind::JumpAndLink => {
-            let immediate = ((destination.wrapping_sub(pc)) >> 1) as i32;
+            let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
 
             // we have 20 bits of signed immediate, hopefully this is right
             if !(-0x80000 ..= 0x7ffff).contains(&immediate) {
@@ -68,8 +69,8 @@ fn add_label(
                 .0
         }
         InstructionLabelKind::Branch => {
-            let immediate = ((destination.wrapping_sub(pc)) >> 1) as i32;
-
+            let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
+            
             // we have 12 bits of signed immediate, hopefully this is right
             if !(-0x800 ..= 0x7ff).contains(&immediate) {
                 return Err(make_out_of_range(destination))
@@ -201,7 +202,7 @@ impl BinaryBuilder {
     }
 
     pub fn build(self) -> Result<Binary, AssemblerError> {
-        let mut binary = Binary::new();
+        let mut binary = Binary::new(InstructionSet::RiscV);
 
         const MISSING: AssemblerError = AssemblerError {
             location: None,

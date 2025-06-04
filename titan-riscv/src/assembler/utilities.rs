@@ -1,4 +1,3 @@
-// use crate::assembler::utilities::InstructionValue::{Literal, Slot};
 use titan_shared::assembler::binary::RawRegion;
 use crate::assembler::lexer::TokenKind::{Comma, Comment, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol};
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
@@ -6,7 +5,7 @@ use crate::assembler::registers::RegisterSlot;
 use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::ops::{RangeBounds, RangeInclusive};
+use std::ops::{RangeInclusive};
 use TokenKind::Minus;
 use crate::assembler::binary_builder::{AddressLabel, NamedLabel};
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
@@ -15,6 +14,7 @@ pub fn is_solid_kind(kind: &TokenKind) -> bool {
     match kind {
         Comment(_) => false,
         NewLine => false,
+        Comma => false, // Completely ignored by MARS.
         _ => true,
     }
 }

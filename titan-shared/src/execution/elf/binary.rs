@@ -29,7 +29,7 @@ impl Binary {
             abi: 0,
             padding: [0; 8],
             package: 0,
-            cpu: InstructionSet::Mips,
+            cpu: self.instruction_set,
             elf_version: 0,
             program_entry: self.entry,
         }

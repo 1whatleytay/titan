@@ -10,6 +10,7 @@ use crate::assembler::lexer::Location;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
+use titan_shared::elf::header::InstructionSet;
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 
 #[derive(Clone, Debug)]
@@ -192,7 +193,7 @@ impl BinaryBuilder {
     }
 
     pub fn build(self) -> Result<Binary, AssemblerError> {
-        let mut binary = Binary::new();
+        let mut binary = Binary::new(InstructionSet::Mips);
 
         const MISSING: AssemblerError = AssemblerError {
             location: None,
