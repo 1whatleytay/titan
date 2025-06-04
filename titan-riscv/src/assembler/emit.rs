@@ -1,16 +1,24 @@
-use std::collections::HashMap;
-use byteorder::{LittleEndian, WriteBytesExt};
-use titan_shared::assembler::binary::BinaryBreakpoint;
-use titan_shared::assembler::lexer::Location;
+use crate::assembler::binary_builder::InstructionLabelKind::{
+    Branch, JumpAndLink, Lower12, Upper20,
+};
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel};
-use crate::assembler::binary_builder::InstructionLabelKind::{Branch, JumpAndLink, Lower12, Upper20};
 use crate::assembler::emit::InstructionKind::{Base, Compressed};
 use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
-use crate::assembler::instructions::{Encoding, Instruction, Opcode, ADDI_OP, BEQ_OP, BGEU_OP, BGE_OP, BLTU_OP, BLT_OP, BNE_OP, JALR_OP, JAL_OP, LUI_OP, SLLI_OP, SLTIU_OP, SLTU_OP, SLT_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP};
+use crate::assembler::instructions::{
+    ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, Encoding, Instruction, JAL_OP,
+    JALR_OP, LUI_OP, Opcode, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP,
+};
 use crate::assembler::lexer::TokenKind;
 use crate::assembler::registers::RegisterSlot;
-use crate::assembler::utilities::{default_start, get_constant_in_range, get_label, get_offset, get_register, pc_for_region, AssemblerError, TokenCursor};
 use crate::assembler::utilities::AssemblerReason::{MissingRegion, UnknownInstruction};
+use crate::assembler::utilities::{
+    AssemblerError, TokenCursor, default_start, get_constant_in_range, get_label, get_offset,
+    get_register, pc_for_region,
+};
+use byteorder::{LittleEndian, WriteBytesExt};
+use std::collections::HashMap;
+use titan_shared::assembler::binary::BinaryBreakpoint;
+use titan_shared::assembler::lexer::Location;
 
 enum InstructionKind {
     Base(u32),
@@ -32,7 +40,7 @@ impl EmitInstruction {
 
     fn with_compressed(instruction: u16) -> EmitInstruction {
         EmitInstruction {
-            instructions: vec![(Compressed(instruction), None)]
+            instructions: vec![(Compressed(instruction), None)],
         }
     }
 }
@@ -42,7 +50,7 @@ fn do_upper_instruction(
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
-    let immediate = get_constant_in_range(iter, 0 ..= 0xfffff)?;
+    let immediate = get_constant_in_range(iter, 0..=0xfffff)?;
 
     // Even though these are sign extended on RV64
     // It doesn't really make any sense for these to be "signed numbers."
@@ -58,7 +66,9 @@ fn do_jump_immediate_instruction(
     op: &Opcode,
     iter: &mut TokenCursor,
 ) -> Result<EmitInstruction, AssemblerError> {
-    let is_register = iter.peek_adjacent().1
+    let is_register = iter
+        .peek_adjacent()
+        .1
         .map(|x| matches!(x.kind, TokenKind::Register(_)))
         .unwrap_or(false);
 
@@ -68,14 +78,16 @@ fn do_jump_immediate_instruction(
 
         // Even though these are sign extended on RV64
         // It doesn't really make any sense for these to be "signed numbers."
-        let inst = InstructionBuilder::from_op(op)
-            .with_rd(dest)
-            .0;
+        let inst = InstructionBuilder::from_op(op).with_rd(dest).0;
 
         Ok(EmitInstruction {
-            instructions: vec![
-                (Base(inst), Some(InstructionLabel { kind: JumpAndLink, label }))
-            ]
+            instructions: vec![(
+                Base(inst),
+                Some(InstructionLabel {
+                    kind: JumpAndLink,
+                    label,
+                }),
+            )],
         })
     } else {
         let label = get_label(iter)?;
@@ -87,9 +99,13 @@ fn do_jump_immediate_instruction(
             .0;
 
         Ok(EmitInstruction {
-            instructions: vec![
-                (Base(inst), Some(InstructionLabel { kind: JumpAndLink, label }))
-            ]
+            instructions: vec![(
+                Base(inst),
+                Some(InstructionLabel {
+                    kind: JumpAndLink,
+                    label,
+                }),
+            )],
         })
     }
 }
@@ -110,9 +126,13 @@ fn do_branch_instruction(
         .0;
 
     Ok(EmitInstruction {
-        instructions: vec![
-            (Base(inst), Some(InstructionLabel { kind: Branch, label }))
-        ]
+        instructions: vec![(
+            Base(inst),
+            Some(InstructionLabel {
+                kind: Branch,
+                label,
+            }),
+        )],
     })
 }
 
@@ -122,7 +142,9 @@ fn do_jump_offset_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
-    let is_left_brace = iter.peek_adjacent().1
+    let is_left_brace = iter
+        .peek_adjacent()
+        .1
         .map(|x| x.kind == TokenKind::LeftBrace)
         .unwrap_or(false);
 
@@ -192,7 +214,7 @@ fn do_arithmetic_immediate_instruction(
     let src = get_register(iter)?;
     // All arithmetic immediate instructions have signed immediate (including ORI/ANDI/XORI).
     // SRC: Sail https://riscv-software-src.github.io/riscv-unified-db/manual/html/isa/isa_20240411/insts/andi.html
-    let immediate = get_constant_in_range(iter, -0x800 ..= 0x7ff)? as i16;
+    let immediate = get_constant_in_range(iter, -0x800..=0x7ff)? as i16;
 
     let inst = InstructionBuilder::from_op(op)
         .with_rd(dest)
@@ -211,7 +233,7 @@ fn do_sham_instruction(
     let src = get_register(iter)?;
     // All arithmetic immediate instructions have signed immediate (including ORI/ANDI/XORI).
     // SRC: Sail https://riscv-software-src.github.io/riscv-unified-db/manual/html/isa/isa_20240411/insts/andi.html
-    let sham = get_constant_in_range(iter, 0 ..= 31)? as u8;
+    let sham = get_constant_in_range(iter, 0..=31)? as u8;
 
     let inst = InstructionBuilder::from_op(op)
         .with_rd(dest)
@@ -245,8 +267,7 @@ fn do_single_instruction(
 ) -> Result<EmitInstruction, AssemblerError> {
     // No params.
 
-    let inst = InstructionBuilder::from_op(op)
-        .0;
+    let inst = InstructionBuilder::from_op(op).0;
 
     Ok(EmitInstruction::with(inst))
 }
@@ -271,9 +292,13 @@ fn do_j_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assembler
         .0;
 
     Ok(EmitInstruction {
-        instructions: vec![
-            (Base(inst), Some(InstructionLabel { label, kind: JumpAndLink }))
-        ]
+        instructions: vec![(
+            Base(inst),
+            Some(InstructionLabel {
+                label,
+                kind: JumpAndLink,
+            }),
+        )],
     })
 }
 
@@ -298,9 +323,13 @@ fn do_b_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assembler
         .0;
 
     Ok(EmitInstruction {
-        instructions: vec![
-            (Base(inst), Some(InstructionLabel { label, kind: Branch }))
-        ]
+        instructions: vec![(
+            Base(inst),
+            Some(InstructionLabel {
+                label,
+                kind: Branch,
+            }),
+        )],
     })
 }
 
@@ -355,7 +384,11 @@ fn do_neg_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assembl
     Ok(EmitInstruction::with(inst))
 }
 
-fn do_ext_instruction(iter: &mut TokenCursor, bits_kept: u8, signed: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_ext_instruction(
+    iter: &mut TokenCursor,
+    bits_kept: u8,
+    signed: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     let src = get_register(iter)?;
 
@@ -380,16 +413,19 @@ fn do_ext_instruction(iter: &mut TokenCursor, bits_kept: u8, signed: bool) -> Re
         .0;
 
     Ok(EmitInstruction {
-        instructions: vec![
-            (Base(left), None),
-            (Base(right), None),
-        ]
+        instructions: vec![(Base(left), None), (Base(right), None)],
     })
 }
 
 // less_than = true -> BLT
 // less_than = false -> BGE
-fn do_branch_custom_instruction(iter: &mut TokenCursor, unsigned: bool, less_than: bool, flip_operands: bool, zero: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_branch_custom_instruction(
+    iter: &mut TokenCursor,
+    unsigned: bool,
+    less_than: bool,
+    flip_operands: bool,
+    zero: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let src1 = get_register(iter)?;
     let src2 = if zero {
         RegisterSlot::Zero
@@ -406,17 +442,9 @@ fn do_branch_custom_instruction(iter: &mut TokenCursor, unsigned: bool, less_tha
     };
 
     let op = if unsigned {
-        if less_than {
-            &BLTU_OP
-        } else {
-            &BGEU_OP
-        }
+        if less_than { &BLTU_OP } else { &BGEU_OP }
     } else {
-        if less_than {
-            &BLT_OP
-        } else {
-            &BGE_OP
-        }
+        if less_than { &BLT_OP } else { &BGE_OP }
     };
 
     let inst = InstructionBuilder::from_op(op)
@@ -424,32 +452,49 @@ fn do_branch_custom_instruction(iter: &mut TokenCursor, unsigned: bool, less_tha
         .with_rs2(src2)
         .0;
 
-    Ok(EmitInstruction { instructions: vec![
-        (Base(inst), Some(InstructionLabel { label, kind: Branch }))
-    ] })
+    Ok(EmitInstruction {
+        instructions: vec![(
+            Base(inst),
+            Some(InstructionLabel {
+                label,
+                kind: Branch,
+            }),
+        )],
+    })
 }
 
-fn do_branch_eq_zero_instruction(iter: &mut TokenCursor, not_equal: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_branch_eq_zero_instruction(
+    iter: &mut TokenCursor,
+    not_equal: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let src = get_register(iter)?;
     let label = get_label(iter)?;
 
-    let op = if not_equal {
-        &BNE_OP
-    } else {
-        &BEQ_OP
-    };
+    let op = if not_equal { &BNE_OP } else { &BEQ_OP };
 
     let inst = InstructionBuilder::from_op(op)
         .with_rs1(src)
         .with_rs2(RegisterSlot::Zero)
         .0;
 
-    Ok(EmitInstruction { instructions: vec![
-        (Base(inst), Some(InstructionLabel { label, kind: Branch }))
-    ] })
+    Ok(EmitInstruction {
+        instructions: vec![(
+            Base(inst),
+            Some(InstructionLabel {
+                label,
+                kind: Branch,
+            }),
+        )],
+    })
 }
 
-fn do_set_custom_instruction(iter: &mut TokenCursor, unsigned: bool, flip_operands: bool, negate: bool, zero: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_set_custom_instruction(
+    iter: &mut TokenCursor,
+    unsigned: bool,
+    flip_operands: bool,
+    negate: bool,
+    zero: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
     let src1 = get_register(iter)?;
@@ -465,11 +510,7 @@ fn do_set_custom_instruction(iter: &mut TokenCursor, unsigned: bool, flip_operan
         (src1, src2)
     };
 
-    let op = if unsigned {
-        &SLTU_OP
-    } else {
-        &SLT_OP
-    };
+    let op = if unsigned { &SLTU_OP } else { &SLT_OP };
 
     let inst = InstructionBuilder::from_op(op)
         .with_rd(dest)
@@ -492,7 +533,10 @@ fn do_set_custom_instruction(iter: &mut TokenCursor, unsigned: bool, flip_operan
     Ok(EmitInstruction { instructions })
 }
 
-fn do_seq_instruction(iter: &mut TokenCursor, zero: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_seq_instruction(
+    iter: &mut TokenCursor,
+    zero: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
     let src1 = get_register(iter)?;
@@ -529,7 +573,10 @@ fn do_seq_instruction(iter: &mut TokenCursor, zero: bool) -> Result<EmitInstruct
     Ok(EmitInstruction { instructions })
 }
 
-fn do_sne_instruction(iter: &mut TokenCursor, zero: bool) -> Result<EmitInstruction, AssemblerError> {
+fn do_sne_instruction(
+    iter: &mut TokenCursor,
+    zero: bool,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
 
     let src1 = get_register(iter)?;
@@ -568,7 +615,7 @@ fn do_sne_instruction(iter: &mut TokenCursor, zero: bool) -> Result<EmitInstruct
 
 fn do_li_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
-    let constant = get_constant_in_range(iter, -0x80000000 ..= 0x7fffffff)?;
+    let constant = get_constant_in_range(iter, -0x80000000..=0x7fffffff)?;
 
     let split = SplitImmediate::from_immediate(constant as u32);
 
@@ -604,9 +651,7 @@ fn do_la_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assemble
     let dest = get_register(iter)?;
     let label = get_label(iter)?;
 
-    let lui_inst = InstructionBuilder::from_op(&LUI_OP)
-        .with_rd(dest)
-        .0;
+    let lui_inst = InstructionBuilder::from_op(&LUI_OP).with_rd(dest).0;
 
     let addi_inst = InstructionBuilder::from_op(&ADDI_OP)
         .with_rd(dest)
@@ -614,8 +659,20 @@ fn do_la_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assemble
         .0;
 
     let instructions = vec![
-        (Base(lui_inst), Some(InstructionLabel { label: label.clone(), kind: Upper20 })),
-        (Base(addi_inst), Some(InstructionLabel { label, kind: Lower12 })),
+        (
+            Base(lui_inst),
+            Some(InstructionLabel {
+                label: label.clone(),
+                kind: Upper20,
+            }),
+        ),
+        (
+            Base(addi_inst),
+            Some(InstructionLabel {
+                label,
+                kind: Lower12,
+            }),
+        ),
     ];
 
     Ok(EmitInstruction { instructions })
@@ -710,7 +767,7 @@ fn dispatch_instruction(
         Encoding::Registers => do_registers_instruction(op, iter),
         Encoding::Single => do_single_instruction(op, iter),
     }?;
-    
+
     Ok(emit)
 }
 
@@ -752,7 +809,11 @@ pub fn do_instruction(
 
         match instruction {
             Base(word) => region.raw.data.write_u32::<LittleEndian>(word).unwrap(),
-            Compressed(compressed) => region.raw.data.write_u16::<LittleEndian>(compressed).unwrap(),
+            Compressed(compressed) => region
+                .raw
+                .data
+                .write_u16::<LittleEndian>(compressed)
+                .unwrap(),
         }
     }
 

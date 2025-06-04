@@ -1,15 +1,21 @@
+use crate::assembler::binary_builder::AddressLabel::Label;
+use crate::assembler::binary_builder::{
+    BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind,
+    NamedLabel,
+};
+use crate::assembler::lexer::TokenKind::{Colon, NewLine};
+use crate::assembler::lexer::{Location, Token, TokenKind};
 use crate::assembler::utilities::AssemblerReason::{
     ConstantOutOfRange, EndOfFile, ExpectedConstant, MissingRegion, OverwriteEdge, UnknownDirective,
 };
-use crate::assembler::utilities::{default_start, get_constant, get_float, get_integer, get_integer_adjacent, get_label, get_string, is_adjacent, is_solid, pc_for_region, AssemblerError, TokenCursor};
-use titan_shared::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
-use titan_shared::assembler::binary::BinarySection;
-use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, BinaryBuilderRegion, InstructionLabel, InstructionLabelKind, NamedLabel};
-use crate::assembler::lexer::TokenKind::{Colon, NewLine};
-use crate::assembler::lexer::{Location, Token, TokenKind};
-use byteorder::{ByteOrder, LittleEndian};
+use crate::assembler::utilities::{
+    AssemblerError, TokenCursor, default_start, get_constant, get_float, get_integer,
+    get_integer_adjacent, get_label, get_string, is_adjacent, is_solid, pc_for_region,
+};
 use TokenKind::LeftBrace;
-use crate::assembler::binary_builder::AddressLabel::Label;
+use byteorder::{ByteOrder, LittleEndian};
+use titan_shared::assembler::binary::BinarySection;
+use titan_shared::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 
 const MISSING_REGION: AssemblerError = AssemblerError {
     location: None,

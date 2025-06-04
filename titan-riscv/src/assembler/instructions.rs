@@ -1,6 +1,11 @@
+use crate::assembler::instructions::Encoding::{
+    ArithmeticImmediate, Branch, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single,
+    UpperImmediate,
+};
+use crate::assembler::instructions::Opcode::{
+    BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc,
+};
 use Encoding::Registers;
-use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate};
-use crate::assembler::instructions::Opcode::{BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc};
 
 pub enum Encoding {
     // Empty
@@ -21,9 +26,9 @@ pub enum Opcode {
     // Empty
     Op(u8),
     BranchFunc(u8), // Op = 1100011, 3 bits (0=EQ/1=LT, 0=SIGNED/1=UNSIGNED, 0=NORMAL,1=NOT)
-    LoadFunc(u8), // Op = 0000011, 3 bits (UNS,WORD,HALF)
+    LoadFunc(u8),   // Op = 0000011, 3 bits (UNS,WORD,HALF)
     ImmediateFunc(u8, bool), // Op = 0010011, bool - if true f7 = 0b0100000 else f7 = 9
-    StoreFunc(u8), // Op = 0100011
+    StoreFunc(u8),  // Op = 0100011
     RegisterFunc(u8, bool), // Op = 0110011, bool - if true f7 = 0b0100000 else f7 = 9
     Executive(u16), // Op = 1110011
 }

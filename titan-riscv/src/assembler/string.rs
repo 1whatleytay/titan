@@ -1,9 +1,9 @@
-use crate::assembler::utilities::AssemblerError;
 use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
-use crate::assembler::lexer::{lex, LexerError, Location, RiscVLexerProvider};
-use crate::assembler::preprocessor::{preprocess, PreprocessorError};
+use crate::assembler::lexer::{LexerError, Location, RiscVLexerProvider, lex};
+use crate::assembler::preprocessor::{PreprocessorError, preprocess};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
+use crate::assembler::utilities::AssemblerError;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;

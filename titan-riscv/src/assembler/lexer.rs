@@ -1,24 +1,29 @@
-pub use titan_shared::assembler::lexer::Location;
+use SymbolName::Owned;
+use TokenKind::{Minus, Plus};
+use num_traits::FromPrimitive;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
-use num_traits::FromPrimitive;
-use SymbolName::Owned;
-use titan_shared::assembler::lexer::{numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
+pub use titan_shared::assembler::lexer::Location;
+use titan_shared::assembler::lexer::{
+    NumericLiteral, numeric_literal, string_body, take_name, take_space, take_split,
+};
 use titan_shared::assembler::source::{LexerProvider, TokenProvider};
-use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::LexerReason::{
     ImproperLiteral, InvalidString, Stuck, UnexpectedCharacter, UnknownRegister,
 };
 use crate::assembler::lexer::SymbolName::Slice;
-use crate::assembler::lexer::TokenKind::{Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Parameter, Register, RightBrace, StringLiteral, Symbol};
+use crate::assembler::lexer::TokenKind::{
+    Colon, Comma, Comment, Directive, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Parameter,
+    Register, RightBrace, StringLiteral, Symbol,
+};
 use crate::assembler::registers::RegisterSlot;
 
 // Temporary Trait Alias
-pub trait RiscVTokenProvider<'a> : TokenProvider<Token<'a>, LexerError> { }
+pub trait RiscVTokenProvider<'a>: TokenProvider<Token<'a>, LexerError> {}
 
-impl<'a, T: TokenProvider<Token<'a>, LexerError>> RiscVTokenProvider<'a> for T { }
+impl<'a, T: TokenProvider<Token<'a>, LexerError>> RiscVTokenProvider<'a> for T {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolName<'a> {
@@ -60,12 +65,12 @@ pub enum StrippedKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
-    Comment(&'a str),           // #*\n
-    Directive(&'a str),         // .*
-    Parameter(&'a str),         // %*
-    Register(RegisterSlot),     // t0, sp, v0, or r0-r31
-    IntegerLiteral(u64),        // 123 -> also characters
-    FloatLiteral(f64),          // 123.0
+    Comment(&'a str),       // #*\n
+    Directive(&'a str),     // .*
+    Parameter(&'a str),     // %*
+    Register(RegisterSlot), // t0, sp, v0, or r0-r31
+    IntegerLiteral(u64),    // 123 -> also characters
+    FloatLiteral(f64),      // 123.0
     StringLiteral(String),
     Symbol(SymbolName<'a>),
     Plus,
@@ -143,10 +148,16 @@ pub enum LexerReason {
 impl Display for LexerReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Stuck => write!(f, "Lexer got stuck on this token. Please file an issue at https://github.com/1whatleytay/titan/issues"),
+            Stuck => write!(
+                f,
+                "Lexer got stuck on this token. Please file an issue at https://github.com/1whatleytay/titan/issues"
+            ),
             UnknownRegister(register) => write!(f, "Unknown register \"{register}\""),
             UnexpectedCharacter(c) => write!(f, "Unexpected character \"{c}\""),
-            InvalidString => write!(f, "String literal is incorrectly formatted. Check that you have closing quotes"),
+            InvalidString => write!(
+                f,
+                "String literal is incorrectly formatted. Check that you have closing quotes"
+            ),
             ImproperLiteral => write!(f, "Integer literal is incorrectly formatted or too big"),
         }
     }
@@ -169,7 +180,6 @@ impl Error for LexerError {}
 fn is_hard(c: char) -> bool {
     c.is_whitespace() || is_explicit_hard(c)
 }
-
 
 // I want the ability to precompute a hash table, so this is done via match.
 fn is_explicit_hard(c: char) -> bool {
@@ -209,8 +219,8 @@ fn is_explicit_hard(c: char) -> bool {
 fn pick_numbered_register(name: &str) -> Option<RegisterSlot> {
     if name.starts_with(&['r', 'x']) {
         if let Ok(value) = name[1..].parse::<u32>() {
-            if (0 ..= 31).contains(&value) {
-                return RegisterSlot::from_u32(value)
+            if (0..=31).contains(&value) {
+                return RegisterSlot::from_u32(value);
             }
         }
     }
@@ -262,8 +272,7 @@ fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
         _ => Ok({
             let (rest, value) = take_name(input);
 
-            let slot = RegisterSlot::from_string(value)
-                .or_else(|| pick_numbered_register(value));
+            let slot = RegisterSlot::from_string(value).or_else(|| pick_numbered_register(value));
 
             // Check for any matching registers first!
             if let Some(slot) = slot {

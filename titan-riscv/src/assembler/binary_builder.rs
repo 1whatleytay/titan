@@ -1,18 +1,18 @@
+use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
+use crate::assembler::binary_builder::BinarySection::Text;
+use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
+use crate::assembler::lexer::Location;
 use crate::assembler::utilities::AssemblerError;
 use crate::assembler::utilities::AssemblerReason::{
     JumpOutOfRange, MissingInstruction, UnknownLabel,
 };
-use titan_shared::assembler::binary::{
-    Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
-};
-use crate::assembler::binary_builder::BinarySection::Text;
-use crate::assembler::lexer::Location;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
+use titan_shared::assembler::binary::{
+    Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
+};
 use titan_shared::elf::header::InstructionSet;
-use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
-use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
 
 #[derive(Clone, Debug)]
 pub struct NamedLabel {
@@ -60,20 +60,18 @@ fn add_label(
             let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
 
             // we have 20 bits of signed immediate, hopefully this is right
-            if !(-0x80000 ..= 0x7ffff).contains(&immediate) {
-                return Err(make_out_of_range(destination))
+            if !(-0x80000..=0x7ffff).contains(&immediate) {
+                return Err(make_out_of_range(destination));
             }
 
-            InstructionBuilder(instruction)
-                .with_jal_imm(immediate)
-                .0
+            InstructionBuilder(instruction).with_jal_imm(immediate).0
         }
         InstructionLabelKind::Branch => {
             let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
-            
+
             // we have 12 bits of signed immediate, hopefully this is right
-            if !(-0x800 ..= 0x7ff).contains(&immediate) {
-                return Err(make_out_of_range(destination))
+            if !(-0x800..=0x7ff).contains(&immediate) {
+                return Err(make_out_of_range(destination));
             }
 
             InstructionBuilder(instruction)

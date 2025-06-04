@@ -1,12 +1,12 @@
-mod utilities;
 mod binary_builder;
+mod utilities;
 
-pub mod string;
+pub mod core;
+mod directive;
+mod emit;
+mod instruction_builder;
+mod instructions;
 pub mod lexer;
 pub mod preprocessor;
 pub mod registers;
-pub mod core;
-mod instructions;
-mod emit;
-mod directive;
-mod instruction_builder;
+pub mod string;

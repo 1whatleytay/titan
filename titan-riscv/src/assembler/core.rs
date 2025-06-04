@@ -1,13 +1,15 @@
-use crate::assembler::utilities::AssemblerReason::{
-    DuplicateLabel, MissingRegion, UnexpectedToken,
-};
-use crate::assembler::utilities::{is_adjacent, is_solid, pc_for_region, AssemblerError, TokenCursor, TokenInsights};
 use crate::assembler::binary_builder::BinaryBuilder;
 use crate::assembler::directive::do_directive;
 use crate::assembler::emit::do_instruction;
 use crate::assembler::instructions::Instruction;
 use crate::assembler::lexer::TokenKind::{Directive, IntegerLiteral, Minus, Plus, Symbol};
 use crate::assembler::lexer::{Location, Token, TokenKind};
+use crate::assembler::utilities::AssemblerReason::{
+    DuplicateLabel, MissingRegion, UnexpectedToken,
+};
+use crate::assembler::utilities::{
+    AssemblerError, TokenCursor, TokenInsights, is_adjacent, is_solid, pc_for_region,
+};
 use std::collections::HashMap;
 use titan_shared::assembler::binary::Binary;
 use titan_shared::assembler::binary::BinarySection::Text;
@@ -105,7 +107,7 @@ pub fn assemble(items: &[Token], instructions: &[Instruction]) -> Result<Binary,
                 return Err(AssemblerError {
                     location: Some(token.location),
                     reason: UnexpectedToken(token.kind.strip()),
-                })
+                });
             }
         }
     }

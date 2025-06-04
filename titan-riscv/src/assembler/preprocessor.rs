@@ -1,3 +1,4 @@
+use crate::assembler::lexer::RiscVTokenProvider as TokenProvider;
 use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
@@ -8,14 +9,13 @@ use crate::assembler::preprocessor::PreprocessorReason::{
     ExpectedSymbol, FailedToFindFile, FailedToLexFile, IncludeUnsupported, MacroParameterCount,
     MacroUnknownParameter, RecursiveExpansion, RecursiveInclude,
 };
-use crate::assembler::lexer::RiscVTokenProvider as TokenProvider;
-use titan_shared::assembler::source::ExtendError;
+use crate::assembler::utilities::{TokenCursor, TokenInsights, is_adjacent};
+use PreprocessorReason::NoFilePathAssociated;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use PreprocessorReason::NoFilePathAssociated;
-use crate::assembler::utilities::{is_adjacent, TokenCursor, TokenInsights};
+use titan_shared::assembler::source::ExtendError;
 
 #[derive(Debug)]
 pub enum PreprocessorReason {
@@ -58,11 +58,20 @@ impl Display for PreprocessorReason {
                 "Expected {expected} macro parameters, but passed {actual}"
             ),
             MacroUnknownParameter(name) => write!(f, "Unknown macro parameter named \"{name}\""),
-            IncludeUnsupported => write!(f, "Cannot include because this file is not saved to disk. Please save the file to use include."),
-            NoFilePathAssociated => write!(f, "This file is not saved to disk, so there is no path for this file."),
+            IncludeUnsupported => write!(
+                f,
+                "Cannot include because this file is not saved to disk. Please save the file to use include."
+            ),
+            NoFilePathAssociated => write!(
+                f,
+                "This file is not saved to disk, so there is no path for this file."
+            ),
             FailedToFindFile(name) => write!(f, "Failed to find file \"{name}\""),
             FailedToLexFile(error) => write!(f, "File has invalid format, {error}"),
-            RecursiveInclude => write!(f, "Include is recursive (includes itself), this is not allowed")
+            RecursiveInclude => write!(
+                f,
+                "Include is recursive (includes itself), this is not allowed"
+            ),
         }
     }
 }
@@ -348,7 +357,7 @@ fn handle_symbol<'a, P: TokenProvider<'a>>(
             return Ok(vec![Token {
                 location,
                 kind: Symbol(name.clone()),
-            }])
+            }]);
         }
     }
 
