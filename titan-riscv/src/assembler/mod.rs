@@ -9,3 +9,4 @@ pub mod core;
 mod instructions;
 mod emit;
 mod directive;
+mod instruction_builder;

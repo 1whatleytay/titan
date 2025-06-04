@@ -1,5 +1,4 @@
 use Encoding::Registers;
-use crate::assembler::binary_builder::InstructionLabelKind::Upper;
 use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, JumpImmediate, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate};
 use crate::assembler::instructions::Opcode::{BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc};
 

@@ -11,6 +11,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
+use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
 
 #[derive(Clone, Debug)]
 pub struct NamedLabel {
@@ -54,36 +55,43 @@ fn add_label(
     let destination = get_address(label.label, map)?;
 
     Ok(match label.kind {
+        InstructionLabelKind::JumpAndLink => {
+            let immediate = ((destination.wrapping_sub(pc)) >> 1) as i32;
+
+            // we have 20 bits of signed immediate, hopefully this is right
+            if !(-0x80000 ..= 0x7ffff).contains(&immediate) {
+                return Err(make_out_of_range(destination))
+            }
+
+            InstructionBuilder(instruction)
+                .with_jal_imm(immediate)
+                .0
+        }
         InstructionLabelKind::Branch => {
-            let immediate = (destination >> 2) as i32 - ((pc + 4) >> 2) as i32;
+            let immediate = ((destination.wrapping_sub(pc)) >> 1) as i32;
 
-            if !(-0x10000..=0xFFFF).contains(&immediate) {
-                return Err(make_out_of_range(destination));
+            // we have 12 bits of signed immediate, hopefully this is right
+            if !(-0x800 ..= 0x7ff).contains(&immediate) {
+                return Err(make_out_of_range(destination))
             }
 
-            instruction & 0xFFFF0000 | (immediate as u32 & 0xFFFF)
+            InstructionBuilder(instruction)
+                .with_branch_imm(immediate as i16)
+                .0
         }
-        InstructionLabelKind::Jump => {
-            let lossy_mask = 0xF0000000u32;
+        InstructionLabelKind::Upper20 => {
+            let split = SplitImmediate::from_immediate(destination);
 
-            if destination & lossy_mask != (pc + 4) & lossy_mask {
-                return Err(make_out_of_range(destination));
-            }
-
-            let mask = !0u32 << 26;
-            let constant = (destination >> 2) & (!0u32 >> 6);
-
-            instruction & mask | constant
+            InstructionBuilder(instruction)
+                .with_upper_imm(split.upper)
+                .0
         }
-        InstructionLabelKind::Lower => {
-            let bottom = destination & 0x0000FFFF;
+        InstructionLabelKind::Lower12 => {
+            let split = SplitImmediate::from_immediate(destination);
 
-            instruction & 0xFFFF0000 | bottom
-        }
-        InstructionLabelKind::Upper => {
-            let top = (destination & 0xFFFF0000) >> 16;
-
-            instruction & 0xFFFF0000 | top
+            InstructionBuilder(instruction)
+                .with_normal_imm(split.lower)
+                .0
         }
         InstructionLabelKind::Full => destination,
     })
@@ -102,10 +110,11 @@ pub struct BinaryBuilderRegion {
 
 #[derive(Debug)]
 pub enum InstructionLabelKind {
+    // All of these are assumed to be based (not compressed)
+    JumpAndLink,
     Branch,
-    Jump,
-    Lower,
-    Upper,
+    Upper20,
+    Lower12,
     Full,
 }
 

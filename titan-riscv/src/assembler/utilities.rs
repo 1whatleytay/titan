@@ -1,4 +1,4 @@
-use crate::assembler::utilities::InstructionValue::{Literal, Slot};
+// use crate::assembler::utilities::InstructionValue::{Literal, Slot};
 use titan_shared::assembler::binary::RawRegion;
 use crate::assembler::lexer::TokenKind::{Comma, Comment, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol};
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
@@ -6,6 +6,7 @@ use crate::assembler::registers::RegisterSlot;
 use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::ops::{RangeBounds, RangeInclusive};
 use TokenKind::Minus;
 use crate::assembler::binary_builder::{AddressLabel, NamedLabel};
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
@@ -154,10 +155,10 @@ pub fn get_register(iter: &mut TokenCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
-pub enum InstructionValue {
-    Slot(RegisterSlot),
-    Literal(u64),
-}
+// pub enum InstructionValue {
+//     Slot(RegisterSlot),
+//     Literal(u64),
+// }
 
 // first -> pointed to but NOT consumed yet, this method call will consume it
 pub fn get_integer(first: &Token, iter: &mut TokenCursor, consume: bool) -> Option<u64> {
@@ -237,44 +238,65 @@ pub fn get_integer_adjacent(iter: &mut TokenCursor) -> Option<u64> {
     }
 }
 
-pub fn get_value(iter: &mut TokenCursor) -> Result<InstructionValue, AssemblerError> {
-    let token = get_token(iter)?;
-
-    if let Some(value) = get_integer(token, iter, false) {
-        Ok(Literal(value))
-    } else {
-        match token.kind {
-            Register(slot) => Ok(Slot(slot)),
-            _ => Err(default_error(
-                AssemblerReason::ExpectedRegister(token.kind.strip()),
-                token,
-            )),
-        }
-    }
-}
-
-pub fn maybe_get_value(iter: &mut TokenCursor) -> Option<InstructionValue> {
-    let value = iter.seek_without(is_adjacent)?;
-
-    if let Some(value) = get_integer(value, iter, true) {
-        Some(Literal(value))
-    } else {
-        match value.kind {
-            Register(slot) => {
-                iter.next();
-
-                Some(Slot(slot))
-            }
-            _ => None,
-        }
-    }
-}
+// pub fn get_value(iter: &mut TokenCursor) -> Result<InstructionValue, AssemblerError> {
+//     let token = get_token(iter)?;
+//
+//     if let Some(value) = get_integer(token, iter, false) {
+//         Ok(Literal(value))
+//     } else {
+//         match token.kind {
+//             Register(slot) => Ok(Slot(slot)),
+//             _ => Err(default_error(
+//                 AssemblerReason::ExpectedRegister(token.kind.strip()),
+//                 token,
+//             )),
+//         }
+//     }
+// }
+//
+// pub fn maybe_get_value(iter: &mut TokenCursor) -> Option<InstructionValue> {
+//     let value = iter.seek_without(is_adjacent)?;
+//
+//     if let Some(value) = get_integer(value, iter, true) {
+//         Some(Literal(value))
+//     } else {
+//         match value.kind {
+//             Register(slot) => {
+//                 iter.next();
+//
+//                 Some(Slot(slot))
+//             }
+//             _ => None,
+//         }
+//     }
+// }
 
 pub fn get_constant(iter: &mut TokenCursor) -> Result<u64, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Some(value) = get_integer(token, iter, false) {
         Ok(value)
+    } else {
+        Err(default_error(
+            AssemblerReason::ExpectedConstant(token.kind.strip()),
+            token,
+        ))
+    }
+}
+
+pub fn get_constant_in_range(iter: &mut TokenCursor, range: RangeInclusive<i64>) -> Result<u64, AssemblerError> {
+    let token = get_token(iter)?;
+
+    if let Some(value) = get_integer(token, iter, false) {
+        if range.contains(&(value as i64)) { //
+            Ok(value)
+        } else {
+            // This could cause some kind of overflow bug in the future.
+            Err(default_error(
+                AssemblerReason::ConstantOutOfRange(*range.start(), *range.end()),
+                token,
+            ))
+        }
     } else {
         Err(default_error(
             AssemblerReason::ExpectedConstant(token.kind.strip()),
@@ -331,45 +353,39 @@ pub fn get_label(iter: &mut TokenCursor) -> Result<AddressLabel, AssemblerError>
     to_label(get_token(iter)?, iter)
 }
 
-pub enum OffsetOrLabel {
-    Label(AddressLabel),
-    Offset(AddressLabel, RegisterSlot),
+pub struct Offset {
+    pub immediate: i16,
+    pub slot: RegisterSlot
 }
 
-pub fn get_offset_or_label(iter: &mut TokenCursor) -> Result<OffsetOrLabel, AssemblerError> {
-    let label = to_label(get_token(iter)?, iter);
+pub fn get_offset(iter: &mut TokenCursor) -> Result<Offset, AssemblerError> {
+    // 12-bit offset immediate for all offset instructions
+    let immediate = get_constant_in_range(iter, -0x800 ..= 0x7ff)? as i16;
 
-    let is_offset = iter
-        .seek_without(is_adjacent)
-        .map(|token| token.kind == LeftBrace)
-        .unwrap_or(false);
+    let left_brace = get_token(iter)?;
 
-    if is_offset {
-        iter.next(); // left brace
-
-        let register = get_register(iter)?;
-
-        let Some(right) = iter.next_adjacent() else {
-            return Err(AssemblerError {
-                location: None,
-                reason: AssemblerReason::EndOfFile,
-            });
-        };
-
-        if right.kind != RightBrace {
-            return Err(default_error(
-                AssemblerReason::ExpectedRightBrace(right.kind.strip()),
-                right,
-            ));
-        }
-
-        Ok(OffsetOrLabel::Offset(
-            label.unwrap_or(Constant(0)), // Taylor: Is this right? Seems suspicious.
-            register,
-        ))
-    } else {
-        Ok(OffsetOrLabel::Label(label?))
+    if left_brace.kind != LeftBrace {
+        return Err(AssemblerError {
+            location: Some(left_brace.location),
+            reason: AssemblerReason::ExpectedLeftBrace(left_brace.kind.strip()),
+        })
     }
+
+    let slot = get_register(iter)?;
+
+    let right_brace = get_token(iter)?;
+
+    if right_brace.kind != RightBrace {
+        return Err(AssemblerError {
+            location: Some(right_brace.location),
+            reason: AssemblerReason::ExpectedLeftBrace(right_brace.kind.strip()),
+        })
+    }
+
+    Ok(Offset {
+        immediate,
+        slot
+    })
 }
 
 pub fn default_start(location: Location) -> impl Fn(AssemblerError) -> AssemblerError {
