@@ -1,5 +1,5 @@
 use crate::assembler::binary::{Binary, RegionFlags};
-use crate::elf::header::{BinaryType, Endian, InstructionSet, MAGIC};
+use crate::elf::header::{BinaryType, Endian, MAGIC};
 use crate::elf::program::ProgramHeaderType::Load;
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags};
 use crate::elf::{Elf, Header};

@@ -6,13 +6,13 @@ use std::time::Instant;
 use titan::elf::Elf;
 
 use anyhow::Result;
-use titan::assembler::string::assemble_from_path;
+use titan::mips::assembler::string::assemble_from_path;
 use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
-use titan::cpu::registers::registers::RawRegisters;
-use titan::cpu::State;
-use titan::execution::elf::setup::create_simple_state;
-use titan::execution::trackers::empty::EmptyTracker;
-use titan::execution::Executor;
+use titan::mips::cpu::registers::registers::RawRegisters;
+use titan::mips::cpu::State;
+use titan::mips::execution::elf::setup::create_simple_state;
+use titan::mips::execution::trackers::empty::EmptyTracker;
+use titan::mips::execution::Executor;
 
 #[derive(Subcommand, Debug)]
 enum Command {
