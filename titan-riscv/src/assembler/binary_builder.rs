@@ -1,6 +1,6 @@
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 use crate::assembler::binary_builder::BinarySection::Text;
-use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
+use crate::assembler::instruction_builder::{CompressedInstructionBuilder, InstructionBuilder, SplitImmediate};
 use crate::assembler::lexer::Location;
 use crate::assembler::utilities::AssemblerError;
 use crate::assembler::utilities::AssemblerReason::{
@@ -13,6 +13,8 @@ use titan_shared::assembler::binary::{
     Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
 };
 use titan_shared::elf::header::InstructionSet;
+use crate::assembler::emit::InstructionKind;
+use crate::assembler::emit::InstructionKind::{Base, Compressed};
 
 #[derive(Clone, Debug)]
 pub struct NamedLabel {
@@ -42,12 +44,12 @@ fn get_address(label: AddressLabel, map: &HashMap<String, u32>) -> Result<u32, A
 }
 
 fn add_label(
-    instruction: u32,
+    cursor: &mut Cursor<&[u8]>,
     pc: u32,
     location: Location,
     label: InstructionLabel,
     map: &HashMap<String, u32>,
-) -> Result<u32, AssemblerError> {
+) -> Result<InstructionKind, AssemblerError> {
     let make_out_of_range = |destination: u32| AssemblerError {
         location: Some(location),
         reason: JumpOutOfRange(destination, pc),
@@ -57,42 +59,88 @@ fn add_label(
 
     Ok(match label.kind {
         InstructionLabelKind::JumpAndLink => {
-            let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
+            let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
+            
+            let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
 
             // we have 20 bits of signed immediate, hopefully this is right
             if !(-0x80000..=0x7ffff).contains(&immediate) {
                 return Err(make_out_of_range(destination));
             }
 
-            InstructionBuilder(instruction).with_jal_imm(immediate).0
+            Base(InstructionBuilder(instruction).with_jal_imm(immediate as i32).0)
         }
         InstructionLabelKind::Branch => {
-            let immediate = (destination as i32).wrapping_sub(pc as i32).wrapping_shr(1);
+            let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
+            
+            let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
 
             // we have 12 bits of signed immediate, hopefully this is right
             if !(-0x800..=0x7ff).contains(&immediate) {
                 return Err(make_out_of_range(destination));
             }
 
-            InstructionBuilder(instruction)
+            let inst = InstructionBuilder(instruction)
                 .with_branch_imm(immediate as i16)
-                .0
+                .0;
+            
+            Base(inst)
         }
         InstructionLabelKind::Upper20 => {
+            let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
+            
             let split = SplitImmediate::from_immediate(destination);
 
-            InstructionBuilder(instruction)
+            let inst = InstructionBuilder(instruction)
                 .with_upper_imm(split.upper)
-                .0
+                .0;
+            
+            Base(inst)
         }
         InstructionLabelKind::Lower12 => {
+            let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
+            
             let split = SplitImmediate::from_immediate(destination);
 
-            InstructionBuilder(instruction)
+            let inst = InstructionBuilder(instruction)
                 .with_normal_imm(split.lower)
-                .0
+                .0;
+            
+            Base(inst)
         }
-        InstructionLabelKind::Full => destination,
+        InstructionLabelKind::Full => Base(destination),
+        InstructionLabelKind::CompressedBranch => {
+            let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
+            
+            let instruction = cursor.read_u16::<LittleEndian>().map_err(|_| MISSING)?;
+
+            // Signed 8-bit Immediate Bounds
+            if !(-0x80..=0x7f).contains(&immediate) {
+                return Err(make_out_of_range(destination));
+            }
+            
+            let inst = CompressedInstructionBuilder(instruction)
+                .with_branch_imm(immediate as i8)
+                .0;
+            
+            Compressed(inst)
+        },
+        InstructionLabelKind::CompressedJump => {
+            let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
+
+            let instruction = cursor.read_u16::<LittleEndian>().map_err(|_| MISSING)?;
+
+            // Signed 11-bit Immediate Bounds
+            if !(-0x400..=0x3ff).contains(&immediate) {
+                return Err(make_out_of_range(destination));
+            }
+
+            let inst = CompressedInstructionBuilder(instruction)
+                .with_jump_imm(immediate as i16)
+                .0;
+            
+            Compressed(inst)
+        },
     })
 }
 
@@ -115,6 +163,9 @@ pub enum InstructionLabelKind {
     Upper20,
     Lower12,
     Full,
+    
+    CompressedBranch,
+    CompressedJump,
 }
 
 #[derive(Debug)]
@@ -135,6 +186,11 @@ pub struct BinaryBuilder {
     pub labels: HashMap<String, u32>,
     pub breakpoints: Vec<BinaryBreakpoint>,
 }
+
+const MISSING: AssemblerError = AssemblerError {
+    location: None,
+    reason: MissingInstruction,
+};
 
 impl BinaryBuilderState {
     fn index(&self) -> Option<usize> {
@@ -202,11 +258,6 @@ impl BinaryBuilder {
     pub fn build(self) -> Result<Binary, AssemblerError> {
         let mut binary = Binary::new(InstructionSet::RiscV);
 
-        const MISSING: AssemblerError = AssemblerError {
-            location: None,
-            reason: MissingInstruction,
-        };
-
         if let Some(entry) = self.entry {
             let address = get_address(entry, &self.labels)?;
 
@@ -220,21 +271,18 @@ impl BinaryBuilder {
                 let pc = raw.address + label.offset as u32;
                 let size = raw.data.len();
 
-                let bytes = &raw.data[label.offset..label.offset + 4];
+                let bytes = &raw.data[label.offset..];
 
-                let instruction = Cursor::new(bytes).read_u32::<LittleEndian>();
-                let Ok(instruction) = instruction else {
-                    return Err(MISSING);
+                let result = add_label(&mut Cursor::new(bytes), pc, label.location, label.label, &self.labels)?;
+
+                let mut_bytes = &mut raw.data[label.offset..];
+
+                let err = match result {
+                    Base(value) => Cursor::new(mut_bytes).write_u32::<LittleEndian>(value),
+                    Compressed(value) => Cursor::new(mut_bytes).write_u16::<LittleEndian>(value),
                 };
-
-                let result = add_label(instruction, pc, label.location, label.label, &self.labels)?;
-
-                let mut_bytes = &mut raw.data[label.offset..label.offset + 4];
-
-                if Cursor::new(mut_bytes)
-                    .write_u32::<LittleEndian>(result)
-                    .is_err()
-                {
+                
+                if err.is_err() {
                     return Err(MISSING);
                 }
 

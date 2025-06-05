@@ -1,1 +1,1 @@
-mod assembler;
+pub mod assembler;

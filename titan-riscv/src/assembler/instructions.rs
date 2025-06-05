@@ -2,16 +2,10 @@ use crate::assembler::instructions::BaseOpcode::{
     BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc,
 };
 use crate::assembler::instructions::CompressedOpcode::{OpFunc, SpecHigh, SpecHighLow, SpecRd};
-use crate::assembler::instructions::Encoding::{
-    ArithmeticImmediate, Branch, CompressedAddi4, CompressedAddi16, CompressedAssignImmediate,
-    CompressedBitImmediate, CompressedBranch, CompressedDoubleRegister, CompressedJump,
-    CompressedLoadWord, CompressedLoadWordSp, CompressedLui, CompressedOnlyRegister,
-    CompressedShift, CompressedSingle, CompressedSmallRegs, CompressedStoreWord,
-    CompressedStoreWordSp, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single,
-    UpperImmediate,
-};
+use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, CompressedAddi4, CompressedAddi16, CompressedAssignImmediate, CompressedBitImmediate, CompressedBranch, CompressedDoubleRegister, CompressedJump, CompressedLoadWord, CompressedLoadWordSp, CompressedLui, CompressedOnlyRegister, CompressedShift, CompressedSingle, CompressedSmallRegs, CompressedStoreWord, CompressedStoreWordSp, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate, CompressedShiftExtended};
 use CompressedOpcode::Spec12;
 use Encoding::Registers;
+use crate::assembler::registers::RegisterSlot;
 
 pub enum Encoding {
     // Base Encodings
@@ -36,6 +30,7 @@ pub enum Encoding {
     CompressedAddi16 { op: CompressedOpcode }, // uses imm 946875
     CompressedLui { op: CompressedOpcode },   // c.lui
     CompressedShift { op: CompressedOpcode }, // c.srli, c.srai
+    CompressedShiftExtended { op: CompressedOpcode }, // c.slli
     CompressedBitImmediate { op: CompressedOpcode }, // c.andi, similar to CompressedShift except signed imm
     CompressedSmallRegs { op: CompressedOpcode },    // c.sub, c.xor, c.or, etc...
     CompressedBranch { op: CompressedOpcode },
@@ -63,8 +58,8 @@ pub enum CompressedOpcode {
     SpecRd {
         op: u8,
         func: u8,
-        rd: u8,
-    }, // reg 5 bits
+        rd: RegisterSlot,
+    },
     SpecHigh {
         op: u8,
         func: u8,
@@ -464,7 +459,7 @@ pub const INSTRUCTIONS: &[Instruction] = &[
             op: SpecRd {
                 op: 0b01,
                 func: 0b011,
-                rd: 2,
+                rd: RegisterSlot::StackPointer,
             },
         },
     },
@@ -479,7 +474,7 @@ pub const INSTRUCTIONS: &[Instruction] = &[
     },
     Instruction {
         name: "c.slli",
-        encoding: CompressedShift {
+        encoding: CompressedShiftExtended {
             op: OpFunc {
                 op: 0b10,
                 func: 0b000,
@@ -499,7 +494,7 @@ pub const INSTRUCTIONS: &[Instruction] = &[
     Instruction {
         name: "c.srai",
         // not a shift! seems closer to encoding as compressed assign immediate
-        encoding: CompressedAssignImmediate {
+        encoding: CompressedShift {
             op: SpecHigh {
                 op: 0b01,
                 func: 0b100,

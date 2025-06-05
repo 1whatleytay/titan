@@ -38,7 +38,7 @@ fn instruction_compressed(op: &CompressedOpcode) -> u16 {
     match op {
         CompressedOpcode::OpFunc { op, func } => compressed_base(*op, *func),
         CompressedOpcode::SpecRd { op, func, rd } => {
-            compressed_base(*op, *func) | ((*rd as u16 & 0b11111) << 7)
+            compressed_base(*op, *func) | ((compressed_source(*rd) & 0b11111) << 7)
         }
         CompressedOpcode::SpecHigh { op, func, high } => {
             compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10)
@@ -262,6 +262,25 @@ impl CompressedInstructionBuilder {
         self
     }
 
+    pub fn with_uimm_549623(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 8 bit immediate
+        let value = value as u16;
+
+        let bit0 = pick_bits(value, 0, 1);
+        let bit1 = pick_bits(value, 1, 1);
+        let bit2to3 = pick_bits(value, 2, 2);
+        let bit4to7 = pick_bits(value, 4, 4);
+
+        self.0 &= !(0b11111111 << 5);
+
+        self.0 |= bit1 << 5;
+        self.0 |= bit0 << 6;
+        self.0 |= bit4to7 << 7;
+        self.0 |= bit2to3 << 11;
+
+        self
+    }
+
     pub fn with_uimm_5326(mut self, value: u8) -> CompressedInstructionBuilder {
         // 5 bit
         let value = value as u16;
@@ -280,23 +299,7 @@ impl CompressedInstructionBuilder {
         panic!()
     }
 
-    pub fn with_imm_540(mut self, value: u8) -> CompressedInstructionBuilder {
-        // 6 bit
-        let value = value as u16;
-
-        let bit0to4 = pick_bits(value, 0, 5);
-        let bit5 = pick_bits(value, 5, 1);
-
-        self.0 &= !(0b1 << 12);
-        self.0 &= !(0b11111 << 2);
-
-        self.0 |= bit0to4 << 2;
-        self.0 |= bit5 << 2;
-
-        self
-    }
-
-    pub fn with_imm_540_signed(mut self, value: i8) -> CompressedInstructionBuilder {
+    pub fn with_imm_540(mut self, value: i8) -> CompressedInstructionBuilder {
         // 6 bit
         let value = value as u8 as u16;
 
@@ -308,28 +311,6 @@ impl CompressedInstructionBuilder {
 
         self.0 |= bit0to4 << 2;
         self.0 |= bit5 << 2;
-
-        self
-    }
-
-    pub fn with_imm_946875(mut self, value: i8) -> CompressedInstructionBuilder {
-        // 6 bit
-        let value = value as u8 as u16;
-
-        let bit0 = pick_bits(value, 0, 1);
-        let bit1 = pick_bits(value, 1, 1);
-        let bit2 = pick_bits(value, 2, 1);
-        let bit3to4 = pick_bits(value, 3, 2);
-        let bit5 = pick_bits(value, 5, 1);
-
-        self.0 &= !(0b1 << 12);
-        self.0 &= !(0b11111 << 2);
-
-        self.0 |= bit1 << 2;
-        self.0 |= bit3to4 << 3;
-        self.0 |= bit2 << 5;
-        self.0 |= bit0 << 6;
-        self.0 |= bit5 << 12;
 
         self
     }
@@ -367,7 +348,9 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_jump_imm(mut self, value: u16) -> CompressedInstructionBuilder {
+    pub fn with_jump_imm(mut self, value: i16) -> CompressedInstructionBuilder {
+        let value = value as u16;
+
         // 11 bits
         let bit0to2 = pick_bits(value, 0, 3);
         let bit3 = pick_bits(value, 3, 1);
@@ -392,9 +375,9 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_branch_imm(mut self, value: u8) -> CompressedInstructionBuilder {
+    pub fn with_branch_imm(mut self, value: i8) -> CompressedInstructionBuilder {
         // 8 bits
-        let value = value as u16;
+        let value = value as u8 as u16;
 
         let bit0to1 = pick_bits(value, 0, 2);
         let bit2to3 = pick_bits(value, 2, 2);
@@ -415,6 +398,7 @@ impl CompressedInstructionBuilder {
     }
 
     pub fn with_sham(mut self, value: u8) -> CompressedInstructionBuilder {
+        // technically 6 bit, but top bit must be zero for RV32
         let value = value as u16;
 
         let bit0to4 = pick_bits(value, 0, 5);
@@ -436,6 +420,7 @@ impl CompressedInstructionBuilder {
     with_rd - non zero + for c.lui not 2
     with_rs1
     with_rs2
+    with_uimm_549623 - c.addi4spn
     with_uimm_5326 - c.lw c.sw
     with_imm_540 - c.nop c.addi c.li
     with_imm_946875 - c.addi16sp

@@ -1,4 +1,3 @@
-use crate::assembler::instruction_builder::CompressedInstructionBuilder;
 use num_derive::{FromPrimitive, ToPrimitive};
 use std::fmt::{Display, Formatter};
 /*

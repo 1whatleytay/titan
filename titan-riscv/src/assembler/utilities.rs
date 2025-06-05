@@ -5,7 +5,7 @@ use crate::assembler::lexer::TokenKind::{
     StringLiteral, Symbol,
 };
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
-use crate::assembler::registers::RegisterSlot;
+use crate::assembler::registers::{CompressedRegisterSlot, RegisterSlot};
 use TokenKind::Minus;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -53,6 +53,8 @@ pub enum AssemblerReason {
     UnexpectedToken(StrippedKind),
     EndOfFile,
     ExpectedRegister(StrippedKind),
+    CompressedRegisterOnly,
+    InvalidRegisterUsed,
     ExpectedConstant(StrippedKind),
     ExpectedString(StrippedKind),
     ExpectedLabel(StrippedKind),
@@ -60,6 +62,8 @@ pub enum AssemblerReason {
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
     ConstantOutOfRange(i64, i64),    // start, end
+    ConstantMustBeNonZero,
+    ConstantMustBeMultipleOf(u64),
     OverwriteEdge(u32, Option<u64>), // pc, count
     UnknownLabel(String),
     UnknownDirective(String),
@@ -83,6 +87,12 @@ impl Display for AssemblerReason {
             AssemblerReason::ExpectedRegister(kind) => {
                 write!(f, "Expected a register, but found {kind}")
             }
+            AssemblerReason::CompressedRegisterOnly => {
+                write!(f, "This instruction only accepts compressed registers (one of x8-x15, s0-s1, a0-a5)")
+            }
+            AssemblerReason::InvalidRegisterUsed => {
+                write!(f, "This instruction does not allow this register due to an encoding restriction")
+            }
             AssemblerReason::ExpectedConstant(kind) => {
                 write!(f, "Expected an integer, but found {kind}")
             }
@@ -101,6 +111,12 @@ impl Display for AssemblerReason {
             }
             AssemblerReason::ConstantOutOfRange(min, max) => {
                 write!(f, "Constant must be between {min:#x} and {max:#x}")
+            }
+            AssemblerReason::ConstantMustBeNonZero => {
+                write!(f, "Constant must be non-zero for this instruction")
+            }
+            AssemblerReason::ConstantMustBeMultipleOf(multiple) => {
+                write!(f, "Constant must be a multiple of {multiple} for this instruction")
             }
             AssemblerReason::OverwriteEdge(pc, count) => write!(
                 f,
@@ -195,10 +211,45 @@ pub fn get_register(iter: &mut TokenCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
-// pub enum InstructionValue {
-//     Slot(RegisterSlot),
-//     Literal(u64),
-// }
+pub fn get_register_restricted(iter: &mut TokenCursor, check: impl FnOnce(RegisterSlot) -> bool) -> Result<RegisterSlot, AssemblerError> {
+    let token = get_token(iter)?;
+
+    if let Register(slot) = token.kind {
+        if check(slot) {
+            Ok(slot)
+        } else {
+            Err(default_error(
+                AssemblerReason::InvalidRegisterUsed,
+                token,
+            ))
+        }
+    } else {
+        Err(default_error(
+            AssemblerReason::ExpectedRegister(token.kind.strip()),
+            token,
+        ))
+    }
+}
+
+pub fn get_compressed_register(iter: &mut TokenCursor) -> Result<CompressedRegisterSlot, AssemblerError> {
+    let token = get_token(iter)?;
+
+    if let Register(slot) = token.kind {
+        if let Ok(slot) = slot.try_into() {
+            Ok(slot)
+        } else {
+            Err(default_error(
+                AssemblerReason::CompressedRegisterOnly,
+                token,
+            ))
+        }
+    } else {
+        Err(default_error(
+            AssemblerReason::ExpectedRegister(token.kind.strip()),
+            token,
+        ))
+    }
+}
 
 // first -> pointed to but NOT consumed yet, this method call will consume it
 pub fn get_integer(first: &Token, iter: &mut TokenCursor, consume: bool) -> Option<u64> {
@@ -349,6 +400,47 @@ pub fn get_constant_in_range(
     }
 }
 
+pub fn get_constant_restricted(
+    iter: &mut TokenCursor,
+    range: RangeInclusive<i64>,
+    non_zero: bool,
+    multiple_of: Option<u64>,
+) -> Result<u64, AssemblerError> {
+    let token = get_token(iter)?;
+
+    if let Some(value) = get_integer(token, iter, false) {
+        if !range.contains(&(value as i64)) {
+            // This could cause some kind of overflow bug in the future.
+            Err(default_error(
+                AssemblerReason::ConstantOutOfRange(*range.start(), *range.end()),
+                token,
+            ))
+        } else if non_zero && value == 0 {
+            Err(default_error(
+                AssemblerReason::ConstantMustBeNonZero,
+                token,
+            ))
+        } else if let Some(multiple) = multiple_of {
+            if value % multiple != 0 {
+                Err(default_error(
+                    AssemblerReason::ConstantMustBeMultipleOf(multiple),
+                    token,
+                ))
+            } else {
+                // might cause problems later, just can't think of an elegant way to write this
+                Ok(value)
+            }
+        } else {
+            Ok(value)
+        }
+    } else {
+        Err(default_error(
+            AssemblerReason::ExpectedConstant(token.kind.strip()),
+            token,
+        ))
+    }
+}
+
 pub fn get_string(iter: &mut TokenCursor) -> Result<String, AssemblerError> {
     let token = get_token(iter)?;
 
@@ -402,6 +494,11 @@ pub struct Offset {
     pub slot: RegisterSlot,
 }
 
+pub struct CompressedOffset {
+    pub immediate: u8, // unsigned 5-bit immediate (scaled by 4)
+    pub slot: CompressedRegisterSlot,
+}
+
 pub fn get_offset(iter: &mut TokenCursor) -> Result<Offset, AssemblerError> {
     // 12-bit offset immediate for all offset instructions
     let immediate = get_constant_in_range(iter, -0x800..=0x7ff)? as i16;
@@ -427,6 +524,34 @@ pub fn get_offset(iter: &mut TokenCursor) -> Result<Offset, AssemblerError> {
     }
 
     Ok(Offset { immediate, slot })
+}
+
+pub fn get_compressed_offset(iter: &mut TokenCursor) -> Result<CompressedOffset, AssemblerError> {
+    let max_imm_scaled = 0x1f * 4; // max value for 5 bit unsigned imm = 0x1f
+    
+    let immediate = get_constant_restricted(iter, 0 ..= max_imm_scaled, false, Some(4))? as u8;
+
+    let left_brace = get_token(iter)?;
+
+    if left_brace.kind != LeftBrace {
+        return Err(AssemblerError {
+            location: Some(left_brace.location),
+            reason: AssemblerReason::ExpectedLeftBrace(left_brace.kind.strip()),
+        });
+    }
+
+    let slot = get_compressed_register(iter)?;
+
+    let right_brace = get_token(iter)?;
+
+    if right_brace.kind != RightBrace {
+        return Err(AssemblerError {
+            location: Some(right_brace.location),
+            reason: AssemblerReason::ExpectedLeftBrace(right_brace.kind.strip()),
+        });
+    }
+
+    Ok(CompressedOffset { immediate, slot })
 }
 
 pub fn default_start(location: Location) -> impl Fn(AssemblerError) -> AssemblerError {
