@@ -1,7 +1,7 @@
-use std::ops::{BitAnd, Not};
 use crate::assembler::instructions::{BaseOpcode, CompressedOpcode};
 use crate::assembler::registers::{CompressedRegisterSlot, RegisterSlot};
 use num_traits::{ToPrimitive, Unsigned, WrappingShl, WrappingShr};
+use std::ops::{BitAnd, Not};
 
 fn instruction_base(op: &BaseOpcode) -> u32 {
     fn get_flags(flags: bool) -> u32 {
@@ -16,7 +16,9 @@ fn instruction_base(op: &BaseOpcode) -> u32 {
             ((*func as u32) << 12) | 0b0010011 | get_flags(*flags)
         }
         BaseOpcode::StoreFunc(func) => ((*func as u32) << 12) | 0b0100011,
-        BaseOpcode::RegisterFunc(func, flags) => ((*func as u32) << 12) | 0b0110011 | get_flags(*flags),
+        BaseOpcode::RegisterFunc(func, flags) => {
+            ((*func as u32) << 12) | 0b0110011 | get_flags(*flags)
+        }
         BaseOpcode::Executive(value) => ((*value as u32) << 20) | 0b1110011,
     }
 }
@@ -29,20 +31,33 @@ fn compressed_base(op: u8, func: u8) -> u16 {
 }
 
 fn compressed_bit12(bit12: bool) -> u16 {
-    if bit12 {
-        0b1 << 12
-    } else {
-        0b0
-    }
+    if bit12 { 0b1 << 12 } else { 0b0 }
 }
 
 fn instruction_compressed(op: &CompressedOpcode) -> u16 {
     match op {
         CompressedOpcode::OpFunc { op, func } => compressed_base(*op, *func),
-        CompressedOpcode::SpecRd { op, func, rd } => compressed_base(*op, *func) | ((*rd as u16 & 0b11111) << 7),
-        CompressedOpcode::SpecHigh { op, func, high } => compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10),
-        CompressedOpcode::SpecHighLow { op, func, high, low, bit12 } => compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10) | ((*low as u16 & 0b11) << 5) | compressed_bit12(*bit12),
-        CompressedOpcode::Spec12 { op, func, bit12 } => compressed_base(*op, *func) | compressed_bit12(*bit12),
+        CompressedOpcode::SpecRd { op, func, rd } => {
+            compressed_base(*op, *func) | ((*rd as u16 & 0b11111) << 7)
+        }
+        CompressedOpcode::SpecHigh { op, func, high } => {
+            compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10)
+        }
+        CompressedOpcode::SpecHighLow {
+            op,
+            func,
+            high,
+            low,
+            bit12,
+        } => {
+            compressed_base(*op, *func)
+                | ((*high as u16 & 0b11) << 10)
+                | ((*low as u16 & 0b11) << 5)
+                | compressed_bit12(*bit12)
+        }
+        CompressedOpcode::Spec12 { op, func, bit12 } => {
+            compressed_base(*op, *func) | compressed_bit12(*bit12)
+        }
     }
 }
 
@@ -58,13 +73,28 @@ fn compressed_source_small(slot: CompressedRegisterSlot) -> u16 {
     slot.to_u16().unwrap()
 }
 
-fn pick_bits<T: Sized + Unsigned + WrappingShl<Output = T> + WrappingShr<Output = T> + Default + BitAnd<Output = T> + Not<Output = T>>(value: T, start: u32, count: u32) -> T {
+fn pick_bits<
+    T: Sized
+        + Unsigned
+        + WrappingShl<Output = T>
+        + WrappingShr<Output = T>
+        + Default
+        + BitAnd<Output = T>
+        + Not<Output = T>,
+>(
+    value: T,
+    start: u32,
+    count: u32,
+) -> T {
     let bits = size_of::<T>() * 8;
 
     let cut_off = bits as u32 - count;
 
     // Hopefully the type is unsigned!
-    let mask = T::default().not().wrapping_shl(cut_off).wrapping_shr(cut_off);
+    let mask = T::default()
+        .not()
+        .wrapping_shl(cut_off)
+        .wrapping_shr(cut_off);
 
     value.bitand(mask.wrapping_shl(start)).wrapping_shr(start)
 }
@@ -232,7 +262,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_uimm_5326(mut self, value: u8) -> CompressedInstructionBuilder { // 5 bit
+    pub fn with_uimm_5326(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 5 bit
         let value = value as u16;
 
         let bit1to3 = pick_bits(value, 1, 3);
@@ -249,7 +280,8 @@ impl CompressedInstructionBuilder {
         panic!()
     }
 
-    pub fn with_imm_540(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+    pub fn with_imm_540(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 6 bit
         let value = value as u16;
 
         let bit0to4 = pick_bits(value, 0, 5);
@@ -264,7 +296,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_imm_540_signed(mut self, value: i8) -> CompressedInstructionBuilder { // 6 bit
+    pub fn with_imm_540_signed(mut self, value: i8) -> CompressedInstructionBuilder {
+        // 6 bit
         let value = value as u8 as u16;
 
         let bit0to4 = pick_bits(value, 0, 5);
@@ -279,7 +312,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_imm_946875(mut self, value: i8) -> CompressedInstructionBuilder { // 6 bit
+    pub fn with_imm_946875(mut self, value: i8) -> CompressedInstructionBuilder {
+        // 6 bit
         let value = value as u8 as u16;
 
         let bit0 = pick_bits(value, 0, 1);
@@ -300,7 +334,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_uimm_54276(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+    pub fn with_uimm_54276(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 6 bit
         let value = value as u16;
 
         let bit0to2 = pick_bits(value, 0, 3);
@@ -317,7 +352,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_uimm_5276(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+    pub fn with_uimm_5276(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 6 bit
         let value = value as u16;
 
         let bit0to3 = pick_bits(value, 0, 4);
@@ -331,7 +367,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_jump_imm(mut self, value: u16) -> CompressedInstructionBuilder { // 11 bits
+    pub fn with_jump_imm(mut self, value: u16) -> CompressedInstructionBuilder {
+        // 11 bits
         let bit0to2 = pick_bits(value, 0, 3);
         let bit3 = pick_bits(value, 3, 1);
         let bit4 = pick_bits(value, 4, 1);
@@ -355,7 +392,8 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_branch_imm(mut self, value: u8) -> CompressedInstructionBuilder { // 8 bits
+    pub fn with_branch_imm(mut self, value: u8) -> CompressedInstructionBuilder {
+        // 8 bits
         let value = value as u16;
 
         let bit0to1 = pick_bits(value, 0, 2);
@@ -372,7 +410,7 @@ impl CompressedInstructionBuilder {
         self.0 |= bit5to6 << 5;
         self.0 |= bit2to3 << 10;
         self.0 |= bit7 << 12;
-        
+
         self
     }
 
@@ -390,7 +428,7 @@ impl CompressedInstructionBuilder {
 
         self
     }
-    
+
     /*
     with_rd_small
     with_rs1_small

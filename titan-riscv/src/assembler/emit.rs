@@ -4,7 +4,10 @@ use crate::assembler::binary_builder::InstructionLabelKind::{
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::emit::InstructionKind::{Base, Compressed};
 use crate::assembler::instruction_builder::{InstructionBuilder, SplitImmediate};
-use crate::assembler::instructions::{ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, Encoding, Instruction, JAL_OP, JALR_OP, LUI_OP, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP, BaseOpcode};
+use crate::assembler::instructions::{
+    ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, BaseOpcode, Encoding, Instruction,
+    JAL_OP, JALR_OP, LUI_OP, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP,
+};
 use crate::assembler::lexer::TokenKind;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::utilities::AssemblerReason::{MissingRegion, UnknownInstruction};
@@ -749,7 +752,7 @@ fn dispatch_instruction(
             reason: UnknownInstruction(instruction.to_string()),
         });
     };
-    
+
     let emit = match &instruction.encoding {
         Encoding::UpperImmediate { op } => do_upper_instruction(op, iter),
         Encoding::JumpImmediate { op } => do_jump_immediate_instruction(op, iter),

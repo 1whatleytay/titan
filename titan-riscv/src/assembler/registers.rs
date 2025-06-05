@@ -1,6 +1,6 @@
+use crate::assembler::instruction_builder::CompressedInstructionBuilder;
 use num_derive::{FromPrimitive, ToPrimitive};
 use std::fmt::{Display, Formatter};
-use crate::assembler::instruction_builder::CompressedInstructionBuilder;
 /*
 0	-	x0	zero	hardwired zero	-
 1	-	x1	ra	return address	-R
@@ -182,7 +182,7 @@ impl TryFrom<RegisterSlot> for CompressedRegisterSlot {
             RegisterSlot::Parameter3 => CompressedRegisterSlot::Parameter3,
             RegisterSlot::Parameter4 => CompressedRegisterSlot::Parameter4,
             RegisterSlot::Parameter5 => CompressedRegisterSlot::Parameter5,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
