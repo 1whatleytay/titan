@@ -1,5 +1,4 @@
-use std::num::NonZero;
-use std::ops::{BitAnd, Not, Shl, Shr};
+use std::ops::{BitAnd, Not};
 use crate::assembler::instructions::{BaseOpcode, CompressedOpcode};
 use crate::assembler::registers::{CompressedRegisterSlot, RegisterSlot};
 use num_traits::{ToPrimitive, Unsigned, WrappingShl, WrappingShr};
@@ -22,8 +21,29 @@ fn instruction_base(op: &BaseOpcode) -> u32 {
     }
 }
 
+fn compressed_base(op: u8, func: u8) -> u16 {
+    let op = op as u16;
+    let func = func as u16;
+
+    (op & 0b11) | ((func & 0b111) << 13)
+}
+
+fn compressed_bit12(bit12: bool) -> u16 {
+    if bit12 {
+        0b1 << 12
+    } else {
+        0b0
+    }
+}
+
 fn instruction_compressed(op: &CompressedOpcode) -> u16 {
-    panic!()
+    match op {
+        CompressedOpcode::OpFunc { op, func } => compressed_base(*op, *func),
+        CompressedOpcode::SpecRd { op, func, rd } => compressed_base(*op, *func) | ((*rd as u16 & 0b11111) << 7),
+        CompressedOpcode::SpecHigh { op, func, high } => compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10),
+        CompressedOpcode::SpecHighLow { op, func, high, low, bit12 } => compressed_base(*op, *func) | ((*high as u16 & 0b11) << 10) | ((*low as u16 & 0b11) << 5) | compressed_bit12(*bit12),
+        CompressedOpcode::Spec12 { op, func, bit12 } => compressed_base(*op, *func) | compressed_bit12(*bit12),
+    }
 }
 
 fn register_source(slot: RegisterSlot) -> u32 {
@@ -244,8 +264,23 @@ impl CompressedInstructionBuilder {
         self
     }
 
-    pub fn with_imm_946875(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
-        let value = value as u16;
+    pub fn with_imm_540_signed(mut self, value: i8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u8 as u16;
+
+        let bit0to4 = pick_bits(value, 0, 5);
+        let bit5 = pick_bits(value, 5, 1);
+
+        self.0 &= !(0b1 << 12);
+        self.0 &= !(0b11111 << 2);
+
+        self.0 |= bit0to4 << 2;
+        self.0 |= bit5 << 2;
+
+        self
+    }
+
+    pub fn with_imm_946875(mut self, value: i8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u8 as u16;
 
         let bit0 = pick_bits(value, 0, 1);
         let bit1 = pick_bits(value, 1, 1);

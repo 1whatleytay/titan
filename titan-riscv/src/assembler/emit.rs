@@ -761,6 +761,7 @@ fn dispatch_instruction(
         Encoding::Sham { op } => do_sham_instruction(op, iter),
         Encoding::Registers { op } => do_registers_instruction(op, iter),
         Encoding::Single { op } => do_single_instruction(op, iter),
+        _ => panic!(),
     }?;
 
     Ok(emit)

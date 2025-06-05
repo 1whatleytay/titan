@@ -1,14 +1,13 @@
-use crate::assembler::instructions::Encoding::{
-    ArithmeticImmediate, Branch, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single,
-    UpperImmediate,
-};
+use CompressedOpcode::Spec12;
+use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, CompressedAddi16, CompressedAddi4, CompressedAssignImmediate, CompressedBitImmediate, CompressedBranch, CompressedDoubleRegister, CompressedJump, CompressedLoadWord, CompressedLoadWordSp, CompressedLui, CompressedOnlyRegister, CompressedShift, CompressedSingle, CompressedSmallRegs, CompressedStoreWord, CompressedStoreWordSp, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate};
 use crate::assembler::instructions::BaseOpcode::{
     BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc,
 };
 use Encoding::Registers;
+use crate::assembler::instructions::CompressedOpcode::{OpFunc, SpecHigh, SpecHighLow, SpecRd};
 
 pub enum Encoding {
-    // Empty
+    // Base Encodings
     UpperImmediate { op: BaseOpcode },
     JumpImmediate { op: BaseOpcode }, // Special Immediate Encoding
     Branch { op: BaseOpcode },
@@ -21,7 +20,22 @@ pub enum Encoding {
     Single { op: BaseOpcode },
     // Fences are TODO - They have a pretty involved encoding.
     // Compressed Encodings
-    
+    CompressedAddi4 { op: CompressedOpcode }, // uses imm 549623
+    CompressedLoadWord { op: CompressedOpcode }, // uses rd
+    CompressedStoreWord { op: CompressedOpcode }, // uses rs2
+    CompressedSingle { op: CompressedOpcode }, // for nop
+    CompressedAssignImmediate { op: CompressedOpcode }, // c.addi, c.li
+    CompressedJump { op: CompressedOpcode }, // c.jal, c.j
+    CompressedAddi16 { op: CompressedOpcode }, // uses imm 946875
+    CompressedLui { op: CompressedOpcode }, // c.lui
+    CompressedShift { op: CompressedOpcode }, // c.srli, c.srai
+    CompressedBitImmediate { op: CompressedOpcode }, // c.andi, similar to CompressedShift except signed imm
+    CompressedSmallRegs { op: CompressedOpcode }, // c.sub, c.xor, c.or, etc...
+    CompressedBranch { op: CompressedOpcode },
+    CompressedOnlyRegister { op: CompressedOpcode }, // c.jr, c.jalr
+    CompressedDoubleRegister { op: CompressedOpcode }, // c.add, c.mv
+    CompressedLoadWordSp { op: CompressedOpcode },
+    CompressedStoreWordSp { op: CompressedOpcode },
 }
 
 pub enum BaseOpcode {
@@ -35,7 +49,11 @@ pub enum BaseOpcode {
 }
 
 pub enum CompressedOpcode {
-    OpFunc { op: u8, func: u8 } // op - 2 bits, func - 3 bits
+    OpFunc { op: u8, func: u8 }, // op - 2 bits, func - 3 bits
+    SpecRd { op: u8, func: u8, rd: u8 }, // reg 5 bits
+    SpecHigh { op: u8, func: u8, high: u8 }, // op - 2 bits, func - 3 bits, high - 2 bits
+    SpecHighLow { op: u8, func: u8, high: u8, low: u8, bit12: bool }, // op - 2 bits, func - 3 bits, high - 2 bits, low - 2 bits
+    Spec12 { op: u8, func: u8, bit12: bool },
 }
 
 pub struct Instruction<'a> {
@@ -230,10 +248,7 @@ pub const INSTRUCTIONS: &[Instruction] = &[
         name: "ebreak",
         encoding: Single { op: Executive(0b1) },
     },
-    // Instruction {
-    //     name: "c.lwsp",
-    //     encoding: 
-    // },
+
     /*
         c.lwsp
         c.swsp
@@ -263,4 +278,113 @@ pub const INSTRUCTIONS: &[Instruction] = &[
         c.nop
         c.ebreak
      */
+    Instruction {
+        name: "c.lwsp",
+        encoding: CompressedLoadWordSp { op: OpFunc { op: 0b10, func: 0b010 } },
+    },
+    Instruction {
+        name: "c.swsp",
+        encoding: CompressedStoreWordSp { op: OpFunc { op: 0b10, func: 0b110 } },
+    },
+    Instruction {
+        name: "c.lw",
+        encoding: CompressedLoadWord { op: OpFunc { op: 0b00, func: 0b010 } },
+    },
+    Instruction {
+        name: "c.sw",
+        encoding: CompressedStoreWord { op: OpFunc { op: 0b00, func: 0b110 } },
+    },
+    Instruction {
+        name: "c.j",
+        encoding: CompressedJump { op: OpFunc { op: 0b01, func: 0b101 } },
+    },
+    Instruction {
+        name: "c.jal",
+        encoding: CompressedJump { op: OpFunc { op: 0b01, func: 0b001 } },
+    },
+    Instruction {
+        name: "c.jr",
+        encoding: CompressedOnlyRegister { op: Spec12 { op: 0b10, func: 0b100, bit12: false } },
+    },
+    Instruction {
+        name: "c.jalr",
+        encoding: CompressedOnlyRegister { op: Spec12 { op: 0b10, func: 0b100, bit12: true } },
+    },
+    Instruction {
+        name: "c.beqz",
+        encoding: CompressedBranch { op: OpFunc { op: 0b01, func: 0b110 } },
+    },
+    Instruction {
+        name: "c.bnez",
+        encoding: CompressedBranch { op: OpFunc { op: 0b01, func: 0b111 } },
+    },
+    Instruction {
+        name: "c.li",
+        encoding: CompressedAssignImmediate { op: OpFunc { op: 0b01, func: 0b010 } },
+    },
+    Instruction {
+        name: "c.lui",
+        encoding: CompressedLui { op: OpFunc { op: 0b01, func: 0b011 } }, // cannot be 2 as 2 is c.addi16sp
+    },
+    Instruction {
+        name: "c.addi",
+        encoding: CompressedAssignImmediate { op: OpFunc { op: 0b01, func: 0b000 } },
+    },
+    Instruction {
+        name: "c.addi16sp",
+        encoding: CompressedAddi16 { op: SpecRd { op: 0b01, func: 0b011, rd: 2 } },
+    },
+    Instruction {
+        name: "c.addi4spn",
+        encoding: CompressedAddi4 { op: OpFunc { op: 0b00, func: 0b000 } },
+    },
+    Instruction {
+        name: "c.slli",
+        encoding: CompressedShift { op: OpFunc { op: 0b10, func: 0b000 } }, // different quad!
+    },
+    Instruction {
+        name: "c.srli",
+        encoding: CompressedShift { op: SpecHigh { op: 0b01, func: 0b100, high: 0b00 } },
+    },
+    Instruction {
+        name: "c.srai",
+        // not a shift! seems closer to encoding as compressed assign immediate
+        encoding: CompressedAssignImmediate { op: SpecHigh { op: 0b01, func: 0b100, high: 0b01 } },
+    },
+    Instruction {
+        name: "c.andi",
+        encoding: CompressedBitImmediate { op: SpecHigh { op: 0b01, func: 0b100, high: 0b10 } },
+    },
+    Instruction {
+        name: "c.mv",
+        encoding: CompressedDoubleRegister { op: Spec12 { op: 0b10, func: 0b100, bit12: false } },
+    },
+    Instruction {
+        name: "c.add",
+        encoding: CompressedDoubleRegister { op: Spec12 { op: 0b10, func: 0b100, bit12: true } },
+    },
+    Instruction {
+        name: "c.and",
+        encoding: CompressedSmallRegs { op: SpecHighLow { op: 0b01, func: 0b100, high: 0b11, low: 0b11, bit12: false } },
+    },
+    Instruction {
+        name: "c.or",
+        encoding: CompressedSmallRegs { op: SpecHighLow { op: 0b01, func: 0b100, high: 0b11, low: 0b10, bit12: false } },
+    },
+    Instruction {
+        name: "c.xor",
+        encoding: CompressedSmallRegs { op: SpecHighLow { op: 0b01, func: 0b100, high: 0b11, low: 0b01, bit12: false } },
+    },
+    Instruction {
+        name: "c.sub",
+        encoding: CompressedSmallRegs { op: SpecHighLow { op: 0b01, func: 0b100, high: 0b11, low: 0b00, bit12: false } },
+    },
+    Instruction {
+        name: "c.nop",
+        encoding: CompressedSingle { op: OpFunc { op: 0b01, func: 0b000 } },
+    },
+    Instruction {
+        name: "c.ebreak",
+        encoding: CompressedSingle { op: Spec12 { op: 0b10, func: 0b100, bit12: true } },
+    },
 ];
