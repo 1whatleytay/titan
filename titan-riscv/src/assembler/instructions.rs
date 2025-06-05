@@ -1,6 +1,4 @@
-use crate::assembler::instructions::BaseOpcode::{
-    BranchFunc, Executive, ImmediateFunc, LoadFunc, Op, RegisterFunc, StoreFunc,
-};
+use crate::assembler::instructions::BaseOpcode::{BranchFunc, Executive, ImmediateFunc, LoadFunc, MulDiv, Op, RegisterFunc, StoreFunc};
 use crate::assembler::instructions::CompressedOpcode::{OpFunc, SpecHigh, SpecHighLow, SpecRd};
 use crate::assembler::instructions::Encoding::{ArithmeticImmediate, Branch, CompressedAddi4, CompressedAddi16, CompressedAssignImmediate, CompressedBitImmediate, CompressedBranch, CompressedDoubleRegister, CompressedJump, CompressedLoadWord, CompressedLoadWordSp, CompressedLui, CompressedOnlyRegister, CompressedShift, CompressedSingle, CompressedSmallRegs, CompressedStoreWord, CompressedStoreWordSp, JumpImmediate, JumpOffset, OffsetLoad, OffsetStore, Sham, Single, UpperImmediate, CompressedShiftExtended};
 use CompressedOpcode::Spec12;
@@ -48,6 +46,8 @@ pub enum BaseOpcode {
     StoreFunc(u8),  // Op = 0100011
     RegisterFunc(u8, bool), // Op = 0110011, bool - if true f7 = 0b0100000 else f7 = 9
     Executive(u16), // Op = 1110011
+    
+    MulDiv(u8), // Op = 0110011, 3 bits func, funct7 = 0000001
 }
 
 pub enum CompressedOpcode {
@@ -305,6 +305,8 @@ pub const INSTRUCTIONS: &[Instruction] = &[
         name: "ebreak",
         encoding: Single { op: Executive(0b1) },
     },
+    
+    // Compressed Instructions
     /*
        c.lwsp
        c.swsp
@@ -597,6 +599,67 @@ pub const INSTRUCTIONS: &[Instruction] = &[
                 func: 0b100,
                 bit12: true,
             },
+        },
+    },
+    
+    // Multiplication and Division Extension
+    /*
+    mul
+    mulh
+    mulhsu
+    mulhu
+    div
+    divu
+    rem
+    remu
+     */
+
+    Instruction {
+        name: "mul",
+        encoding: Registers {
+            op: MulDiv(0b000),
+        },
+    },
+    Instruction {
+        name: "mulh",
+        encoding: Registers {
+            op: MulDiv(0b001),
+        },
+    },
+    Instruction {
+        name: "mulhsu",
+        encoding: Registers {
+            op: MulDiv(0b010),
+        },
+    },
+    Instruction {
+        name: "mulhu",
+        encoding: Registers {
+            op: MulDiv(0b011),
+        },
+    },
+    Instruction {
+        name: "div",
+        encoding: Registers {
+            op: MulDiv(0b100),
+        },
+    },
+    Instruction {
+        name: "divu",
+        encoding: Registers {
+            op: MulDiv(0b101),
+        },
+    },
+    Instruction {
+        name: "rem",
+        encoding: Registers {
+            op: MulDiv(0b110),
+        },
+    },
+    Instruction {
+        name: "remu",
+        encoding: Registers {
+            op: MulDiv(0b111),
         },
     },
 ];

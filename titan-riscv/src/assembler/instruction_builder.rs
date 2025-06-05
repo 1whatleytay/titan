@@ -20,6 +20,7 @@ fn instruction_base(op: &BaseOpcode) -> u32 {
             ((*func as u32) << 12) | 0b0110011 | get_flags(*flags)
         }
         BaseOpcode::Executive(value) => ((*value as u32) << 20) | 0b1110011,
+        BaseOpcode::MulDiv(func) => (0b0000001 << 25) | ((*func as u32) << 12) | 0b0110011,
     }
 }
 
