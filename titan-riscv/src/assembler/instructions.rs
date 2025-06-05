@@ -20,6 +20,8 @@ pub enum Encoding {
     Registers { op: BaseOpcode },
     Single { op: BaseOpcode },
     // Fences are TODO - They have a pretty involved encoding.
+    // Compressed Encodings
+    
 }
 
 pub enum BaseOpcode {
@@ -33,7 +35,7 @@ pub enum BaseOpcode {
 }
 
 pub enum CompressedOpcode {
-
+    OpFunc { op: u8, func: u8 } // op - 2 bits, func - 3 bits
 }
 
 pub struct Instruction<'a> {
@@ -69,7 +71,7 @@ pub const SLTI_OP: BaseOpcode = ImmediateFunc(0b010, false);
 pub const SLTIU_OP: BaseOpcode = ImmediateFunc(0b011, false);
 
 // https://www.vicilogic.com/static/ext/RISCV/RV32I_BaseInstructionSet.pdf
-pub const INSTRUCTIONS: [Instruction; 39] = [
+pub const INSTRUCTIONS: &[Instruction] = &[
     // Empty
     Instruction {
         name: "lui",
@@ -228,6 +230,10 @@ pub const INSTRUCTIONS: [Instruction; 39] = [
         name: "ebreak",
         encoding: Single { op: Executive(0b1) },
     },
+    // Instruction {
+    //     name: "c.lwsp",
+    //     encoding: 
+    // },
     /*
         c.lwsp
         c.swsp

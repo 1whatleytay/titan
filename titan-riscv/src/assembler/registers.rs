@@ -1,6 +1,6 @@
 use num_derive::{FromPrimitive, ToPrimitive};
 use std::fmt::{Display, Formatter};
-
+use crate::assembler::instruction_builder::CompressedInstructionBuilder;
 /*
 0	-	x0	zero	hardwired zero	-
 1	-	x1	ra	return address	-R
@@ -154,5 +154,50 @@ impl RegisterSlot {
 impl Display for RegisterSlot {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "${}", self.as_string())
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ToPrimitive, FromPrimitive)]
+pub enum CompressedRegisterSlot {
+    Saved0 = 0,
+    Saved1 = 1,
+    Parameter0 = 2,
+    Parameter1 = 3,
+    Parameter2 = 4,
+    Parameter3 = 5,
+    Parameter4 = 6,
+    Parameter5 = 7,
+}
+
+impl TryFrom<RegisterSlot> for CompressedRegisterSlot {
+    type Error = ();
+
+    fn try_from(value: RegisterSlot) -> Result<Self, Self::Error> {
+        Ok(match value {
+            RegisterSlot::Saved0 => CompressedRegisterSlot::Saved0,
+            RegisterSlot::Saved1 => CompressedRegisterSlot::Saved1,
+            RegisterSlot::Parameter0 => CompressedRegisterSlot::Parameter0,
+            RegisterSlot::Parameter1 => CompressedRegisterSlot::Parameter1,
+            RegisterSlot::Parameter2 => CompressedRegisterSlot::Parameter2,
+            RegisterSlot::Parameter3 => CompressedRegisterSlot::Parameter3,
+            RegisterSlot::Parameter4 => CompressedRegisterSlot::Parameter4,
+            RegisterSlot::Parameter5 => CompressedRegisterSlot::Parameter5,
+            _ => return Err(())
+        })
+    }
+}
+
+impl From<CompressedRegisterSlot> for RegisterSlot {
+    fn from(value: CompressedRegisterSlot) -> Self {
+        match value {
+            CompressedRegisterSlot::Saved0 => RegisterSlot::Saved0,
+            CompressedRegisterSlot::Saved1 => RegisterSlot::Saved1,
+            CompressedRegisterSlot::Parameter0 => RegisterSlot::Parameter0,
+            CompressedRegisterSlot::Parameter1 => RegisterSlot::Parameter1,
+            CompressedRegisterSlot::Parameter2 => RegisterSlot::Parameter2,
+            CompressedRegisterSlot::Parameter3 => RegisterSlot::Parameter3,
+            CompressedRegisterSlot::Parameter4 => RegisterSlot::Parameter4,
+            CompressedRegisterSlot::Parameter5 => RegisterSlot::Parameter5,
+        }
     }
 }

@@ -1,6 +1,8 @@
+use std::num::NonZero;
+use std::ops::{BitAnd, Not, Shl, Shr};
 use crate::assembler::instructions::{BaseOpcode, CompressedOpcode};
-use crate::assembler::registers::RegisterSlot;
-use num_traits::ToPrimitive;
+use crate::assembler::registers::{CompressedRegisterSlot, RegisterSlot};
+use num_traits::{ToPrimitive, Unsigned, WrappingShl, WrappingShr};
 
 fn instruction_base(op: &BaseOpcode) -> u32 {
     fn get_flags(flags: bool) -> u32 {
@@ -26,6 +28,25 @@ fn instruction_compressed(op: &CompressedOpcode) -> u16 {
 
 fn register_source(slot: RegisterSlot) -> u32 {
     slot.to_u32().unwrap()
+}
+
+fn compressed_source(slot: RegisterSlot) -> u16 {
+    slot.to_u16().unwrap()
+}
+
+fn compressed_source_small(slot: CompressedRegisterSlot) -> u16 {
+    slot.to_u16().unwrap()
+}
+
+fn pick_bits<T: Sized + Unsigned + WrappingShl<Output = T> + WrappingShr<Output = T> + Default + BitAnd<Output = T> + Not<Output = T>>(value: T, start: u32, count: u32) -> T {
+    let bits = size_of::<T>() * 8;
+
+    let cut_off = bits as u32 - count;
+
+    // Hopefully the type is unsigned!
+    let mask = T::default().not().wrapping_shl(cut_off).wrapping_shr(cut_off);
+
+    value.bitand(mask.wrapping_shl(start)).wrapping_shr(start)
 }
 
 pub struct InstructionBuilder(pub u32);
@@ -148,6 +169,209 @@ impl CompressedInstructionBuilder {
     pub fn from_op(op: &CompressedOpcode) -> CompressedInstructionBuilder {
         CompressedInstructionBuilder(instruction_compressed(op))
     }
+
+    pub fn with_rd_small(mut self, slot: CompressedRegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b111 << 2);
+        self.0 |= compressed_source_small(slot) << 2;
+
+        self
+    }
+
+    pub fn with_rs1_small(mut self, slot: CompressedRegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b111 << 7);
+        self.0 |= compressed_source_small(slot) << 7;
+
+        self
+    }
+
+    pub fn with_rs2_small(mut self, slot: CompressedRegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b111 << 2);
+        self.0 |= compressed_source_small(slot) << 2;
+
+        self
+    }
+
+    pub fn with_rd(mut self, slot: RegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b11111 << 7);
+        self.0 |= compressed_source(slot) << 7;
+
+        self
+    }
+
+    pub fn with_rs1(mut self, slot: RegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b11111 << 7);
+        self.0 |= compressed_source(slot) << 7;
+
+        self
+    }
+
+    pub fn with_rs2(mut self, slot: RegisterSlot) -> CompressedInstructionBuilder {
+        self.0 &= !(0b11111 << 2);
+        self.0 |= compressed_source(slot) << 2;
+
+        self
+    }
+
+    pub fn with_uimm_5326(mut self, value: u8) -> CompressedInstructionBuilder { // 5 bit
+        let value = value as u16;
+
+        let bit1to3 = pick_bits(value, 1, 3);
+        let bit0 = pick_bits(value, 0, 1);
+        let bit4 = pick_bits(value, 4, 1);
+
+        self.0 &= !(0b111 << 10);
+        self.0 &= !(0b11 << 5);
+
+        self.0 |= bit4 << 5;
+        self.0 |= bit0 << 6;
+        self.0 |= bit1to3 << 10;
+
+        panic!()
+    }
+
+    pub fn with_imm_540(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u16;
+
+        let bit0to4 = pick_bits(value, 0, 5);
+        let bit5 = pick_bits(value, 5, 1);
+
+        self.0 &= !(0b1 << 12);
+        self.0 &= !(0b11111 << 2);
+
+        self.0 |= bit0to4 << 2;
+        self.0 |= bit5 << 2;
+
+        self
+    }
+
+    pub fn with_imm_946875(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u16;
+
+        let bit0 = pick_bits(value, 0, 1);
+        let bit1 = pick_bits(value, 1, 1);
+        let bit2 = pick_bits(value, 2, 1);
+        let bit3to4 = pick_bits(value, 3, 2);
+        let bit5 = pick_bits(value, 5, 1);
+
+        self.0 &= !(0b1 << 12);
+        self.0 &= !(0b11111 << 2);
+
+        self.0 |= bit1 << 2;
+        self.0 |= bit3to4 << 3;
+        self.0 |= bit2 << 5;
+        self.0 |= bit0 << 6;
+        self.0 |= bit5 << 12;
+
+        self
+    }
+
+    pub fn with_uimm_54276(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u16;
+
+        let bit0to2 = pick_bits(value, 0, 3);
+        let bit3 = pick_bits(value, 3, 1);
+        let bit4to5 = pick_bits(value, 4, 2);
+
+        self.0 &= !(0b1 << 12);
+        self.0 &= !(0b11111 << 2);
+
+        self.0 |= bit4to5 << 2;
+        self.0 |= bit0to2 << 4;
+        self.0 |= bit3 << 12;
+
+        self
+    }
+
+    pub fn with_uimm_5276(mut self, value: u8) -> CompressedInstructionBuilder { // 6 bit
+        let value = value as u16;
+
+        let bit0to3 = pick_bits(value, 0, 4);
+        let bit4to5 = pick_bits(value, 4, 2);
+
+        self.0 &= !(0b111111 << 7);
+
+        self.0 |= bit4to5 << 7;
+        self.0 |= bit0to3 << 9;
+
+        self
+    }
+
+    pub fn with_jump_imm(mut self, value: u16) -> CompressedInstructionBuilder { // 11 bits
+        let bit0to2 = pick_bits(value, 0, 3);
+        let bit3 = pick_bits(value, 3, 1);
+        let bit4 = pick_bits(value, 4, 1);
+        let bit5 = pick_bits(value, 5, 1);
+        let bit6 = pick_bits(value, 6, 1);
+        let bit7to8 = pick_bits(value, 7, 2);
+        let bit9 = pick_bits(value, 9, 1);
+        let bit10 = pick_bits(value, 10, 1);
+
+        self.0 &= !(0b11111111111 << 2);
+
+        self.0 |= bit4 << 2;
+        self.0 |= bit0to2 << 3;
+        self.0 |= bit6 << 6;
+        self.0 |= bit5 << 7;
+        self.0 |= bit9 << 8;
+        self.0 |= bit7to8 << 9;
+        self.0 |= bit3 << 11;
+        self.0 |= bit10 << 12;
+
+        self
+    }
+
+    pub fn with_branch_imm(mut self, value: u8) -> CompressedInstructionBuilder { // 8 bits
+        let value = value as u16;
+
+        let bit0to1 = pick_bits(value, 0, 2);
+        let bit2to3 = pick_bits(value, 2, 2);
+        let bit4 = pick_bits(value, 4, 1);
+        let bit5to6 = pick_bits(value, 5, 2);
+        let bit7 = pick_bits(value, 7, 1);
+
+        self.0 &= !(0b11111 << 2);
+        self.0 &= !(0b111 << 10);
+
+        self.0 |= bit4 << 2;
+        self.0 |= bit0to1 << 3;
+        self.0 |= bit5to6 << 5;
+        self.0 |= bit2to3 << 10;
+        self.0 |= bit7 << 12;
+        
+        self
+    }
+
+    pub fn with_sham(mut self, value: u8) -> CompressedInstructionBuilder {
+        let value = value as u16;
+
+        let bit0to4 = pick_bits(value, 0, 5);
+        let bit5 = pick_bits(value, 5, 1);
+
+        self.0 &= !(0b1 << 12);
+        self.0 &= !(0b11111 << 2);
+
+        self.0 |= bit0to4 << 2;
+        self.0 |= bit5 << 2;
+
+        self
+    }
+    
+    /*
+    with_rd_small
+    with_rs1_small
+    with_rs2_small
+    with_rd - non zero + for c.lui not 2
+    with_rs1
+    with_rs2
+    with_uimm_5326 - c.lw c.sw
+    with_imm_540 - c.nop c.addi c.li
+    with_imm_946875 - c.addi16sp
+    with_uimm_54276 - c.lwsp
+    with_uimm_5276 - c.swsp
+    with_jump_imm - c.jal
+    with_branch_imm
+    with_sham - NonZero -> reserved for some hint instructions
+     */
 }
 
 pub struct SplitImmediate {
