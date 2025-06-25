@@ -780,7 +780,7 @@ fn do_compressed_shift_instruction(op: &CompressedOpcode, iter: &mut TokenCursor
     let immediate = get_constant_in_range(iter, 0 ..= 31)?;
     
     let inst = CompressedInstructionBuilder::from_op(op)
-        .with_rd_small(dest)
+        .with_rs1_small(dest)
         .with_sham(immediate as u8)
         .0;
 
@@ -806,7 +806,7 @@ fn do_compressed_bit_immediate_instruction(op: &CompressedOpcode, iter: &mut Tok
     let immediate = get_constant_in_range(iter, -0x20 ..= 0x1f)?;
     
     let inst = CompressedInstructionBuilder::from_op(op)
-        .with_rd_small(dest)
+        .with_rs1_small(dest)
         .with_imm_540(immediate as i8)
         .0;
 
@@ -818,7 +818,7 @@ fn do_compressed_small_regs_instruction(op: &CompressedOpcode, iter: &mut TokenC
     let source = get_compressed_register(iter)?;
 
     let inst = CompressedInstructionBuilder::from_op(op)
-        .with_rd_small(dest)
+        .with_rs1_small(dest)
         .with_rs2_small(source)
         .0;
     

@@ -81,7 +81,6 @@ pub enum CompressedOpcode {
 
 pub struct Instruction<'a> {
     pub name: &'a str,
-    // pub opcode: Opcode,
     pub encoding: Encoding,
 }
 

@@ -1,7 +1,7 @@
 use crate::assembler::instructions::{BaseOpcode, CompressedOpcode};
 use crate::assembler::registers::{CompressedRegisterSlot, RegisterSlot};
-use num_traits::{ToPrimitive, Unsigned, WrappingShl, WrappingShr};
-use std::ops::{BitAnd, Not};
+use num_traits::ToPrimitive;
+use titan_shared::utilities::bitwise::pick_bits;
 
 fn instruction_base(op: &BaseOpcode) -> u32 {
     fn get_flags(flags: bool) -> u32 {
@@ -72,32 +72,6 @@ fn compressed_source(slot: RegisterSlot) -> u16 {
 
 fn compressed_source_small(slot: CompressedRegisterSlot) -> u16 {
     slot.to_u16().unwrap()
-}
-
-fn pick_bits<
-    T: Sized
-        + Unsigned
-        + WrappingShl<Output = T>
-        + WrappingShr<Output = T>
-        + Default
-        + BitAnd<Output = T>
-        + Not<Output = T>,
->(
-    value: T,
-    start: u32,
-    count: u32,
-) -> T {
-    let bits = size_of::<T>() * 8;
-
-    let cut_off = bits as u32 - count;
-
-    // Hopefully the type is unsigned!
-    let mask = T::default()
-        .not()
-        .wrapping_shl(cut_off)
-        .wrapping_shr(cut_off);
-
-    value.bitand(mask.wrapping_shl(start)).wrapping_shr(start)
 }
 
 pub struct InstructionBuilder(pub u32);
