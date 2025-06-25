@@ -1,4 +1,4 @@
-use crate::cpu::disassemble::{Dispatchable, LabelProvider};
+use crate::cpu::disassemble::LabelProvider;
 use crate::elf::header::{BinaryType, Endian};
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags, ProgramHeaderType};
 use crate::elf::Elf;
@@ -20,7 +20,7 @@ impl LabelManager {
         }
     }
 
-    fn new(entry: Option<u32>) -> LabelManager {
+    pub fn new(entry: Option<u32>) -> LabelManager {
         LabelManager {
             entry,
             labels: HashSet::new(),
@@ -36,15 +36,27 @@ impl LabelProvider for LabelManager {
     }
 }
 
-impl LabelProvider for &mut LabelManager {
-    fn label_for(&mut self, address: u32) -> String {
-        (**self).label_for(address)
-    }
-}
-
 pub struct Inspection {
     pub breakpoints: HashMap<u32, usize>, // pc -> line
     pub lines: Vec<String>,
+}
+
+pub struct InspectionDisassemblerResult {
+    pub line: String,
+    pub next_pc: u32,
+}
+
+pub enum InspectionReadStrategy {
+    ReadU32Only, // MIPS
+    ReadU32PadU16, // RISC-V with C-Extension
+}
+
+pub trait InspectionDisassembler {
+    fn read_strategy() -> InspectionReadStrategy {
+        InspectionReadStrategy::ReadU32Only
+    }
+
+    fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult>;
 }
 
 impl Inspection {
@@ -134,27 +146,56 @@ impl Inspection {
     }
 
     // Assumption: Every instruction is the same size.
-    fn disassemble<Disas: Dispatchable<String, LabelManager>>(address: u32, data: &Vec<u8>, manager: &mut LabelManager) -> Vec<String> {
-        let mut instructions = Cursor::new(data);
-
+    fn disassemble<T: InspectionDisassembler>(address: u32, data: &Vec<u8>, disassembler: &mut T, labels: &mut impl LabelProvider) -> Vec<(String, u32)> {
         let mut result = vec![];
 
-        let mut disassembler = Disas::new(address, manager);
+        let mut pc = address;
 
-        while let Ok(instruction) = instructions.read_u32::<LittleEndian>() {
-            let text = disassembler
-                .dispatch(instruction)
+        while let Some(instruction) = {
+            let index = pc - address;
+
+            match T::read_strategy() {
+                InspectionReadStrategy::ReadU32Only => {
+                    if index as usize + 4 <= data.len() {
+                        Cursor::new(&data[index as usize..]).read_u32::<LittleEndian>().ok()
+                    } else {
+                        None
+                    }
+                },
+                InspectionReadStrategy::ReadU32PadU16 => {
+                    if index as usize + 4 <= data.len() {
+                        Cursor::new(&data[index as usize..]).read_u32::<LittleEndian>().ok()
+                    } else if index as usize + 2 <= data.len() {
+                        Cursor::new(&data[index as usize..]).read_u16::<LittleEndian>()
+                            .map(|x| x as u32)
+                            .ok()
+                    } else {
+                        None
+                    }
+                },
+            }
+        } {
+            let line = disassembler
+                .disassemble(pc, instruction, labels);
+
+            let next_pc = line
+                .as_ref()
+                .map(|result| result.next_pc)
+                .unwrap_or(pc + 4);
+
+            let text = line
+                .map(|result| result.line)
                 .unwrap_or_else(|| format!("INVALID # 0x{instruction:08x}"));
 
-            disassembler.update_pc();
+            result.push((text, pc));
 
-            result.push(text)
+            pc = next_pc;
         }
 
         result
     }
 
-    pub fn new<Disas: Dispatchable<String, LabelManager>>(named: Option<&str>, elf: &Elf) -> Inspection {
+    pub fn new(named: Option<&str>, elf: &Elf, disassembler: &mut impl InspectionDisassembler) -> Inspection {
         let mut lines: Vec<String> = Inspection::description(named, elf)
             .iter()
             .map(|text| format!("# {text}"))
@@ -164,14 +205,14 @@ impl Inspection {
 
         let mut manager = LabelManager::new(Some(elf.header.program_entry));
 
-        let executables: Vec<(&ProgramHeader, Vec<String>)> = elf
+        let executables: Vec<(&ProgramHeader, Vec<(String, u32)>)> = elf
             .program_headers
             .iter()
             .filter(|header| header.flags.contains(ProgramHeaderFlags::EXECUTABLE))
             .map(|head| {
                 (
                     head,
-                    Inspection::disassemble::<Disas>(head.virtual_address, &head.data, &mut manager),
+                    Inspection::disassemble(head.virtual_address, &head.data, disassembler, &mut manager),
                 )
             })
             .collect();
@@ -186,9 +227,7 @@ impl Inspection {
                 ),
             ]);
 
-            let mut pc = header.virtual_address;
-
-            for instruction in instructions {
+            for (instruction, pc) in instructions {
                 if manager.labels.contains(&pc) || manager.entry == Some(pc) {
                     lines.push(format!("{}:", manager.label_string(pc)));
                 }
@@ -196,8 +235,6 @@ impl Inspection {
                 breakpoints.insert(pc, lines.len());
 
                 lines.push(format!("    {instruction}"));
-
-                pc += 4;
             }
         }
 

@@ -29,33 +29,39 @@ impl InstructionParts {
         pick_bits(self.0, 12, 20)
     }
 
-    fn imm_jump(self) -> u32 { // 20-bit
+    fn imm_jump(self) -> i32 { // 20-bit
         let bits0to9 = pick_bits(self.0, 21, 10);
         let bits10 = pick_bits(self.0, 20, 1);
         let bits11to18 = pick_bits(self.0, 12, 8);
         let bits19 = pick_bits(self.0, 31, 1);
 
-        bits0to9 | (bits10 << 10) | (bits11to18 << 11) | (bits19 << 19)
+        let result = bits0to9 | (bits10 << 10) | (bits11to18 << 11) | (bits19 << 19);
+
+        sign_extend(result, 20) as i32
     }
 
-    fn imm_branch(self) -> u16 { // 12-bit
+    fn imm_branch(self) -> i16 { // 12-bit
         let bits0to3 = pick_bits(self.0, 8, 4);
         let bits4to9 = pick_bits(self.0, 25, 6);
         let bits10 = pick_bits(self.0, 7, 1);
         let bits11 = pick_bits(self.0, 31, 1);
 
-        (bits0to3 | (bits4to9 << 4) | (bits10 << 10) | (bits11 << 11)) as u16
+        let result = (bits0to3 | (bits4to9 << 4) | (bits10 << 10) | (bits11 << 11)) as u16;
+
+        sign_extend(result, 12) as i16
     }
 
-    fn imm_normal(self) -> u16 { // 12-bit
-        pick_bits(self.0, 20, 12) as u16
+    fn imm_normal(self) -> i16 { // 12-bit
+        sign_extend(pick_bits(self.0, 20, 12) as u16, 12) as i16
     }
 
-    fn imm_store(self) -> u16 {
+    fn imm_store(self) -> i16 { // 12-bits
         let bits0to4 = pick_bits(self.0, 7, 5);
         let bits5to11 = pick_bits(self.0, 25, 7);
 
-        (bits0to4 | (bits5to11 << 5)) as u16
+        let result = (bits0to4 | (bits5to11 << 5)) as u16;
+
+        sign_extend(result, 12) as i16
     }
 
     fn sham(self) -> u8 {
@@ -218,28 +224,28 @@ impl CompressedInstructionParts {
 pub trait Decoder<T> {
     fn lui(&mut self, rd: u8, imm_upper: u32) -> T;
     fn auipc(&mut self, rd: u8, imm_upper: u32) -> T;
-    fn jal(&mut self, rd: u8, imm_jump: u32) -> T;
-    fn beq(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn bne(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn blt(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn bge(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn bltu(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn bgeu(&mut self, rs1: u8, rs2: u8, imm_branch: u16) -> T;
-    fn jalr(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn lb(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn lh(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn lw(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn lbu(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn lhu(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn addi(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn slti(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn sltiu(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn xori(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn ori(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn andi(&mut self, rd: u8, rs1: u8, imm_normal: u16) -> T;
-    fn sb(&mut self, rs1: u8, rs2: u8, imm_store: u16) -> T;
-    fn sh(&mut self, rs1: u8, rs2: u8, imm_store: u16) -> T;
-    fn sw(&mut self, rs1: u8, rs2: u8, imm_store: u16) -> T;
+    fn jal(&mut self, rd: u8, imm_jump: i32) -> T;
+    fn beq(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn bne(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn blt(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn bge(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn bltu(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn bgeu(&mut self, rs1: u8, rs2: u8, imm_branch: i16) -> T;
+    fn jalr(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn lb(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn lh(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn lw(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn lbu(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn lhu(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn addi(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn slti(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn sltiu(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn xori(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn ori(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn andi(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> T;
+    fn sb(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> T;
+    fn sh(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> T;
+    fn sw(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> T;
     fn slli(&mut self, rd: u8, rs1: u8, sham: u8) -> T;
     fn srli(&mut self, rd: u8, rs1: u8, sham: u8) -> T;
     fn srai(&mut self, rd: u8, rs1: u8, sham: u8) -> T;

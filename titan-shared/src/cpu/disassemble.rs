@@ -2,22 +2,17 @@ pub trait LabelProvider {
   fn label_for(&mut self, address: u32) -> String;
 }
 
+impl<T: LabelProvider> LabelProvider for &mut T {
+    fn label_for(&mut self, address: u32) -> String {
+        (**self).label_for(address)
+    }
+}
+
 #[derive(Default)]
-pub struct HexLabelProvider {}
+pub struct HexLabelProvider;
 
 impl LabelProvider for HexLabelProvider {
   fn label_for(&mut self, address: u32) -> String {
       format!("0x{address:08x}")
   }
-}
-
-pub struct Disassembler<Provider: LabelProvider> {
-  pub pc: u32,
-  pub labels: Provider,
-}
-
-pub trait Dispatchable<T, Provider: LabelProvider> {
-  fn new(pc: u32, labels: &mut Provider) -> Self;
-  fn dispatch(&mut self, instruction: u32) -> Option<T>;
-  fn update_pc(&mut self);
 }

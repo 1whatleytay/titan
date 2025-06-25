@@ -1,6 +1,7 @@
 use crate::cpu::decoder::Decoder;
 use num_traits::abs;
-use titan_shared::cpu::disassemble::{Disassembler, LabelProvider};
+use titan_shared::cpu::disassemble::LabelProvider;
+use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult};
 
 fn jump_dest(pc: u32, imm: u32) -> u32 {
     ((pc + 4) & 0xFC000000) | (imm << 2)
@@ -109,6 +110,11 @@ fn sig(imm: u16) -> String {
 
 fn hex(imm: u16) -> String {
     format!("0x{imm:x}")
+}
+
+pub struct Disassembler<Provider: LabelProvider> {
+    pub pc: u32,
+    pub labels: Provider,
 }
 
 impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
@@ -520,11 +526,11 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn cvt_d_s(&mut self, s: u8, d: u8) -> String {
         format!("cvt.d.s {}, {}", freg(d), freg(s))
     }
-    fn cvt_w_d(&mut self, s: u8, d: u8) -> String {
-        format!("cvt.w.d {}, {}", freg(d), freg(s))
-    }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> String {
         format!("cvt.d.w {}, {}", freg(d), freg(s))
+    }
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> String {
+        format!("cvt.w.d {}, {}", freg(d), freg(s))
     }
     fn mtc1(&mut self, t: u8, s: u8) -> String {
         format!("mtc1 {}, {}", freg(t), reg(s))
@@ -532,16 +538,34 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     fn mfc1(&mut self, t: u8, s: u8) -> String {
         format!("mfc1 {}, {}", reg(t), freg(s))
     }
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> String {
+        format!("lwc1 {}, {}({})", freg(t), sig(offset), reg(base))
+    }
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> String {
+        format!("swc1 {}, {}({})", freg(t), sig(offset), reg(base))
+    }
     fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> String {
         format!("ldc1 {}, {}({})", freg(t), sig(offset), reg(base))
     }
     fn sdc1(&mut self, base: u8, t: u8, offset: u16) -> String {
         format!("sdc1 {}, {}({})", freg(t), sig(offset), reg(base))
     }
-    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> String {
-        format!("lwc1 {}, {}({})", freg(t), sig(offset), reg(base))
-    }
-    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> String {
-        format!("swc1 {}, {}({})", freg(t), sig(offset), reg(base))
+}
+
+pub struct MipsInspectionDisassembler;
+
+impl InspectionDisassembler for MipsInspectionDisassembler {
+    fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult> {
+        let mut disassembler = Disassembler {
+            pc,
+            labels,
+        };
+
+        disassembler
+            .dispatch(instruction)
+            .map(|line| InspectionDisassemblerResult {
+                line,
+                next_pc: pc + 4,
+            })
     }
 }

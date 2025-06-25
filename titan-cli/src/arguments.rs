@@ -20,6 +20,12 @@ pub enum Command {
         #[arg(short, long)]
         emit: Option<String>,
     },
+    Disassemble {
+        filename: String,
+
+        #[arg(short, long)]
+        emit: Option<String>,
+    }
 }
 
 impl Command {
@@ -28,6 +34,7 @@ impl Command {
             Command::Build { filename, .. } => filename,
             Command::Run { filename, .. } => filename,
             Command::Test { filename, .. } => filename,
+            Command::Disassemble { filename, .. } => filename,
         }
     }
 
@@ -36,6 +43,7 @@ impl Command {
             Command::Build { emit, .. } => emit.as_ref().map(|x| x.as_str()),
             Command::Run { emit, .. } => emit.as_ref().map(|x| x.as_str()),
             Command::Test { emit, .. } => emit.as_ref().map(|x| x.as_str()),
+            Command::Disassemble { emit, .. } => emit.as_ref().map(|x| x.as_str()),
         }
     }
 }

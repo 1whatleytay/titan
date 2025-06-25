@@ -1,10 +1,13 @@
 use std::fs;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
+use anyhow::anyhow;
 use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
 use titan::elf::Elf;
+use titan::execution::elf::inspection::Inspection;
 use titan::mips::assembler::string::assemble_from_path;
+use titan::mips::cpu::disassemble::MipsInspectionDisassembler;
 use titan::mips::cpu::registers::registers::RawRegisters;
 use titan::mips::cpu::State;
 use titan::mips::execution::elf::setup::create_simple_state;
@@ -13,6 +16,31 @@ use titan::mips::execution::trackers::empty::EmptyTracker;
 use crate::arguments::{Command, MipsConfig};
 
 pub fn run_mips(config: &MipsConfig) -> anyhow::Result<()> {
+    if let Command::Disassemble { filename, emit } = &config.command {
+        let path = Path::new(filename);
+        
+        let elf = Elf::read(&mut File::open(path)?)
+            .map_err(|err| anyhow!("Failed to parse attached file, which must be an elf: {}", err))?;
+        
+        let name = path.file_name()
+            .map(|x| x.to_string_lossy().to_string())
+            .unwrap_or_else(|| filename.clone());
+        
+        let inspection = Inspection::new(Some(&name), &elf, &mut MipsInspectionDisassembler);
+
+        let result = inspection.lines.join("\n");
+        
+        if let Some(emit) = emit {
+            fs::write(emit, result)?;
+            
+            println!("Written disassembly to {emit}");
+        } else {
+            println!("{result}\n");
+        }
+        
+        return Ok(())
+    }
+    
     let filename = config.command.filename();
     println!("Building {}...", filename);
 
@@ -50,6 +78,7 @@ pub fn run_mips(config: &MipsConfig) -> anyhow::Result<()> {
                 frame.mode
             );
         }
+        _ => panic!("Unhandled command!")
     }
 
     Ok(())
