@@ -230,6 +230,7 @@ dependencies = [
  "num",
  "num-derive",
  "num-traits",
+ "smallvec",
  "titan_shared",
 ]
 

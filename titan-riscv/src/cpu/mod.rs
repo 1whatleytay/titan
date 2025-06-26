@@ -1,5 +1,8 @@
 pub mod decoder;
 pub mod disassemble;
+pub mod state;
+pub mod registers;
+mod core;
 
 pub use titan_shared::cpu::error;
 pub use titan_shared::cpu::memory;

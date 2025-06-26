@@ -19,9 +19,7 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
             self.trap()
         }
     }
-}
 
-impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
     fn reg(&mut self, index: u8) -> u32 {
         if index == 0 {
             0
@@ -961,11 +959,6 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         self.set_fp(d + 1, upper);
         Ok(())
     }
-    fn cvt_w_d(&mut self, s: u8, d: u8) -> Result<()> {
-        let value = self.fp_double(s);
-        self.set_fp(d, value as i32 as u32);
-        Ok(())
-    }
     fn cvt_d_w(&mut self, s: u8, d: u8) -> Result<()> {
         let value = self.fp_raw(s);
         let double_cast = value as f64;
@@ -974,6 +967,11 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         let upper = (result >> 32) as u32;
         self.set_fp(d, lower);
         self.set_fp(d + 1, upper);
+        Ok(())
+    }
+    fn cvt_w_d(&mut self, s: u8, d: u8) -> Result<()> {
+        let value = self.fp_double(s);
+        self.set_fp(d, value as i32 as u32);
         Ok(())
     }
     fn mtc1(&mut self, t: u8, s: u8) -> Result<()> {
@@ -988,6 +986,18 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
 
         Ok(())
     }
+    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
+        let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
+        let value = self.memory.get_u32(address as u32)?;
+        self.set_fp(t, value);
+        Ok(())
+    }
+    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
+        let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
+        let value = self.fp_raw(t);
+        self.memory.set_u32(address as u32, value)?;
+        Ok(())
+    }
     fn ldc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
         let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
         self.set_fp(t, self.memory.get_u32(address as u32)?);
@@ -1000,18 +1010,6 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
         let value2 = self.fp_raw(t + 1);
         self.memory.set_u32(address as u32, value)?;
         self.memory.set_u32(address as u32 + 4, value2)?;
-        Ok(())
-    }
-    fn lwc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
-        let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
-        let value = self.memory.get_u32(address as u32)?;
-        self.set_fp(t, value);
-        Ok(())
-    }
-    fn swc1(&mut self, base: u8, t: u8, offset: u16) -> Result<()> {
-        let address = (self.reg(base) as i32).wrapping_add(offset as i16 as i32);
-        let value = self.fp_raw(t);
-        self.memory.set_u32(address as u32, value)?;
         Ok(())
     }
 }

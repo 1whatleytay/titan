@@ -1,6 +1,6 @@
 use crate::cpu::decoder::{Decoder, InstructionSize};
 use titan_shared::cpu::disassemble::LabelProvider;
-use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult};
+use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult, InspectionReadStrategy};
 
 fn jump_dest(pc: u32, imm: i32) -> u32 {
     (pc as i32).wrapping_add(imm << 1) as u32
@@ -403,6 +403,10 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
 pub struct RiscVInspectionDisassembler;
 
 impl InspectionDisassembler for RiscVInspectionDisassembler {
+    fn read_strategy() -> InspectionReadStrategy {
+        InspectionReadStrategy::ReadU32PadU16
+    }
+
     fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult> {
         let mut disassembler = Disassembler {
             pc,
