@@ -13,6 +13,7 @@ pub enum Error {
     CpuInvalid(u32),
     CpuTrap,
     CpuSyscall, // Intended to be caught by higher level.
+    CpuBreak, // Intended for breakpoint work.
 }
 
 impl Display for Error {
@@ -40,6 +41,7 @@ impl Display for Error {
                 "The instruction was given invalid parameters (CPU Trap was thrown)."
             ),
             Error::CpuSyscall => write!(f, "CPU Syscall was not handled"),
+            Error::CpuBreak => write!(f, "CPU Breakport was not handled"),
         }
     }
 }

@@ -7,6 +7,15 @@ pub enum InstructionSize {
     Regular, // 32-bit
 }
 
+impl InstructionSize {
+    pub fn byte_size(self) -> u32 {
+        match self {
+            InstructionSize::Compressed => 2,
+            InstructionSize::Regular => 4,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 struct InstructionParts(u32);
 

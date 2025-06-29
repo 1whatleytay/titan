@@ -1,4 +1,4 @@
-use crate::cpu::decoder::{Decoder, InstructionSize};
+use crate::cpu::decoder::Decoder;
 use titan_shared::cpu::disassemble::LabelProvider;
 use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult, InspectionReadStrategy};
 
@@ -417,10 +417,7 @@ impl InspectionDisassembler for RiscVInspectionDisassembler {
             .dispatch(instruction)
             .map(|(line, size)| InspectionDisassemblerResult {
                 line,
-                next_pc: pc + match size {
-                    InstructionSize::Compressed => 2,
-                    InstructionSize::Regular => 4,
-                },
+                next_pc: pc + size.byte_size(),
             })
     }
 }

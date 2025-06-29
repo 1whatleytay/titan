@@ -20,7 +20,7 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
         }
     }
 
-    fn reg(&mut self, index: u8) -> u32 {
+    fn reg(&self, index: u8) -> u32 {
         if index == 0 {
             0
         } else {

@@ -58,10 +58,7 @@ impl Registers for RawRegisters {
 
     #[inline]
     fn step_pc(&mut self, size: InstructionSize) {
-        self.pc = self.pc.wrapping_add(match size {
-            InstructionSize::Compressed => 2,
-            InstructionSize::Regular => 4,
-        });
+        self.pc = self.pc.wrapping_add(size.byte_size());
     }
 
     fn raw(&self) -> RawRegisters {
