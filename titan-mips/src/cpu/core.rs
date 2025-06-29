@@ -587,7 +587,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn syscall(&mut self) -> Result<()> {
-        Err(CpuSyscall)
+        Err(CpuSyscall(4))
     }
 
     fn add_s(&mut self, t: u8, s: u8, d: u8) -> Result<()> {

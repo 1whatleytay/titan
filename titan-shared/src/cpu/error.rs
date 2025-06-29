@@ -12,7 +12,8 @@ pub enum Error {
     MemoryUnmapped(u32),
     CpuInvalid(u32),
     CpuTrap,
-    CpuSyscall, // Intended to be caught by higher level.
+    // Intended to be caught by higher level. Parameter is instruction size (# of bytes to skip PC when handled).
+    CpuSyscall(u32),
     CpuBreak, // Intended for breakpoint work.
 }
 
@@ -40,7 +41,7 @@ impl Display for Error {
                 f,
                 "The instruction was given invalid parameters (CPU Trap was thrown)."
             ),
-            Error::CpuSyscall => write!(f, "CPU Syscall was not handled"),
+            Error::CpuSyscall(bytes) => write!(f, "CPU Syscall was not handled ({bytes} instruction)"),
             Error::CpuBreak => write!(f, "CPU Breakport was not handled"),
         }
     }

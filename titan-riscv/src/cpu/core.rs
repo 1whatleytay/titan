@@ -385,7 +385,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn ecall(&mut self) -> Result<()> {
-        Err(CpuSyscall)
+        Err(CpuSyscall(4))
     }
 
     fn ebreak(&mut self) -> Result<()> {

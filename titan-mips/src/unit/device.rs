@@ -448,19 +448,19 @@ impl UnitDevice {
     ) -> Result<bool, UnitDeviceError> {
         match frame.mode {
             Invalid(error) => match error {
-                CpuError::CpuSyscall => {
+                CpuError::CpuSyscall(instruction_size) => {
                     let v0 = self.executor.with_state(|s| s.registers.get_l(Value0));
 
                     if let Some(handler) = self.handlers.get(&v0) {
                         handler();
 
-                        self.executor.syscall_handled(4);
+                        self.executor.syscall_handled(instruction_size);
 
                         Ok(false)
                     } else if let Some(handler) = &self.syscall_handler {
                         handler();
 
-                        self.executor.syscall_handled(4);
+                        self.executor.syscall_handled(instruction_size);
 
                         Ok(false)
                     } else {
