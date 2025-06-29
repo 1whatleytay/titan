@@ -36,11 +36,13 @@ impl InstructionParts {
         pick_bits(self.0, 20, 5) as u8
     }
 
-    fn imm_upper(self) -> u32 { // 20-bits unsigned
+    fn imm_upper(self) -> u32 {
+        // 20-bits unsigned
         pick_bits(self.0, 12, 20)
     }
 
-    fn imm_jump(self) -> i32 { // 20-bit
+    fn imm_jump(self) -> i32 {
+        // 20-bit
         let bits0to9 = pick_bits(self.0, 21, 10);
         let bits10 = pick_bits(self.0, 20, 1);
         let bits11to18 = pick_bits(self.0, 12, 8);
@@ -51,7 +53,8 @@ impl InstructionParts {
         sign_extend(result, 20) as i32
     }
 
-    fn imm_branch(self) -> i16 { // 12-bit
+    fn imm_branch(self) -> i16 {
+        // 12-bit
         let bits0to3 = pick_bits(self.0, 8, 4);
         let bits4to9 = pick_bits(self.0, 25, 6);
         let bits10 = pick_bits(self.0, 7, 1);
@@ -62,11 +65,13 @@ impl InstructionParts {
         sign_extend(result, 12) as i16
     }
 
-    fn imm_normal(self) -> i16 { // 12-bit
+    fn imm_normal(self) -> i16 {
+        // 12-bit
         sign_extend(pick_bits(self.0, 20, 12) as u16, 12) as i16
     }
 
-    fn imm_store(self) -> i16 { // 12-bits
+    fn imm_store(self) -> i16 {
+        // 12-bits
         let bits0to4 = pick_bits(self.0, 7, 5);
         let bits5to11 = pick_bits(self.0, 25, 7);
 
@@ -79,15 +84,18 @@ impl InstructionParts {
         pick_bits(self.0, 20, 5) as u8
     }
 
-    fn func_12(self) -> u8 { // 3-bit func
+    fn func_12(self) -> u8 {
+        // 3-bit func
         pick_bits(self.0, 12, 3) as u8
     }
 
-    fn func_20(self) -> u16 { // 12-bit func
+    fn func_20(self) -> u16 {
+        // 12-bit func
         pick_bits(self.0, 20, 12) as u16
     }
 
-    fn func_25(self) -> u8 { // 7-bit func
+    fn func_25(self) -> u8 {
+        // 7-bit func
         pick_bits(self.0, 25, 7) as u8
     }
 }
@@ -127,7 +135,8 @@ impl CompressedInstructionParts {
         pick_bits(self.0, 2, 3) as u8
     }
 
-    fn uimm_54276(self) -> u8 { // 6-bit imm
+    fn uimm_54276(self) -> u8 {
+        // 6-bit imm
         let bits0to2 = pick_bits(self.0, 4, 3);
         let bits3 = pick_bits(self.0, 12, 1);
         let bits4to5 = pick_bits(self.0, 2, 2);
@@ -135,14 +144,16 @@ impl CompressedInstructionParts {
         (bits0to2 | (bits3 << 3) | (bits4to5 << 4)) as u8
     }
 
-    fn uimm_5276(self) -> u8 { // 6-bit imm
+    fn uimm_5276(self) -> u8 {
+        // 6-bit imm
         let bits0to3 = pick_bits(self.0, 9, 4);
         let bits4to5 = pick_bits(self.0, 7, 2);
 
         (bits0to3 | (bits4to5 << 4)) as u8
     }
 
-    fn uimm_5326(self) -> u8 { // 5-bit imm
+    fn uimm_5326(self) -> u8 {
+        // 5-bit imm
         let bits0 = pick_bits(self.0, 6, 1);
         let bits1to3 = pick_bits(self.0, 10, 3);
         let bits4 = pick_bits(self.0, 5, 1);
@@ -150,7 +161,8 @@ impl CompressedInstructionParts {
         (bits0 | (bits1to3 << 1) | (bits4 << 4)) as u8
     }
 
-    fn imm_jump(self) -> i16 { // 11-bit imm
+    fn imm_jump(self) -> i16 {
+        // 11-bit imm
         let bits0to2 = pick_bits(self.0, 3, 3);
         let bits3 = pick_bits(self.0, 11, 1);
         let bits4 = pick_bits(self.0, 2, 1);
@@ -160,12 +172,20 @@ impl CompressedInstructionParts {
         let bits9 = pick_bits(self.0, 8, 1);
         let bits10 = pick_bits(self.0, 12, 1);
 
-        let result = bits0to2 | (bits3 << 3) | (bits4 << 4) | (bits5 << 5) | (bits6 << 6) | (bits7to8 << 7) | (bits9 << 9) | (bits10 << 10);
+        let result = bits0to2
+            | (bits3 << 3)
+            | (bits4 << 4)
+            | (bits5 << 5)
+            | (bits6 << 6)
+            | (bits7to8 << 7)
+            | (bits9 << 9)
+            | (bits10 << 10);
 
         sign_extend(result, 11) as i16
     }
 
-    fn imm_branch(self) -> i8 { // 8-bit imm
+    fn imm_branch(self) -> i8 {
+        // 8-bit imm
         let bits0to1 = pick_bits(self.0, 3, 2);
         let bits2to3 = pick_bits(self.0, 10, 2);
         let bits4 = pick_bits(self.0, 2, 1);
@@ -177,7 +197,8 @@ impl CompressedInstructionParts {
         sign_extend(result, 8) as i8 // yes this can be done by the language, just being explicit here
     }
 
-    fn imm_540(self) -> i8 { // 6-bit imm
+    fn imm_540(self) -> i8 {
+        // 6-bit imm
         let bits0to4 = pick_bits(self.0, 2, 5);
         let bits5 = pick_bits(self.0, 12, 1);
 
@@ -186,7 +207,8 @@ impl CompressedInstructionParts {
         sign_extend(result, 6) as i8
     }
 
-    fn imm_946875(self) -> i8 { // 6-bit imm
+    fn imm_946875(self) -> i8 {
+        // 6-bit imm
         let bits0 = pick_bits(self.0, 6, 1);
         let bits1 = pick_bits(self.0, 2, 1);
         let bits2 = pick_bits(self.0, 5, 1);
@@ -198,7 +220,8 @@ impl CompressedInstructionParts {
         sign_extend(result, 6) as i8
     }
 
-    fn uimm_549623(self) -> u8 { // 8-bit imm
+    fn uimm_549623(self) -> u8 {
+        // 8-bit imm
         let bits0 = pick_bits(self.0, 6, 1);
         let bits1 = pick_bits(self.0, 5, 1);
         let bits2to3 = pick_bits(self.0, 11, 2);
@@ -327,7 +350,7 @@ pub trait Decoder<T> {
             0b101 => self.bge(rs1, rs2, imm_branch),
             0b110 => self.bltu(rs1, rs2, imm_branch),
             0b111 => self.bgeu(rs1, rs2, imm_branch),
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -345,7 +368,7 @@ pub trait Decoder<T> {
             0b100 => self.lbu(rd, rs1, imm_normal),
             0b101 => self.lhu(rd, rs1, imm_normal),
 
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -360,7 +383,7 @@ pub trait Decoder<T> {
             0b000 => self.sb(rs1, rs2, imm_store),
             0b001 => self.sh(rs1, rs2, imm_store),
             0b010 => self.sw(rs1, rs2, imm_store),
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -382,7 +405,7 @@ pub trait Decoder<T> {
             0b001 if parts.func_25() == 0 => self.slli(rd, rs1, sham),
             0b101 if parts.func_25() == 0 => self.srli(rd, rs1, sham),
             0b101 if parts.func_25() == 0b0100000 => self.srai(rd, rs1, sham),
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -406,12 +429,12 @@ pub trait Decoder<T> {
                 0b101 => self.srl(rd, rs1, rs2),
                 0b110 => self.or(rd, rs1, rs2),
                 0b111 => self.and(rd, rs1, rs2),
-                _ => return None
+                _ => return None,
             },
             0b0100000 => match func_12 {
                 0b000 => self.sub(rd, rs1, rs2),
                 0b101 => self.sra(rd, rs1, rs2),
-                _ => return None
+                _ => return None,
             },
             0b0000001 => match func_12 {
                 0b000 => self.mul(rd, rs1, rs2),
@@ -422,9 +445,9 @@ pub trait Decoder<T> {
                 0b101 => self.divu(rd, rs1, rs2),
                 0b110 => self.rem(rd, rs1, rs2),
                 0b111 => self.remu(rd, rs1, rs2),
-                _ => return None
-            }
-            _ => return None
+                _ => return None,
+            },
+            _ => return None,
         })
     }
 
@@ -433,13 +456,13 @@ pub trait Decoder<T> {
 
         // These should be zero!
         if parts.rd() != 0 || parts.rs1() != 0 || parts.func_12() != 0 {
-            return None
+            return None;
         }
 
         Some(match parts.func_20() {
             0 => self.ecall(),
             1 => self.ebreak(),
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -467,7 +490,7 @@ pub trait Decoder<T> {
         let parts = CompressedInstructionParts(instruction);
 
         if instruction == 0 {
-            return None // explicitely marked as invalid - not c.addi4spn
+            return None; // explicitely marked as invalid - not c.addi4spn
         }
 
         let func_13 = parts.func_13();
@@ -477,7 +500,7 @@ pub trait Decoder<T> {
                 0b000 => self.c_addi4spn(parts.rd_small(), parts.uimm_549623()),
                 0b010 => self.c_lw(parts.rd_small(), parts.rs1_small(), parts.uimm_5326()),
                 0b110 => self.c_sw(parts.rs1_small(), parts.rs2_small(), parts.uimm_5326()),
-                _ => return None
+                _ => return None,
             },
             0b01 => match func_13 {
                 0b000 => match parts.rs1() {
@@ -489,7 +512,7 @@ pub trait Decoder<T> {
                 0b011 => match parts.rd() {
                     2 => self.c_addi16sp(parts.imm_946875()), // 2 -> sp
                     rd => self.c_lui(rd, parts.imm_540()),
-                }
+                },
                 0b100 => match parts.func_10() {
                     0b00 => self.c_srli(parts.rs1_small(), parts.sham()),
                     0b01 => self.c_srai(parts.rs1_small(), parts.sham()),
@@ -498,33 +521,35 @@ pub trait Decoder<T> {
                         (false, 0b00) => self.c_sub(parts.rs1_small(), parts.rs2_small()),
                         (false, 0b01) => self.c_xor(parts.rs1_small(), parts.rs2_small()),
                         (false, 0b11) => self.c_and(parts.rs1_small(), parts.rs2_small()),
-                        _ => return None
-                    }
-                    _ => return None
-                }
+                        _ => return None,
+                    },
+                    _ => return None,
+                },
                 0b101 => self.c_j(parts.imm_jump()),
                 0b110 => self.c_beqz(parts.rs1_small(), parts.imm_branch()),
                 0b111 => self.c_bnez(parts.rs1_small(), parts.imm_branch()),
-                _ => return None
+                _ => return None,
             },
             0b10 => match func_13 {
                 0b000 => self.c_slli(parts.rd(), parts.sham()),
                 0b010 => self.c_lwsp(parts.rd(), parts.uimm_54276()),
-                0b100 => if parts.func_12() {
-                    match (parts.rs1(), parts.rs2()) {
-                        (0, 0) => self.c_ebreak(),
-                        (rs1, 0) => self.c_jalr(rs1),
-                        (rs1, rs2) => self.c_add(rs1, rs2),
+                0b100 => {
+                    if parts.func_12() {
+                        match (parts.rs1(), parts.rs2()) {
+                            (0, 0) => self.c_ebreak(),
+                            (rs1, 0) => self.c_jalr(rs1),
+                            (rs1, rs2) => self.c_add(rs1, rs2),
+                        }
+                    } else {
+                        match (parts.rs1(), parts.rs2()) {
+                            (0, 0) => return None,
+                            (rs1, 0) => self.c_jr(rs1),
+                            (rs1, rs2) => self.c_mv(rs1, rs2),
+                        }
                     }
-                } else {
-                    match (parts.rs1(), parts.rs2()) {
-                        (0, 0) => return None,
-                        (rs1, 0) => self.c_jr(rs1),
-                        (rs1, rs2) => self.c_mv(rs1, rs2),
-                    }
-                },
+                }
                 0b110 => self.c_swsp(parts.rs2(), parts.uimm_5276()),
-                _ => return None
+                _ => return None,
             },
             _ => return None, // 0b11
         })

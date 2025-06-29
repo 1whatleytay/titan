@@ -1,12 +1,12 @@
-use num_traits::ToPrimitive;
-use titan_shared::cpu::memory::section::AlignmentBehaviour;
 use crate::assembler::registers::RegisterSlot;
-use crate::cpu::memory::section::{ListenResponder, SectionMemory};
+use crate::cpu::State;
 use crate::cpu::memory::Mountable;
 use crate::cpu::memory::Region;
+use crate::cpu::memory::section::{ListenResponder, SectionMemory};
 use crate::cpu::registers::registers::RawRegisters;
-use crate::cpu::State;
 use crate::elf::Elf;
+use num_traits::ToPrimitive;
+use titan_shared::cpu::memory::section::AlignmentBehaviour;
 
 pub const SMALL_HEAP_SIZE: u32 = 0x10000u32;
 

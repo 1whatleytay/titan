@@ -1,11 +1,11 @@
-use titan_shared::cpu::error::Error::{CpuBreak, CpuInvalid, CpuSyscall};
-use titan_shared::cpu::Memory;
-use titan_shared::cpu::error::Result;
 use crate::assembler::registers::RegisterSlot;
 use crate::cpu::decoder::{Decoder, InstructionSize};
 use crate::cpu::registers::Registers;
 use crate::cpu::registers::WhichRegister::{Line, Pc};
 use crate::cpu::state::State;
+use titan_shared::cpu::Memory;
+use titan_shared::cpu::error::Error::{CpuBreak, CpuInvalid, CpuSyscall};
+use titan_shared::cpu::error::Result;
 
 impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
     fn reg(&self, index: u8) -> u32 {
@@ -32,18 +32,14 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
 
     fn jump_address(&mut self, address: u32, size: InstructionSize) {
         // sub instruction size as we are going to add that via step_pc
-        let target = address
-            .wrapping_sub(size.byte_size());
+        let target = address.wrapping_sub(size.byte_size());
 
-        self.registers.set(
-            Pc,
-            target,
-        );
+        self.registers.set(Pc, target);
     }
 
     fn jump(&mut self, immediate: i32, size: InstructionSize) {
-        let address = (self.registers.get(Pc) as i32)
-            .wrapping_add(immediate.wrapping_shl(1)) as u32;
+        let address =
+            (self.registers.get(Pc) as i32).wrapping_add(immediate.wrapping_shl(1)) as u32;
 
         self.jump_address(address, size)
     }
@@ -54,12 +50,15 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
         // We want to be able to read the "last u16" at the end of a section.
         let instruction = match self.memory.get_u32(start) {
             Ok(value) => value,
-            Err(err) => self.memory.get_u16(start)
+            Err(err) => self
+                .memory
+                .get_u16(start)
                 .map(|value| value as u32)
                 .map_err(|_| err)?, // Transparent u16 readings.
         };
 
-        let (result, size) = self.dispatch(instruction)
+        let (result, size) = self
+            .dispatch(instruction)
             .unwrap_or((Err(CpuInvalid(instruction)), InstructionSize::Regular));
 
         // Pass the error upwards. Our PC should still be in the right spot.
@@ -72,7 +71,6 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
         Ok(())
     }
 }
-
 
 impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     fn lui(&mut self, rd: u8, imm_upper: u32) -> Result<()> {
@@ -90,7 +88,9 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn jal(&mut self, rd: u8, imm_jump: i32) -> Result<()> {
-        let return_address = self.registers.get(Pc)
+        let return_address = self
+            .registers
+            .get(Pc)
             .wrapping_add(InstructionSize::Regular.byte_size());
 
         self.set_reg(rd, return_address);
@@ -149,11 +149,12 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn jalr(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let return_address = self.registers.get(Pc)
+        let return_address = self
+            .registers
+            .get(Pc)
             .wrapping_add(InstructionSize::Regular.byte_size());
 
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.jump_address(address, InstructionSize::Regular);
 
@@ -163,8 +164,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn lb(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, self.memory.get(address)? as i8 as i32 as u32);
 
@@ -172,8 +172,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn lh(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, self.memory.get_u16(address)? as i16 as i32 as u32);
 
@@ -181,8 +180,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn lw(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, self.memory.get_u32(address)? as i32 as u32);
 
@@ -190,8 +188,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn lbu(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, self.memory.get(address)? as u32);
 
@@ -199,8 +196,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn lhu(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, self.memory.get_u16(address)? as u32);
 
@@ -208,8 +204,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn addi(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> Result<()> {
-        let result = (self.reg(rs1) as i32)
-            .wrapping_add(imm_normal as i32) as u32;
+        let result = (self.reg(rs1) as i32).wrapping_add(imm_normal as i32) as u32;
 
         self.set_reg(rd, result);
 
@@ -259,8 +254,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn sb(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_store as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_store as i32) as u32;
 
         self.memory.set(address, self.reg(rs2) as u8)?;
 
@@ -268,8 +262,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn sh(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_store as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_store as i32) as u32;
 
         self.memory.set_u16(address, self.reg(rs2) as u16)?;
 
@@ -277,8 +270,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn sw(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> Result<()> {
-        let address = (self.reg(rs1) as i32)
-            .wrapping_add(imm_store as i32) as u32;
+        let address = (self.reg(rs1) as i32).wrapping_add(imm_store as i32) as u32;
 
         self.memory.set_u32(address, self.reg(rs2))?;
 
@@ -335,11 +327,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn sltu(&mut self, rd: u8, rs1: u8, rs2: u8) -> Result<()> {
-        let result = if self.reg(rs1) < self.reg(rs2) {
-            1
-        } else {
-            0
-        };
+        let result = if self.reg(rs1) < self.reg(rs2) { 1 } else { 0 };
 
         self.set_reg(rd, result);
 
@@ -361,7 +349,10 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
 
     fn sra(&mut self, rd: u8, rs1: u8, rs2: u8) -> Result<()> {
         // Mask lower 5-bits - we are a 32-bit arch
-        self.set_reg(rd, (self.reg(rs1) as i32).wrapping_shr(self.reg(rs2) & 0b11111) as u32);
+        self.set_reg(
+            rd,
+            (self.reg(rs1) as i32).wrapping_shr(self.reg(rs2) & 0b11111) as u32,
+        );
 
         Ok(())
     }
@@ -401,8 +392,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn mulh(&mut self, rd: u8, rs1: u8, rs2: u8) -> Result<()> {
-        let result = (self.reg(rs1) as i32 as i64)
-            .wrapping_mul(self.reg(rs2) as i32 as i64) as u64;
+        let result = (self.reg(rs1) as i32 as i64).wrapping_mul(self.reg(rs2) as i32 as i64) as u64;
 
         self.set_reg(rd, (result >> 32) as u32);
 
@@ -411,8 +401,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
 
     fn mulhsu(&mut self, rd: u8, rs1: u8, rs2: u8) -> Result<()> {
         // Signed rs1 and Unsigned rs2
-        let result = (self.reg(rs1) as i32 as i64)
-            .wrapping_mul(self.reg(rs2) as u64 as i64) as u64;
+        let result = (self.reg(rs1) as i32 as i64).wrapping_mul(self.reg(rs2) as u64 as i64) as u64;
 
         self.set_reg(rd, (result >> 32) as u32);
 
@@ -420,8 +409,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn mulhu(&mut self, rd: u8, rs1: u8, rs2: u8) -> Result<()> {
-        let result = (self.reg(rs1) as u64)
-            .wrapping_mul(self.reg(rs2) as u64);
+        let result = (self.reg(rs1) as u64).wrapping_mul(self.reg(rs2) as u64);
 
         self.set_reg(rd, (result >> 32) as u32);
 
@@ -436,7 +424,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
             -1i32
         } else {
             // If you overflow div, then the result should still be i32::MIN.
-            (self.reg(rs1) as i32).checked_div(dividend)
+            (self.reg(rs1) as i32)
+                .checked_div(dividend)
                 .unwrap_or(i32::MIN)
         } as u32;
 
@@ -469,8 +458,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
             value
         } else {
             // If you overflow div, then the result should still be i32::MIN.
-            value.checked_rem(dividend)
-                .unwrap_or(0)
+            value.checked_rem(dividend).unwrap_or(0)
         } as u32;
 
         self.set_reg(rd, result);
@@ -515,7 +503,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_lw(&mut self, rd_small: u8, rs1_small: u8, uimm_5326: u8) -> Result<()> {
-        let address = self.reg_small(rs1_small)
+        let address = self
+            .reg_small(rs1_small)
             .wrapping_add((uimm_5326 as u32) << 2);
 
         self.set_reg_small(rd_small, self.memory.get_u32(address)?);
@@ -524,7 +513,8 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_sw(&mut self, rs1_small: u8, rs2_small: u8, uimm_5326: u8) -> Result<()> {
-        let address = self.reg_small(rs1_small)
+        let address = self
+            .reg_small(rs1_small)
             .wrapping_add((uimm_5326 as u32) << 2);
 
         self.memory.set_u32(address, self.reg_small(rs2_small))?;
@@ -539,12 +529,15 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_jal(&mut self, imm_jump: i16) -> Result<()> {
-        let return_address = self.registers.get(Pc)
+        let return_address = self
+            .registers
+            .get(Pc)
             .wrapping_add(InstructionSize::Compressed.byte_size());
 
         self.jump(imm_jump as i32, InstructionSize::Compressed);
 
-        self.registers.set_l(RegisterSlot::ReturnAddress, return_address);
+        self.registers
+            .set_l(RegisterSlot::ReturnAddress, return_address);
 
         Ok(())
     }
@@ -556,12 +549,15 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_jalr(&mut self, rs1: u8) -> Result<()> {
-        let return_address = self.registers.get(Pc)
+        let return_address = self
+            .registers
+            .get(Pc)
             .wrapping_add(InstructionSize::Compressed.byte_size());
 
         self.jump_address(self.reg(rs1), InstructionSize::Compressed);
 
-        self.registers.set_l(RegisterSlot::ReturnAddress, return_address);
+        self.registers
+            .set_l(RegisterSlot::ReturnAddress, return_address);
 
         Ok(())
     }
@@ -595,7 +591,10 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_addi(&mut self, rd: u8, imm_540: i8) -> Result<()> {
-        self.set_reg(rd, (self.reg(rd) as i32).wrapping_add(imm_540 as i32) as u32);
+        self.set_reg(
+            rd,
+            (self.reg(rd) as i32).wrapping_add(imm_540 as i32) as u32,
+        );
 
         Ok(())
     }
@@ -625,14 +624,16 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_srli(&mut self, rs1_small: u8, sham: u8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small).wrapping_shr(sham as u32));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small).wrapping_shr(sham as u32),
+        );
 
         Ok(())
     }
 
     fn c_srai(&mut self, rs1_small: u8, sham: u8) -> Result<()> {
-        let result = (self.reg_small(rs1_small) as i32)
-            .wrapping_shr(sham as u32) as u32;
+        let result = (self.reg_small(rs1_small) as i32).wrapping_shr(sham as u32) as u32;
 
         self.set_reg_small(rs1_small, result);
 
@@ -640,7 +641,10 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_andi(&mut self, rs1_small: u8, imm_540: i8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small) & (imm_540 as i32 as u32));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small) & (imm_540 as i32 as u32),
+        );
 
         Ok(())
     }
@@ -658,26 +662,38 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn c_and(&mut self, rs1_small: u8, rs2_small: u8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small) & self.reg_small(rs2_small));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small) & self.reg_small(rs2_small),
+        );
 
         Ok(())
     }
 
     fn c_or(&mut self, rs1_small: u8, rs2_small: u8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small) | self.reg_small(rs2_small));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small) | self.reg_small(rs2_small),
+        );
 
         Ok(())
     }
 
     fn c_xor(&mut self, rs1_small: u8, rs2_small: u8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small) ^ self.reg_small(rs2_small));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small) ^ self.reg_small(rs2_small),
+        );
 
         Ok(())
     }
 
     fn c_sub(&mut self, rs1_small: u8, rs2_small: u8) -> Result<()> {
-        self.set_reg_small(rs1_small, self.reg_small(rs1_small)
-            .wrapping_sub(self.reg_small(rs2_small)));
+        self.set_reg_small(
+            rs1_small,
+            self.reg_small(rs1_small)
+                .wrapping_sub(self.reg_small(rs2_small)),
+        );
 
         Ok(())
     }

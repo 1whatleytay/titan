@@ -1,5 +1,5 @@
 pub trait LabelProvider {
-  fn label_for(&mut self, address: u32) -> String;
+    fn label_for(&mut self, address: u32) -> String;
 }
 
 impl<T: LabelProvider> LabelProvider for &mut T {
@@ -12,7 +12,7 @@ impl<T: LabelProvider> LabelProvider for &mut T {
 pub struct HexLabelProvider;
 
 impl LabelProvider for HexLabelProvider {
-  fn label_for(&mut self, address: u32) -> String {
-      format!("0x{address:08x}")
-  }
+    fn label_for(&mut self, address: u32) -> String {
+        format!("0x{address:08x}")
+    }
 }

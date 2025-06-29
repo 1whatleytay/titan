@@ -1,5 +1,5 @@
-use titan_shared::cpu::Memory;
 pub use crate::cpu::registers::Registers;
+use titan_shared::cpu::Memory;
 
 #[derive(Clone)]
 pub struct State<Mem: Memory, Reg: Registers> {

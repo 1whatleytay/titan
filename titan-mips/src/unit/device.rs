@@ -1,4 +1,3 @@
-use titan_shared::assembler::binary::Binary;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::registers::RegisterSlot::{Parameter0, ReturnAddress, Value0};
 use crate::assembler::string::{assemble_from_path, SourceError};
@@ -6,6 +5,7 @@ use crate::cpu::error::Error as CpuError;
 use crate::cpu::memory::section::{DefaultResponder, SectionMemory};
 use crate::cpu::memory::watched::WatchedMemory;
 use crate::cpu::memory::{Mountable, Region};
+use crate::cpu::registers::registers::RawRegisters;
 use crate::cpu::registers::WatchedRegisters;
 use crate::cpu::registers::WhichRegister::Pc;
 use crate::cpu::state::Registers;
@@ -29,8 +29,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, thread};
+use titan_shared::assembler::binary::Binary;
 use StopCondition::{Label, MaybeLabel};
-use crate::cpu::registers::registers::RawRegisters;
 
 pub type MemoryType = WatchedMemory<SectionMemory<DefaultResponder>>;
 pub type RegisterType = WatchedRegisters;

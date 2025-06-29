@@ -6,7 +6,6 @@ pub struct Location {
     pub index: usize,
 }
 
-
 pub enum NumericLiteral {
     Integer(u64),
     Float(f64),
@@ -45,16 +44,13 @@ where
     (&input[size..], &input[..size])
 }
 
-
 pub fn take_space(input: &str) -> &str {
     take_while(input, |c| c != '\n' && c.is_whitespace())
 }
 
-
 pub fn is_hard(c: char) -> bool {
     c.is_whitespace() || is_explicit_hard(c)
 }
-
 
 // I want the ability to precompute a hash table, so this is done via match.
 pub fn is_explicit_hard(c: char) -> bool {
@@ -155,7 +151,6 @@ pub fn numeric_literal(input: &str) -> Option<(&str, NumericLiteral)> {
         _ => numeric_decimal(input),
     }
 }
-
 
 // MARS does not seem to support \x, \u or \U escapes (which require variable consumption).
 // We will not support it either then.

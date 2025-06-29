@@ -1,12 +1,24 @@
-use crate::assembler::binary_builder::InstructionLabelKind::{Branch, CompressedBranch, CompressedJump, JumpAndLink, Lower12, Upper20};
+use crate::assembler::binary_builder::InstructionLabelKind::{
+    Branch, CompressedBranch, CompressedJump, JumpAndLink, Lower12, Upper20,
+};
 use crate::assembler::binary_builder::{BinaryBuilder, BinaryBuilderLabel, InstructionLabel};
 use crate::assembler::emit::InstructionKind::{Base, Compressed};
-use crate::assembler::instruction_builder::{CompressedInstructionBuilder, InstructionBuilder, SplitImmediate};
-use crate::assembler::instructions::{ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, BaseOpcode, Encoding, Instruction, JAL_OP, JALR_OP, LUI_OP, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP, SRLI_OP, SUB_OP, XORI_OP, CompressedOpcode};
+use crate::assembler::instruction_builder::{
+    CompressedInstructionBuilder, InstructionBuilder, SplitImmediate,
+};
+use crate::assembler::instructions::{
+    ADDI_OP, BEQ_OP, BGE_OP, BGEU_OP, BLT_OP, BLTU_OP, BNE_OP, BaseOpcode, CompressedOpcode,
+    Encoding, Instruction, JAL_OP, JALR_OP, LUI_OP, SLLI_OP, SLT_OP, SLTIU_OP, SLTU_OP, SRAI_OP,
+    SRLI_OP, SUB_OP, XORI_OP,
+};
 use crate::assembler::lexer::TokenKind;
 use crate::assembler::registers::RegisterSlot;
 use crate::assembler::utilities::AssemblerReason::{MissingRegion, UnknownInstruction};
-use crate::assembler::utilities::{AssemblerError, TokenCursor, default_start, get_constant_in_range, get_label, get_offset, get_register, pc_for_region, get_compressed_register, get_constant_restricted, get_compressed_offset, get_register_restricted};
+use crate::assembler::utilities::{
+    AssemblerError, TokenCursor, default_start, get_compressed_offset, get_compressed_register,
+    get_constant_in_range, get_constant_restricted, get_label, get_offset, get_register,
+    get_register_restricted, pc_for_region,
+};
 use byteorder::{LittleEndian, WriteBytesExt};
 use std::collections::HashMap;
 use titan_shared::assembler::binary::BinaryBreakpoint;
@@ -670,12 +682,15 @@ fn do_la_instruction(iter: &mut TokenCursor) -> Result<EmitInstruction, Assemble
     Ok(EmitInstruction { instructions })
 }
 
-fn do_compressed_addi4_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_addi4_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let slot = get_compressed_register(iter)?;
 
     let max_scaled_8bit_imm = 255 * 4;
 
-    let immediate = get_constant_restricted(iter, 0 ..= max_scaled_8bit_imm, true, Some(4))?;
+    let immediate = get_constant_restricted(iter, 0..=max_scaled_8bit_imm, true, Some(4))?;
 
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rd_small(slot)
@@ -685,7 +700,10 @@ fn do_compressed_addi4_instruction(op: &CompressedOpcode, iter: &mut TokenCursor
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_load_word_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_load_word_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_compressed_register(iter)?;
     let offset = get_compressed_offset(iter)?;
 
@@ -698,7 +716,10 @@ fn do_compressed_load_word_instruction(op: &CompressedOpcode, iter: &mut TokenCu
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_store_word_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_store_word_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let source = get_compressed_register(iter)?;
     let offset = get_compressed_offset(iter)?;
 
@@ -711,18 +732,23 @@ fn do_compressed_store_word_instruction(op: &CompressedOpcode, iter: &mut TokenC
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_single_instruction(op: &CompressedOpcode, _iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_single_instruction(
+    op: &CompressedOpcode,
+    _iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     // No params.
 
-    let inst = CompressedInstructionBuilder::from_op(op)
-        .0;
+    let inst = CompressedInstructionBuilder::from_op(op).0;
 
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_assign_immediate_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_assign_immediate_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
-    let immediate = get_constant_restricted(iter, -0x20 ..= 0x1f, true, None)?;
+    let immediate = get_constant_restricted(iter, -0x20..=0x1f, true, None)?;
 
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rd(dest)
@@ -732,29 +758,38 @@ fn do_compressed_assign_immediate_instruction(op: &CompressedOpcode, iter: &mut 
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_jump_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_jump_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let label = get_label(iter)?;
 
-    let inst = CompressedInstructionBuilder::from_op(op)
-        .0;
+    let inst = CompressedInstructionBuilder::from_op(op).0;
 
-    let instructions = vec![
-        (Compressed(inst), Some(InstructionLabel { label, kind: CompressedJump }))
-    ];
+    let instructions = vec![(
+        Compressed(inst),
+        Some(InstructionLabel {
+            label,
+            kind: CompressedJump,
+        }),
+    )];
 
     Ok(EmitInstruction { instructions })
 }
 
-fn do_compressed_addi16_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_addi16_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let min_6_bit_scaled = -0x20 * 16;
     let max_6_bit_scaled = 0x1f * 16;
-    let range = min_6_bit_scaled ..= max_6_bit_scaled;
+    let range = min_6_bit_scaled..=max_6_bit_scaled;
 
     let immediate = get_constant_restricted(iter, range, true, Some(16))?;
 
     // part of the encoding of addi16sp - done by op
     // .with_rd(RegisterSlot::StackPointer)
-    
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_imm_540((immediate / 16) as i8)
         .0;
@@ -762,10 +797,15 @@ fn do_compressed_addi16_instruction(op: &CompressedOpcode, iter: &mut TokenCurso
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_lui_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
-    let dest = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero | RegisterSlot::StackPointer))?;
-    let immediate = get_constant_restricted(iter, -0x20 ..= 0x1f, true, None)?;
-    
+fn do_compressed_lui_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
+    let dest = get_register_restricted(iter, |slot| {
+        !matches!(slot, RegisterSlot::Zero | RegisterSlot::StackPointer)
+    })?;
+    let immediate = get_constant_restricted(iter, -0x20..=0x1f, true, None)?;
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rd(dest)
         .with_imm_540(immediate as i8) // no division necessary
@@ -774,11 +814,14 @@ fn do_compressed_lui_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) 
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_shift_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_shift_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_compressed_register(iter)?;
     // 32-bit restricts sham to be unsigned 5-bit
-    let immediate = get_constant_in_range(iter, 0 ..= 31)?;
-    
+    let immediate = get_constant_in_range(iter, 0..=31)?;
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rs1_small(dest)
         .with_sham(immediate as u8)
@@ -787,10 +830,13 @@ fn do_compressed_shift_instruction(op: &CompressedOpcode, iter: &mut TokenCursor
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_shift_extended_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_shift_extended_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register(iter)?;
     // 32-bit restricts sham to be unsigned 5-bit
-    let immediate = get_constant_restricted(iter, 0 ..= 31, true, None)?;
+    let immediate = get_constant_restricted(iter, 0..=31, true, None)?;
 
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rd(dest)
@@ -800,11 +846,14 @@ fn do_compressed_shift_extended_instruction(op: &CompressedOpcode, iter: &mut To
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_bit_immediate_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_bit_immediate_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_compressed_register(iter)?;
     // signed 6-bit immediate
-    let immediate = get_constant_in_range(iter, -0x20 ..= 0x1f)?;
-    
+    let immediate = get_constant_in_range(iter, -0x20..=0x1f)?;
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rs1_small(dest)
         .with_imm_540(immediate as i8)
@@ -813,7 +862,10 @@ fn do_compressed_bit_immediate_instruction(op: &CompressedOpcode, iter: &mut Tok
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_small_regs_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_small_regs_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_compressed_register(iter)?;
     let source = get_compressed_register(iter)?;
 
@@ -821,36 +873,47 @@ fn do_compressed_small_regs_instruction(op: &CompressedOpcode, iter: &mut TokenC
         .with_rs1_small(dest)
         .with_rs2_small(source)
         .0;
-    
+
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_branch_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_branch_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let source = get_compressed_register(iter)?;
     let label = get_label(iter)?;
-    
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rs1_small(source)
         .0;
-    
-    let instructions = vec![
-        (Compressed(inst), Some(InstructionLabel { label, kind: CompressedBranch }))
-    ];
+
+    let instructions = vec![(
+        Compressed(inst),
+        Some(InstructionLabel {
+            label,
+            kind: CompressedBranch,
+        }),
+    )];
 
     Ok(EmitInstruction { instructions })
 }
 
-fn do_compressed_only_register_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_only_register_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
-    
-    let inst = CompressedInstructionBuilder::from_op(op)
-        .with_rs1(source)
-        .0;
-    
+
+    let inst = CompressedInstructionBuilder::from_op(op).with_rs1(source).0;
+
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_double_register_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_double_register_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
     let source = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
 
@@ -858,16 +921,19 @@ fn do_compressed_double_register_instruction(op: &CompressedOpcode, iter: &mut T
         .with_rd(dest)
         .with_rs2(source)
         .0;
-    
+
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_load_word_sp_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_load_word_sp_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let dest = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
-    
+
     let max_6_bit_scaled = 0x3f * 4; // unsigned
-    let immediate = get_constant_restricted(iter, 0 ..= max_6_bit_scaled, false, Some(4))?;
-    
+    let immediate = get_constant_restricted(iter, 0..=max_6_bit_scaled, false, Some(4))?;
+
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rd(dest)
         .with_uimm_54276((immediate / 4) as u8)
@@ -876,11 +942,14 @@ fn do_compressed_load_word_sp_instruction(op: &CompressedOpcode, iter: &mut Toke
     Ok(EmitInstruction::with_compressed(inst))
 }
 
-fn do_compressed_store_word_sp_instruction(op: &CompressedOpcode, iter: &mut TokenCursor) -> Result<EmitInstruction, AssemblerError> {
+fn do_compressed_store_word_sp_instruction(
+    op: &CompressedOpcode,
+    iter: &mut TokenCursor,
+) -> Result<EmitInstruction, AssemblerError> {
     let source = get_register_restricted(iter, |slot| !matches!(slot, RegisterSlot::Zero))?;
 
     let max_6_bit_scaled = 0x3f * 4; // unsigned
-    let immediate = get_constant_restricted(iter, 0 ..= max_6_bit_scaled, false, Some(4))?;
+    let immediate = get_constant_restricted(iter, 0..=max_6_bit_scaled, false, Some(4))?;
 
     let inst = CompressedInstructionBuilder::from_op(op)
         .with_rs2(source)
@@ -980,17 +1049,27 @@ fn dispatch_instruction(
         Encoding::CompressedLoadWord { op } => do_compressed_load_word_instruction(op, iter),
         Encoding::CompressedStoreWord { op } => do_compressed_store_word_instruction(op, iter),
         Encoding::CompressedSingle { op } => do_compressed_single_instruction(op, iter),
-        Encoding::CompressedAssignImmediate { op } => do_compressed_assign_immediate_instruction(op, iter),
+        Encoding::CompressedAssignImmediate { op } => {
+            do_compressed_assign_immediate_instruction(op, iter)
+        }
         Encoding::CompressedJump { op } => do_compressed_jump_instruction(op, iter),
         Encoding::CompressedAddi16 { op } => do_compressed_addi16_instruction(op, iter),
         Encoding::CompressedLui { op } => do_compressed_lui_instruction(op, iter),
         Encoding::CompressedShift { op } => do_compressed_shift_instruction(op, iter),
-        Encoding::CompressedShiftExtended { op } => do_compressed_shift_extended_instruction(op, iter),
-        Encoding::CompressedBitImmediate { op } => do_compressed_bit_immediate_instruction(op, iter),
+        Encoding::CompressedShiftExtended { op } => {
+            do_compressed_shift_extended_instruction(op, iter)
+        }
+        Encoding::CompressedBitImmediate { op } => {
+            do_compressed_bit_immediate_instruction(op, iter)
+        }
         Encoding::CompressedSmallRegs { op } => do_compressed_small_regs_instruction(op, iter),
         Encoding::CompressedBranch { op } => do_compressed_branch_instruction(op, iter),
-        Encoding::CompressedOnlyRegister { op } => do_compressed_only_register_instruction(op, iter),
-        Encoding::CompressedDoubleRegister { op } => do_compressed_double_register_instruction(op, iter),
+        Encoding::CompressedOnlyRegister { op } => {
+            do_compressed_only_register_instruction(op, iter)
+        }
+        Encoding::CompressedDoubleRegister { op } => {
+            do_compressed_double_register_instruction(op, iter)
+        }
         Encoding::CompressedLoadWordSp { op } => do_compressed_load_word_sp_instruction(op, iter),
         Encoding::CompressedStoreWordSp { op } => do_compressed_store_word_sp_instruction(op, iter),
     }?;

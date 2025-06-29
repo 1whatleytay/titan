@@ -1,12 +1,14 @@
 use num::FromPrimitive;
-pub use titan_shared::assembler::lexer::Location;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::ptr;
 use std::str::FromStr;
-use SymbolName::Owned;
-use titan_shared::assembler::lexer::{is_hard, numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral};
+pub use titan_shared::assembler::lexer::Location;
+use titan_shared::assembler::lexer::{
+    is_hard, numeric_literal, string_body, take_name, take_space, take_split, NumericLiteral,
+};
 use titan_shared::assembler::source::{LexerProvider, TokenProvider};
+use SymbolName::Owned;
 use TokenKind::{Minus, Plus};
 
 use crate::assembler::lexer::LexerReason::{
@@ -28,9 +30,9 @@ pub enum SymbolName<'a> {
 }
 
 // Temporary Trait Alias
-pub trait MipsTokenProvider<'a> : TokenProvider<Token<'a>, LexerError> { }
+pub trait MipsTokenProvider<'a>: TokenProvider<Token<'a>, LexerError> {}
 
-impl<'a, T: TokenProvider<Token<'a>, LexerError>> MipsTokenProvider<'a> for T { }
+impl<'a, T: TokenProvider<Token<'a>, LexerError>> MipsTokenProvider<'a> for T {}
 
 impl<'a> SymbolName<'a> {
     pub fn get<'b: 'a>(&'b self) -> &'b str {
@@ -175,7 +177,6 @@ impl Display for LexerError {
 }
 
 impl Error for LexerError {}
-
 
 fn lex_item(input: &str) -> Result<Option<(&str, TokenKind)>, LexerReason> {
     let input = take_space(input);

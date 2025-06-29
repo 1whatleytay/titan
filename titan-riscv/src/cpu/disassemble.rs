@@ -1,6 +1,8 @@
 use crate::cpu::decoder::Decoder;
 use titan_shared::cpu::disassemble::LabelProvider;
-use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult, InspectionReadStrategy};
+use titan_shared::execution::elf::inspection::{
+    InspectionDisassembler, InspectionDisassemblerResult, InspectionReadStrategy,
+};
 
 fn jump_dest(pc: u32, imm: i32) -> u32 {
     (pc as i32).wrapping_add(imm << 1) as u32
@@ -162,15 +164,30 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn xori(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> String {
-        format!("xori {}, {}, {}", reg(rd), reg(rs1), imm_normal as i32 as u32)
+        format!(
+            "xori {}, {}, {}",
+            reg(rd),
+            reg(rs1),
+            imm_normal as i32 as u32
+        )
     }
 
     fn ori(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> String {
-        format!("ori {}, {}, {}", reg(rd), reg(rs1), imm_normal as i32 as u32)
+        format!(
+            "ori {}, {}, {}",
+            reg(rd),
+            reg(rs1),
+            imm_normal as i32 as u32
+        )
     }
 
     fn andi(&mut self, rd: u8, rs1: u8, imm_normal: i16) -> String {
-        format!("andi {}, {}, {:#X}", reg(rd), reg(rs1), imm_normal as i32 as u32)
+        format!(
+            "andi {}, {}, {:#X}",
+            reg(rd),
+            reg(rs1),
+            imm_normal as i32 as u32
+        )
     }
 
     fn sb(&mut self, rs1: u8, rs2: u8, imm_store: i16) -> String {
@@ -292,11 +309,21 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn c_lw(&mut self, rd_small: u8, rs1_small: u8, uimm_5326: u8) -> String {
-        format!("c.lw {}, {}({})", reg_small(rd_small), uns((uimm_5326 as u32) << 2), reg_small(rs1_small))
+        format!(
+            "c.lw {}, {}({})",
+            reg_small(rd_small),
+            uns((uimm_5326 as u32) << 2),
+            reg_small(rs1_small)
+        )
     }
 
     fn c_sw(&mut self, rs1_small: u8, rs2_small: u8, uimm_5326: u8) -> String {
-        format!("c.sw {}, {}({})", reg_small(rs2_small), uns((uimm_5326 as u32) << 2), reg_small(rs1_small))
+        format!(
+            "c.sw {}, {}({})",
+            reg_small(rs2_small),
+            uns((uimm_5326 as u32) << 2),
+            reg_small(rs1_small)
+        )
     }
 
     fn c_j(&mut self, imm_jump: i16) -> String {
@@ -348,7 +375,11 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
     }
 
     fn c_addi4spn(&mut self, rd_small: u8, uimm_549623: u8) -> String {
-        format!("c.addi4spn {}, {}", reg_small(rd_small), uns((uimm_549623 as u32) << 2))
+        format!(
+            "c.addi4spn {}, {}",
+            reg_small(rd_small),
+            uns((uimm_549623 as u32) << 2)
+        )
     }
 
     fn c_slli(&mut self, rd: u8, sham: u8) -> String {
@@ -407,11 +438,13 @@ impl InspectionDisassembler for RiscVInspectionDisassembler {
         InspectionReadStrategy::ReadU32PadU16
     }
 
-    fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult> {
-        let mut disassembler = Disassembler {
-            pc,
-            labels,
-        };
+    fn disassemble(
+        &mut self,
+        pc: u32,
+        instruction: u32,
+        labels: &mut impl LabelProvider,
+    ) -> Option<InspectionDisassemblerResult> {
+        let mut disassembler = Disassembler { pc, labels };
 
         disassembler
             .dispatch(instruction)

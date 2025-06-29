@@ -67,7 +67,10 @@ pub struct FileProviderPool<Lexer> {
 }
 
 impl<Lexer> FileProviderPool<Lexer> {
-    pub fn new<'a, Token, LexerError>(lexer: Lexer) -> Self where Lexer: LexerProvider<'a, Token, LexerError> {
+    pub fn new<'a, Token, LexerError>(lexer: Lexer) -> Self
+    where
+        Lexer: LexerProvider<'a, Token, LexerError>,
+    {
         Self {
             lexer,
             arena: Arena::default(),
@@ -79,7 +82,10 @@ impl<Lexer> FileProviderPool<Lexer> {
         &'a self,
         source: String,
         path: Rc<PathBuf>,
-    ) -> Result<FileInfo<'a, Token, Lexer>, LexerError> where Lexer: LexerProvider<'a, Token, LexerError> {
+    ) -> Result<FileInfo<'a, Token, Lexer>, LexerError>
+    where
+        Lexer: LexerProvider<'a, Token, LexerError>,
+    {
         let (id, tokens) = {
             let source = Rc::new(source);
 
@@ -106,8 +112,12 @@ impl<Lexer> FileProviderPool<Lexer> {
     }
 
     pub fn provider<'a, Token, LexerError>(
-        &'a self, path: Rc<PathBuf>
-    ) -> Result<FileInfo<'a, Token, Lexer>, ExtendError<LexerError>> where Lexer: LexerProvider<'a, Token, LexerError> {
+        &'a self,
+        path: Rc<PathBuf>,
+    ) -> Result<FileInfo<'a, Token, Lexer>, ExtendError<LexerError>>
+    where
+        Lexer: LexerProvider<'a, Token, LexerError>,
+    {
         let source = fs::read_to_string(&*path)
             .map_err(|_| FailedToRead(path.to_string_lossy().to_string()))?;
 
@@ -139,7 +149,9 @@ pub struct FileProvider<'a, Token, Lexer> {
     history: HashSet<Rc<PathBuf>>,
 }
 
-impl<'a, Token, LexerError, Lexer: LexerProvider<'a, Token, LexerError>> TokenProvider<Token, LexerError> for FileProvider<'a, Token, Lexer> {
+impl<'a, Token, LexerError, Lexer: LexerProvider<'a, Token, LexerError>>
+    TokenProvider<Token, LexerError> for FileProvider<'a, Token, Lexer>
+{
     fn id(&self) -> usize {
         self.info.source
     }

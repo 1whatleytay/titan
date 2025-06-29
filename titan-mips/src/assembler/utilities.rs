@@ -1,14 +1,17 @@
-use crate::assembler::utilities::InstructionValue::{Literal, Slot};
-use crate::assembler::lexer::TokenKind::{Comma, Comment, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register, RightBrace, StringLiteral, Symbol};
+use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
+use crate::assembler::binary_builder::{AddressLabel, NamedLabel};
+use crate::assembler::lexer::TokenKind::{
+    Comma, Comment, FPRegister, FloatLiteral, IntegerLiteral, LeftBrace, NewLine, Plus, Register,
+    RightBrace, StringLiteral, Symbol,
+};
 use crate::assembler::lexer::{Location, StrippedKind, Token, TokenKind};
 use crate::assembler::registers::{FPRegisterSlot, RegisterSlot};
-use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
+use crate::assembler::utilities::InstructionValue::{Literal, Slot};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use titan_shared::assembler::binary::RawRegion;
+use titan_shared::assembler::cursor::{BaseTokenCursor, TokenCursorInsights};
 use TokenKind::Minus;
-use crate::assembler::binary_builder::{AddressLabel, NamedLabel};
-use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 
 pub fn is_solid_kind(kind: &TokenKind) -> bool {
     match kind {
@@ -25,7 +28,6 @@ pub fn is_adjacent_kind(kind: &TokenKind) -> bool {
         _ => true,
     }
 }
-
 
 pub fn is_solid(token: &Token) -> bool {
     is_solid_kind(&token.kind)

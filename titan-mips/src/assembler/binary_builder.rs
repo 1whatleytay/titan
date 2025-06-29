@@ -1,17 +1,17 @@
+use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
+use crate::assembler::binary_builder::BinarySection::Text;
+use crate::assembler::lexer::Location;
 use crate::assembler::utilities::AssemblerError;
 use crate::assembler::utilities::AssemblerReason::{
     JumpOutOfRange, MissingInstruction, UnknownLabel,
 };
-use titan_shared::assembler::binary::{
-    Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
-};
-use crate::assembler::binary_builder::BinarySection::Text;
-use crate::assembler::lexer::Location;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
 use std::io::Cursor;
+use titan_shared::assembler::binary::{
+    Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
+};
 use titan_shared::elf::header::InstructionSet;
-use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 
 #[derive(Clone, Debug)]
 pub struct NamedLabel {

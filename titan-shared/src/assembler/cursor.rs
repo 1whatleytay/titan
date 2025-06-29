@@ -7,12 +7,18 @@ pub trait TokenCursorInsights<'b, Token> {
 pub struct BaseTokenCursor<'b, Token, TokenInsights: TokenCursorInsights<'b, Token>> {
     index: usize,
     tokens: &'b [Token],
-    insights: Rc<TokenInsights>
+    insights: Rc<TokenInsights>,
 }
 
-impl<'b, Token, TokenInsights: TokenCursorInsights<'b, Token>> BaseTokenCursor<'b, Token, TokenInsights> {
+impl<'b, Token, TokenInsights: TokenCursorInsights<'b, Token>>
+    BaseTokenCursor<'b, Token, TokenInsights>
+{
     pub fn new(tokens: &'b [Token], insights: TokenInsights) -> Self {
-        BaseTokenCursor { index: 0, tokens, insights: Rc::new(insights) }
+        BaseTokenCursor {
+            index: 0,
+            tokens,
+            insights: Rc::new(insights),
+        }
     }
 
     pub fn get_position(&self) -> usize {

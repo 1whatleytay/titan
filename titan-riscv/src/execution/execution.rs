@@ -1,10 +1,10 @@
-use titan_shared::cpu::Memory;
-use titan_shared::execution::executor::ExecutableState;
-use WhichRegister::Pc;
-use crate::cpu::{Registers, State};
 use crate::cpu::registers::WhichRegister;
-use titan_shared::cpu::error::Result;
 use crate::cpu::registers::registers::RawRegisters;
+use crate::cpu::{Registers, State};
+use WhichRegister::Pc;
+use titan_shared::cpu::Memory;
+use titan_shared::cpu::error::Result;
+use titan_shared::execution::executor::ExecutableState;
 
 impl<Mem: Memory, Reg: Registers> ExecutableState<RawRegisters, Mem> for State<Mem, Reg> {
     fn pc(&self) -> u32 {

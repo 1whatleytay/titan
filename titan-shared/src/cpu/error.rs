@@ -26,7 +26,10 @@ impl Display for Error {
                     MemoryAlignment::Word => 4,
                 };
 
-                write!(f, "Address 0x{address:08x} is not aligned for this instruction (ensure it is a multiple of {align}).")
+                write!(
+                    f,
+                    "Address 0x{address:08x} is not aligned for this instruction (ensure it is a multiple of {align})."
+                )
             }
             Error::MemoryUnmapped(address) => {
                 write!(
@@ -41,7 +44,9 @@ impl Display for Error {
                 f,
                 "The instruction was given invalid parameters (CPU Trap was thrown)."
             ),
-            Error::CpuSyscall(bytes) => write!(f, "CPU Syscall was not handled ({bytes} instruction)"),
+            Error::CpuSyscall(bytes) => {
+                write!(f, "CPU Syscall was not handled ({bytes} instruction)")
+            }
             Error::CpuBreak => write!(f, "CPU Breakport was not handled"),
         }
     }

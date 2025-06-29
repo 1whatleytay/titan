@@ -1,7 +1,7 @@
 use crate::cpu::disassemble::LabelProvider;
+use crate::elf::Elf;
 use crate::elf::header::{BinaryType, Endian};
 use crate::elf::program::{ProgramHeader, ProgramHeaderFlags, ProgramHeaderType};
-use crate::elf::Elf;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
@@ -47,7 +47,7 @@ pub struct InspectionDisassemblerResult {
 }
 
 pub enum InspectionReadStrategy {
-    ReadU32Only, // MIPS
+    ReadU32Only,   // MIPS
     ReadU32PadU16, // RISC-V with C-Extension
 }
 
@@ -56,7 +56,12 @@ pub trait InspectionDisassembler {
         InspectionReadStrategy::ReadU32Only
     }
 
-    fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult>;
+    fn disassemble(
+        &mut self,
+        pc: u32,
+        instruction: u32,
+        labels: &mut impl LabelProvider,
+    ) -> Option<InspectionDisassemblerResult>;
 }
 
 impl Inspection {
@@ -71,11 +76,7 @@ impl Inspection {
             .iter()
             .map(
                 |(key, value)| {
-                    if flags.contains(*key) {
-                        value
-                    } else {
-                        "-"
-                    }
+                    if flags.contains(*key) { value } else { "-" }
                 },
             )
             .fold("".to_string(), |a, b| format!("{a}{b}"))
@@ -146,7 +147,12 @@ impl Inspection {
     }
 
     // Assumption: Every instruction is the same size.
-    fn disassemble<T: InspectionDisassembler>(address: u32, data: &Vec<u8>, disassembler: &mut T, labels: &mut impl LabelProvider) -> Vec<(String, u32)> {
+    fn disassemble<T: InspectionDisassembler>(
+        address: u32,
+        data: &Vec<u8>,
+        disassembler: &mut T,
+        labels: &mut impl LabelProvider,
+    ) -> Vec<(String, u32)> {
         let mut result = vec![];
 
         let mut pc = address;
@@ -157,31 +163,32 @@ impl Inspection {
             match T::read_strategy() {
                 InspectionReadStrategy::ReadU32Only => {
                     if index as usize + 4 <= data.len() {
-                        Cursor::new(&data[index as usize..]).read_u32::<LittleEndian>().ok()
+                        Cursor::new(&data[index as usize..])
+                            .read_u32::<LittleEndian>()
+                            .ok()
                     } else {
                         None
                     }
-                },
+                }
                 InspectionReadStrategy::ReadU32PadU16 => {
                     if index as usize + 4 <= data.len() {
-                        Cursor::new(&data[index as usize..]).read_u32::<LittleEndian>().ok()
+                        Cursor::new(&data[index as usize..])
+                            .read_u32::<LittleEndian>()
+                            .ok()
                     } else if index as usize + 2 <= data.len() {
-                        Cursor::new(&data[index as usize..]).read_u16::<LittleEndian>()
+                        Cursor::new(&data[index as usize..])
+                            .read_u16::<LittleEndian>()
                             .map(|x| x as u32)
                             .ok()
                     } else {
                         None
                     }
-                },
+                }
             }
         } {
-            let line = disassembler
-                .disassemble(pc, instruction, labels);
+            let line = disassembler.disassemble(pc, instruction, labels);
 
-            let next_pc = line
-                .as_ref()
-                .map(|result| result.next_pc)
-                .unwrap_or(pc + 4);
+            let next_pc = line.as_ref().map(|result| result.next_pc).unwrap_or(pc + 4);
 
             let text = line
                 .map(|result| result.line)
@@ -195,7 +202,11 @@ impl Inspection {
         result
     }
 
-    pub fn new(named: Option<&str>, elf: &Elf, disassembler: &mut impl InspectionDisassembler) -> Inspection {
+    pub fn new(
+        named: Option<&str>,
+        elf: &Elf,
+        disassembler: &mut impl InspectionDisassembler,
+    ) -> Inspection {
         let mut lines: Vec<String> = Inspection::description(named, elf)
             .iter()
             .map(|text| format!("# {text}"))
@@ -212,7 +223,12 @@ impl Inspection {
             .map(|head| {
                 (
                     head,
-                    Inspection::disassemble(head.virtual_address, &head.data, disassembler, &mut manager),
+                    Inspection::disassemble(
+                        head.virtual_address,
+                        &head.data,
+                        disassembler,
+                        &mut manager,
+                    ),
                 )
             })
             .collect();

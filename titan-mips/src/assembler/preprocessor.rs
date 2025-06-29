@@ -1,3 +1,4 @@
+use crate::assembler::lexer::MipsTokenProvider as TokenProvider;
 use crate::assembler::lexer::SymbolName::Owned;
 use crate::assembler::lexer::TokenKind::{
     Colon, Directive, LeftBrace, NewLine, Parameter, RightBrace, Symbol,
@@ -8,14 +9,13 @@ use crate::assembler::preprocessor::PreprocessorReason::{
     ExpectedSymbol, FailedToFindFile, FailedToLexFile, IncludeUnsupported, MacroParameterCount,
     MacroUnknownParameter, RecursiveExpansion, RecursiveInclude,
 };
-use crate::assembler::lexer::MipsTokenProvider as TokenProvider;
-use titan_shared::assembler::source::ExtendError;
+use crate::assembler::utilities::{is_adjacent, TokenCursor, TokenInsights};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use titan_shared::assembler::source::ExtendError;
 use PreprocessorReason::NoFilePathAssociated;
-use crate::assembler::utilities::{is_adjacent, TokenCursor, TokenInsights};
 
 #[derive(Debug)]
 pub enum PreprocessorReason {

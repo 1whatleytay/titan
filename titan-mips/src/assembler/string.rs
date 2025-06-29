@@ -1,14 +1,14 @@
-use crate::assembler::utilities::AssemblerError;
-use titan_shared::assembler::binary::Binary;
 use crate::assembler::core::assemble;
 use crate::assembler::instructions::INSTRUCTIONS;
 use crate::assembler::lexer::{lex, LexerError, Location, MipsLexerProvider};
 use crate::assembler::preprocessor::{preprocess, PreprocessorError};
-use titan_shared::assembler::source::{FileProviderPool, HoldingProvider};
 use crate::assembler::string::SourceError::{Assembler, Lexer, Preprocessor};
+use crate::assembler::utilities::AssemblerError;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::PathBuf;
+use titan_shared::assembler::binary::Binary;
+use titan_shared::assembler::source::{FileProviderPool, HoldingProvider};
 
 #[derive(Debug)]
 pub enum SourceError {

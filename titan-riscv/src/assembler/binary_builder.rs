@@ -1,6 +1,10 @@
 use crate::assembler::binary_builder::AddressLabel::{Constant, Label};
 use crate::assembler::binary_builder::BinarySection::Text;
-use crate::assembler::instruction_builder::{CompressedInstructionBuilder, InstructionBuilder, SplitImmediate};
+use crate::assembler::emit::InstructionKind;
+use crate::assembler::emit::InstructionKind::{Base, Compressed};
+use crate::assembler::instruction_builder::{
+    CompressedInstructionBuilder, InstructionBuilder, SplitImmediate,
+};
 use crate::assembler::lexer::Location;
 use crate::assembler::utilities::AssemblerError;
 use crate::assembler::utilities::AssemblerReason::{
@@ -13,8 +17,6 @@ use titan_shared::assembler::binary::{
     Binary, BinaryBreakpoint, BinarySection, RawRegion, RegionFlags,
 };
 use titan_shared::elf::header::InstructionSet;
-use crate::assembler::emit::InstructionKind;
-use crate::assembler::emit::InstructionKind::{Base, Compressed};
 
 #[derive(Clone, Debug)]
 pub struct NamedLabel {
@@ -60,7 +62,7 @@ fn add_label(
     Ok(match label.kind {
         InstructionLabelKind::JumpAndLink => {
             let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
-            
+
             let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
 
             // we have 20 bits of signed immediate, hopefully this is right
@@ -68,11 +70,15 @@ fn add_label(
                 return Err(make_out_of_range(destination));
             }
 
-            Base(InstructionBuilder(instruction).with_jal_imm(immediate as i32).0)
+            Base(
+                InstructionBuilder(instruction)
+                    .with_jal_imm(immediate as i32)
+                    .0,
+            )
         }
         InstructionLabelKind::Branch => {
             let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
-            
+
             let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
 
             // we have 12 bits of signed immediate, hopefully this is right
@@ -83,48 +89,48 @@ fn add_label(
             let inst = InstructionBuilder(instruction)
                 .with_branch_imm(immediate as i16)
                 .0;
-            
+
             Base(inst)
         }
         InstructionLabelKind::Upper20 => {
             let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
-            
+
             let split = SplitImmediate::from_immediate(destination);
 
             let inst = InstructionBuilder(instruction)
                 .with_upper_imm(split.upper)
                 .0;
-            
+
             Base(inst)
         }
         InstructionLabelKind::Lower12 => {
             let instruction = cursor.read_u32::<LittleEndian>().map_err(|_| MISSING)?;
-            
+
             let split = SplitImmediate::from_immediate(destination);
 
             let inst = InstructionBuilder(instruction)
                 .with_normal_imm(split.lower)
                 .0;
-            
+
             Base(inst)
         }
         InstructionLabelKind::Full => Base(destination),
         InstructionLabelKind::CompressedBranch => {
             let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
-            
+
             let instruction = cursor.read_u16::<LittleEndian>().map_err(|_| MISSING)?;
 
             // Signed 8-bit Immediate Bounds
             if !(-0x80..=0x7f).contains(&immediate) {
                 return Err(make_out_of_range(destination));
             }
-            
+
             let inst = CompressedInstructionBuilder(instruction)
                 .with_branch_imm(immediate as i8)
                 .0;
-            
+
             Compressed(inst)
-        },
+        }
         InstructionLabelKind::CompressedJump => {
             let immediate = (destination as i64).wrapping_sub(pc as i64).wrapping_shr(1);
 
@@ -138,9 +144,9 @@ fn add_label(
             let inst = CompressedInstructionBuilder(instruction)
                 .with_jump_imm(immediate as i16)
                 .0;
-            
+
             Compressed(inst)
-        },
+        }
     })
 }
 
@@ -163,7 +169,7 @@ pub enum InstructionLabelKind {
     Upper20,
     Lower12,
     Full,
-    
+
     CompressedBranch,
     CompressedJump,
 }
@@ -273,7 +279,13 @@ impl BinaryBuilder {
 
                 let bytes = &raw.data[label.offset..];
 
-                let result = add_label(&mut Cursor::new(bytes), pc, label.location, label.label, &self.labels)?;
+                let result = add_label(
+                    &mut Cursor::new(bytes),
+                    pc,
+                    label.location,
+                    label.label,
+                    &self.labels,
+                )?;
 
                 let mut_bytes = &mut raw.data[label.offset..];
 
@@ -281,7 +293,7 @@ impl BinaryBuilder {
                     Base(value) => Cursor::new(mut_bytes).write_u32::<LittleEndian>(value),
                     Compressed(value) => Cursor::new(mut_bytes).write_u16::<LittleEndian>(value),
                 };
-                
+
                 if err.is_err() {
                     return Err(MISSING);
                 }

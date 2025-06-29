@@ -1,7 +1,9 @@
 use crate::cpu::decoder::Decoder;
 use num_traits::abs;
 use titan_shared::cpu::disassemble::LabelProvider;
-use titan_shared::execution::elf::inspection::{InspectionDisassembler, InspectionDisassemblerResult};
+use titan_shared::execution::elf::inspection::{
+    InspectionDisassembler, InspectionDisassemblerResult,
+};
 
 fn jump_dest(pc: u32, imm: u32) -> u32 {
     ((pc + 4) & 0xFC000000) | (imm << 2)
@@ -555,11 +557,13 @@ impl<Provider: LabelProvider> Decoder<String> for Disassembler<Provider> {
 pub struct MipsInspectionDisassembler;
 
 impl InspectionDisassembler for MipsInspectionDisassembler {
-    fn disassemble(&mut self, pc: u32, instruction: u32, labels: &mut impl LabelProvider) -> Option<InspectionDisassemblerResult> {
-        let mut disassembler = Disassembler {
-            pc,
-            labels,
-        };
+    fn disassemble(
+        &mut self,
+        pc: u32,
+        instruction: u32,
+        labels: &mut impl LabelProvider,
+    ) -> Option<InspectionDisassemblerResult> {
+        let mut disassembler = Disassembler { pc, labels };
 
         disassembler
             .dispatch(instruction)

@@ -1,6 +1,6 @@
-use num::ToPrimitive;
 use crate::assembler::registers::RegisterSlot;
 use crate::cpu::decoder::InstructionSize;
+use num::ToPrimitive;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WhichRegister {

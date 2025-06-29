@@ -1,9 +1,9 @@
+use crate::elf::Header;
 use crate::elf::error::Result;
 use crate::elf::header::HeaderDetails;
 use crate::elf::landmark::Landmark::{Count, Data, Start};
 use crate::elf::landmark::Landmarks;
 use crate::elf::program::ProgramHeader;
-use crate::elf::Header;
 use std::io::SeekFrom;
 use std::io::{Read, Seek, Write};
 

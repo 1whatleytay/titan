@@ -11,7 +11,7 @@ pub fn sign_extend<
         + WrappingShr<Output = T>
         + BitAnd<Output = T>
         + BitOr<Output = T>
-        + Not<Output = T>
+        + Not<Output = T>,
 >(
     value: T,
     bit_size: u32,

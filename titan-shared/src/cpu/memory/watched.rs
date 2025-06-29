@@ -1,7 +1,7 @@
+use crate::cpu::Memory;
 use crate::cpu::error::Result;
 use crate::cpu::memory::watched::BackupValue::{Byte, Null, Short, Word};
 use crate::cpu::memory::{Mountable, Region};
-use crate::cpu::Memory;
 use smallvec::SmallVec;
 
 #[derive(Clone)]

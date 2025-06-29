@@ -1,10 +1,7 @@
 use crate::cpu::error::Result;
 
 pub fn dispatch_get_u16<F: FnMut(u32) -> Result<u8>>(mut fetch: F, address: u32) -> Result<u16> {
-    Ok(u16::from_le_bytes([
-        fetch(address)?,
-        fetch(address + 1)?,
-    ]))
+    Ok(u16::from_le_bytes([fetch(address)?, fetch(address + 1)?]))
 }
 
 pub fn dispatch_get_u32<F: FnMut(u32) -> Result<u8>>(mut fetch: F, address: u32) -> Result<u32> {
@@ -16,14 +13,22 @@ pub fn dispatch_get_u32<F: FnMut(u32) -> Result<u8>>(mut fetch: F, address: u32)
     ]))
 }
 
-pub fn dispatch_set_u16<F: FnMut(u32, u8) -> Result<()>>(mut set: F, address: u32, value: u16) -> Result<()> {
+pub fn dispatch_set_u16<F: FnMut(u32, u8) -> Result<()>>(
+    mut set: F,
+    address: u32,
+    value: u16,
+) -> Result<()> {
     let bytes = value.to_le_bytes();
 
     set(address, bytes[0])?;
     set(address + 1, bytes[1])
 }
 
-pub fn dispatch_set_u32<F: FnMut(u32, u8) -> Result<()>>(mut set: F, address: u32, value: u32) -> Result<()> {
+pub fn dispatch_set_u32<F: FnMut(u32, u8) -> Result<()>>(
+    mut set: F,
+    address: u32,
+    value: u32,
+) -> Result<()> {
     let bytes = value.to_le_bytes();
 
     set(address, bytes[0])?;

@@ -1,6 +1,6 @@
-use smallvec::SmallVec;
 use crate::cpu::decoder::InstructionSize;
-use crate::cpu::registers::registers::{Registers, RawRegisters, WhichRegister};
+use crate::cpu::registers::registers::{RawRegisters, Registers, WhichRegister};
+use smallvec::SmallVec;
 
 pub const REGISTER_LOG_SIZE: usize = 1;
 
@@ -36,7 +36,8 @@ impl Registers for WatchedRegisters {
     fn step_pc(&mut self, size: InstructionSize) {
         // If we aren't just using a typical regular jump, our back step will be different.
         if !matches!(size, InstructionSize::Regular) {
-            self.log.push(RegisterEntry(WhichRegister::Pc, self.backing.pc))
+            self.log
+                .push(RegisterEntry(WhichRegister::Pc, self.backing.pc))
         }
 
         self.backing.step_pc(size);

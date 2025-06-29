@@ -61,7 +61,7 @@ pub enum AssemblerReason {
     ExpectedNewline(StrippedKind),
     ExpectedLeftBrace(StrippedKind),
     ExpectedRightBrace(StrippedKind),
-    ConstantOutOfRange(i64, i64),    // start, end
+    ConstantOutOfRange(i64, i64), // start, end
     ConstantMustBeNonZero,
     ConstantMustBeMultipleOf(u64),
     OverwriteEdge(u32, Option<u64>), // pc, count
@@ -88,10 +88,16 @@ impl Display for AssemblerReason {
                 write!(f, "Expected a register, but found {kind}")
             }
             AssemblerReason::CompressedRegisterOnly => {
-                write!(f, "This instruction only accepts compressed registers (one of x8-x15, s0-s1, a0-a5)")
+                write!(
+                    f,
+                    "This instruction only accepts compressed registers (one of x8-x15, s0-s1, a0-a5)"
+                )
             }
             AssemblerReason::InvalidRegisterUsed => {
-                write!(f, "This instruction does not allow this register due to an encoding restriction")
+                write!(
+                    f,
+                    "This instruction does not allow this register due to an encoding restriction"
+                )
             }
             AssemblerReason::ExpectedConstant(kind) => {
                 write!(f, "Expected an integer, but found {kind}")
@@ -116,7 +122,10 @@ impl Display for AssemblerReason {
                 write!(f, "Constant must be non-zero for this instruction")
             }
             AssemblerReason::ConstantMustBeMultipleOf(multiple) => {
-                write!(f, "Constant must be a multiple of {multiple} for this instruction")
+                write!(
+                    f,
+                    "Constant must be a multiple of {multiple} for this instruction"
+                )
             }
             AssemblerReason::OverwriteEdge(pc, count) => write!(
                 f,
@@ -211,17 +220,17 @@ pub fn get_register(iter: &mut TokenCursor) -> Result<RegisterSlot, AssemblerErr
     }
 }
 
-pub fn get_register_restricted(iter: &mut TokenCursor, check: impl FnOnce(RegisterSlot) -> bool) -> Result<RegisterSlot, AssemblerError> {
+pub fn get_register_restricted(
+    iter: &mut TokenCursor,
+    check: impl FnOnce(RegisterSlot) -> bool,
+) -> Result<RegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Register(slot) = token.kind {
         if check(slot) {
             Ok(slot)
         } else {
-            Err(default_error(
-                AssemblerReason::InvalidRegisterUsed,
-                token,
-            ))
+            Err(default_error(AssemblerReason::InvalidRegisterUsed, token))
         }
     } else {
         Err(default_error(
@@ -231,7 +240,9 @@ pub fn get_register_restricted(iter: &mut TokenCursor, check: impl FnOnce(Regist
     }
 }
 
-pub fn get_compressed_register(iter: &mut TokenCursor) -> Result<CompressedRegisterSlot, AssemblerError> {
+pub fn get_compressed_register(
+    iter: &mut TokenCursor,
+) -> Result<CompressedRegisterSlot, AssemblerError> {
     let token = get_token(iter)?;
 
     if let Register(slot) = token.kind {
@@ -416,10 +427,7 @@ pub fn get_constant_restricted(
                 token,
             ))
         } else if non_zero && value == 0 {
-            Err(default_error(
-                AssemblerReason::ConstantMustBeNonZero,
-                token,
-            ))
+            Err(default_error(AssemblerReason::ConstantMustBeNonZero, token))
         } else if let Some(multiple) = multiple_of {
             if value % multiple != 0 {
                 Err(default_error(
@@ -528,8 +536,8 @@ pub fn get_offset(iter: &mut TokenCursor) -> Result<Offset, AssemblerError> {
 
 pub fn get_compressed_offset(iter: &mut TokenCursor) -> Result<CompressedOffset, AssemblerError> {
     let max_imm_scaled = 0x1f * 4; // max value for 5 bit unsigned imm = 0x1f
-    
-    let immediate = get_constant_restricted(iter, 0 ..= max_imm_scaled, false, Some(4))? as u8;
+
+    let immediate = get_constant_restricted(iter, 0..=max_imm_scaled, false, Some(4))? as u8;
 
     let left_brace = get_token(iter)?;
 

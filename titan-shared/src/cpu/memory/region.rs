@@ -1,7 +1,7 @@
+use crate::cpu::Memory;
 use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
 use crate::cpu::error::{MemoryAlignment, Result};
 use crate::cpu::memory::{Mountable, Region};
-use crate::cpu::Memory;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 impl Region {

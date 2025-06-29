@@ -1,9 +1,9 @@
 use crate::assembler::binary::BinarySection::{Data, KernelData, KernelText, Text};
 use crate::assembler::lexer::Location;
+use crate::elf::header::InstructionSet;
 use bitflags::bitflags;
 use std::collections::HashMap;
 use std::hash::Hash;
-use crate::elf::header::InstructionSet;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum BinarySection {

@@ -1,11 +1,13 @@
+use crate::cpu::Memory;
 use crate::cpu::error::Error::{MemoryAlign, MemoryUnmapped};
 use crate::cpu::error::{MemoryAlignment, Result};
+use crate::cpu::memory::memory::{
+    dispatch_get_u16, dispatch_get_u32, dispatch_set_u16, dispatch_set_u32,
+};
 use crate::cpu::memory::section::Section::{Data, Empty, Writable};
 use crate::cpu::memory::{Mountable, Region};
-use crate::cpu::Memory;
-use std::fmt::{Debug, Formatter};
 use Section::Listen;
-use crate::cpu::memory::memory::{dispatch_get_u16, dispatch_get_u32, dispatch_set_u16, dispatch_set_u32};
+use std::fmt::{Debug, Formatter};
 
 const SECTION_SELECTOR_START: u32 = 16;
 
@@ -79,7 +81,7 @@ impl<T: ListenResponder + Clone> Clone for SectionMemory<T> {
 
         SectionMemory {
             alignment_behaviour: self.alignment_behaviour,
-            sections
+            sections,
         }
     }
 }
@@ -93,7 +95,10 @@ impl<T: ListenResponder> SectionMemory<T> {
             .try_into()
             .unwrap();
 
-        SectionMemory { sections, alignment_behaviour }
+        SectionMemory {
+            sections,
+            alignment_behaviour,
+        }
     }
 
     pub fn new() -> SectionMemory<T> {
@@ -187,11 +192,11 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
     fn get_u16(&self, address: u32) -> Result<u16> {
         if address % 2 != 0 {
             return match self.alignment_behaviour {
-                AlignmentBehaviour::ErrorOnAlign => Err(MemoryAlign(MemoryAlignment::Half, address)),
-                AlignmentBehaviour::SlowReadOnAlign => {
-                    dispatch_get_u16(|a| self.get(a), address)
+                AlignmentBehaviour::ErrorOnAlign => {
+                    Err(MemoryAlign(MemoryAlignment::Half, address))
                 }
-            }
+                AlignmentBehaviour::SlowReadOnAlign => dispatch_get_u16(|a| self.get(a), address),
+            };
         }
 
         let (section, index) = split(address);
@@ -211,11 +216,11 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
     fn get_u32(&self, address: u32) -> Result<u32> {
         if address % 4 != 0 {
             return match self.alignment_behaviour {
-                AlignmentBehaviour::ErrorOnAlign => Err(MemoryAlign(MemoryAlignment::Word, address)),
-                AlignmentBehaviour::SlowReadOnAlign => {
-                    dispatch_get_u32(|a| self.get(a), address)
+                AlignmentBehaviour::ErrorOnAlign => {
+                    Err(MemoryAlign(MemoryAlignment::Word, address))
                 }
-            }
+                AlignmentBehaviour::SlowReadOnAlign => dispatch_get_u32(|a| self.get(a), address),
+            };
         }
 
         let (section, index) = split(address);
@@ -245,11 +250,13 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
     fn set_u16(&mut self, address: u32, value: u16) -> Result<()> {
         if address % 2 != 0 {
             return match self.alignment_behaviour {
-                AlignmentBehaviour::ErrorOnAlign => Err(MemoryAlign(MemoryAlignment::Half, address)),
+                AlignmentBehaviour::ErrorOnAlign => {
+                    Err(MemoryAlign(MemoryAlignment::Half, address))
+                }
                 AlignmentBehaviour::SlowReadOnAlign => {
                     dispatch_set_u16(|a, b| self.set(a, b), address, value)
                 }
-            }
+            };
         }
 
         let (section, index) = split(address);
@@ -283,11 +290,13 @@ impl<T: ListenResponder> Memory for SectionMemory<T> {
     fn set_u32(&mut self, address: u32, value: u32) -> Result<()> {
         if address % 4 != 0 {
             return match self.alignment_behaviour {
-                AlignmentBehaviour::ErrorOnAlign => Err(MemoryAlign(MemoryAlignment::Word, address)),
+                AlignmentBehaviour::ErrorOnAlign => {
+                    Err(MemoryAlign(MemoryAlignment::Word, address))
+                }
                 AlignmentBehaviour::SlowReadOnAlign => {
                     dispatch_set_u32(|a, b| self.set(a, b), address, value)
                 }
-            }
+            };
         }
 
         let (section, index) = split(address);

@@ -1,4 +1,4 @@
 pub mod disassemble;
-pub mod memory;
 pub mod error;
+pub mod memory;
 pub use memory::Memory;
