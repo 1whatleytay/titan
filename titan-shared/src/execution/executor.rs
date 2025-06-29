@@ -1,8 +1,4 @@
 use crate::cpu::error::Error;
-// use crate::cpu::registers::registers::RawRegisters;
-// use crate::cpu::registers::WhichRegister::Pc;
-// use crate::cpu::state::Registers;
-// use crate::cpu::{Memory, State};
 use crate::cpu::Memory;
 use crate::cpu::error::Result;
 use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Running};
