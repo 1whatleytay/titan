@@ -50,17 +50,26 @@ impl<Mem: Memory, Reg: Registers> State<Mem, Reg> {
 
     pub fn step(&mut self) -> Result<()> {
         let start = self.registers.get(Pc);
-        let instruction = self.memory.get_u32(start)?;
+
+        // We want to be able to read the "last u16" at the end of a section.
+        let instruction = match self.memory.get_u32(start) {
+            Ok(value) => value,
+            Err(err) => self.memory.get_u16(start)
+                .map(|value| value as u32)
+                .map_err(|_| err)?, // Transparent u16 readings.
+        };
 
         let (result, size) = self.dispatch(instruction)
             .unwrap_or((Err(CpuInvalid(instruction)), InstructionSize::Regular));
 
+        // Pass the error upwards. Our PC should still be in the right spot.
+        result?;
+
+        // Even if a jump occurred, we will increment the PC.
+        // Maybe in the future,
         self.registers.step_pc(size);
 
-        result
-            .inspect_err(|_| self.registers.set(Pc, start)); // if error, keep pc here
-
-        todo!(); // more cleverness is needed for handling size a step_pc properly
+        Ok(())
     }
 }
 
@@ -73,7 +82,7 @@ impl<Mem: Memory, Reg: Registers> Decoder<Result<()>> for State<Mem, Reg> {
     }
 
     fn auipc(&mut self, rd: u8, imm_upper: u32) -> Result<()> {
-        let result = self.registers.get(Pc) + (imm_upper << 12);
+        let result = self.registers.get(Pc).wrapping_add(imm_upper << 12);
 
         self.set_reg(rd, result);
 

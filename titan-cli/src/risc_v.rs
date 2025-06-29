@@ -1,11 +1,18 @@
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use anyhow::anyhow;
+use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
 use titan::elf::Elf;
 use titan::execution::elf::inspection::Inspection;
+use titan::execution::executor::{Executor, ExecutorMode};
+use titan::execution::trackers::empty::EmptyTracker;
 use titan::riscv::assembler::string::assemble_from_path;
 use titan::riscv::cpu::disassemble::RiscVInspectionDisassembler;
+use titan::riscv::cpu::registers::registers::RawRegisters;
+use titan::riscv::cpu::State;
+use titan::riscv::execution::elf::setup::create_simple_state;
 use crate::arguments::{Command, RiscVConfig};
 
 pub fn run_risc_v(config: &RiscVConfig) -> anyhow::Result<()> {
@@ -53,7 +60,25 @@ pub fn run_risc_v(config: &RiscVConfig) -> anyhow::Result<()> {
     match config.command {
         Command::Build { .. } => {}
         Command::Run { .. } | Command::Test { .. } => {
-            return Err(anyhow!("RISC-V does not yet support running binaries."))
+            let elf: Elf = binary.create_elf();
+            
+            let instant = Instant::now();
+            
+            let state: State<SectionMemory<DefaultResponder>, RawRegisters> =
+                create_simple_state(&elf, 0x100000);
+            let debugger = Executor::new(state, EmptyTracker);
+            
+            debugger.override_mode(ExecutorMode::Running);
+            
+            let frame = debugger.run(false);
+            
+            let end = instant.elapsed();
+            
+            println!(
+                "Running finished in {}ms with mode: {:?}.",
+                end.as_millis(),
+                frame.mode
+            );
         }
         _ => panic!("Unhandled command!")
     }

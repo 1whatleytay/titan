@@ -6,12 +6,12 @@ use anyhow::anyhow;
 use titan::cpu::memory::section::{DefaultResponder, SectionMemory};
 use titan::elf::Elf;
 use titan::execution::elf::inspection::Inspection;
+use titan::execution::executor::Executor;
 use titan::mips::assembler::string::assemble_from_path;
 use titan::mips::cpu::disassemble::MipsInspectionDisassembler;
 use titan::mips::cpu::registers::registers::RawRegisters;
 use titan::mips::cpu::State;
 use titan::mips::execution::elf::setup::create_simple_state;
-use titan::mips::execution::Executor;
 use titan::mips::execution::trackers::empty::EmptyTracker;
 use crate::arguments::{Command, MipsConfig};
 
@@ -66,7 +66,7 @@ pub fn run_mips(config: &MipsConfig) -> anyhow::Result<()> {
 
             let state: State<SectionMemory<DefaultResponder>, RawRegisters> =
                 create_simple_state(&elf, 0x100000);
-            let debugger = Executor::new(state, EmptyTracker {});
+            let debugger = Executor::new(state, EmptyTracker);
 
             let frame = debugger.run(false);
 

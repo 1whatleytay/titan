@@ -1,4 +1,5 @@
 use num_traits::ToPrimitive;
+use titan_shared::cpu::memory::section::AlignmentBehaviour;
 use crate::assembler::registers::RegisterSlot;
 use crate::cpu::memory::section::{ListenResponder, SectionMemory};
 use crate::cpu::memory::Mountable;
@@ -13,7 +14,7 @@ pub fn create_simple_state<T: ListenResponder>(
     elf: &Elf,
     heap_size: u32,
 ) -> State<SectionMemory<T>, RawRegisters> {
-    let mut memory = SectionMemory::new();
+    let mut memory = SectionMemory::new_with_align(AlignmentBehaviour::SlowReadOnAlign);
 
     for header in &elf.program_headers {
         let region = Region {

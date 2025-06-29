@@ -10,7 +10,6 @@ pub struct RegisterEntry(pub WhichRegister, pub u32);
 #[derive(Clone, Default)]
 pub struct WatchedRegisters {
     pub backing: RawRegisters,
-    pub step_size: InstructionSize,
     pub log: SmallVec<[RegisterEntry; REGISTER_LOG_SIZE]>,
 }
 
@@ -35,15 +34,19 @@ impl Registers for WatchedRegisters {
 
     #[inline]
     fn step_pc(&mut self, size: InstructionSize) {
-        self.step_size = size;
-        self.backing.step_pc(size);
-    }
+        // If we aren't just using a typical regular jump, our back step will be different.
+        if !matches!(size, InstructionSize::Regular) {
+            self.log.push(RegisterEntry(WhichRegister::Pc, self.backing.pc))
+        }
 
-    fn raw(&self) -> RawRegisters {
-        self.backing.clone()
+        self.backing.step_pc(size);
     }
 
     fn clear(&mut self) {
         self.log.clear();
+    }
+
+    fn raw(&self) -> RawRegisters {
+        self.backing.clone()
     }
 }

@@ -365,6 +365,7 @@ dependencies = [
  "num",
  "num-derive",
  "num-traits",
+ "parking_lot",
  "smallvec",
  "titan_shared",
 ]
@@ -378,6 +379,7 @@ dependencies = [
  "num",
  "num-derive",
  "num-traits",
+ "parking_lot",
  "smallvec",
  "typed-arena",
 ]

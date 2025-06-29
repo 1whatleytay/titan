@@ -1,6 +1,6 @@
 use titan_shared::utilities::bitwise::{pick_bits, sign_extend};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub enum InstructionSize {
     Compressed, // 16-bit
     #[default]

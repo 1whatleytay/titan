@@ -2,9 +2,9 @@ use crate::cpu::memory::watched::{WatchEntry, WatchedMemory, LOG_SIZE};
 use crate::cpu::registers::watched::REGISTER_LOG_SIZE;
 use crate::cpu::registers::{RegisterEntry, Registers, WatchedRegisters, WhichRegister};
 use crate::cpu::{Memory, State};
-use crate::execution::trackers::Tracker;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
+use titan_shared::execution::trackers::tracker::Tracker;
 use WhichRegister::Pc;
 
 impl RegisterEntry {
@@ -67,7 +67,7 @@ impl HistoryTracker {
     }
 }
 
-impl<Mem: Memory> Tracker<WatchedMemory<Mem>, WatchedRegisters> for HistoryTracker {
+impl<Mem: Memory> Tracker<State<WatchedMemory<Mem>, WatchedRegisters>> for HistoryTracker {
     fn pre_track(&mut self, _state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {}
 
     fn post_track(&mut self, state: &mut State<WatchedMemory<Mem>, WatchedRegisters>) {

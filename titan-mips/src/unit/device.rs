@@ -30,6 +30,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fs, thread};
 use StopCondition::{Label, MaybeLabel};
+use crate::cpu::registers::registers::RawRegisters;
 
 pub type MemoryType = WatchedMemory<SectionMemory<DefaultResponder>>;
 pub type RegisterType = WatchedRegisters;
@@ -53,7 +54,7 @@ impl Display for MakeUnitDeviceError {
 impl Error for MakeUnitDeviceError {}
 
 pub struct UnitDevice {
-    pub executor: Arc<Executor<MemoryType, RegisterType, TrackerType>>,
+    pub executor: Arc<Executor<State<MemoryType, RegisterType>, TrackerType>>,
     pub binary: Binary,
     pub finished_pcs: Vec<u32>,
     pub syscall_handler: Option<Box<dyn Fn()>>,
@@ -442,7 +443,7 @@ impl UnitDevice {
 
     pub fn handle_frame(
         &self,
-        frame: &DebugFrame,
+        frame: &DebugFrame<RawRegisters>,
         complete_error: bool,
     ) -> Result<bool, UnitDeviceError> {
         match frame.mode {
@@ -453,13 +454,13 @@ impl UnitDevice {
                     if let Some(handler) = self.handlers.get(&v0) {
                         handler();
 
-                        self.executor.syscall_handled();
+                        self.executor.syscall_handled(4);
 
                         Ok(false)
                     } else if let Some(handler) = &self.syscall_handler {
                         handler();
 
-                        self.executor.syscall_handled();
+                        self.executor.syscall_handled(4);
 
                         Ok(false)
                     } else {

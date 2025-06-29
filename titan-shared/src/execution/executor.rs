@@ -1,13 +1,15 @@
 use crate::cpu::error::Error;
-use crate::cpu::registers::registers::RawRegisters;
-use crate::cpu::registers::WhichRegister::Pc;
-use crate::cpu::state::Registers;
-use crate::cpu::{Memory, State};
+// use crate::cpu::registers::registers::RawRegisters;
+// use crate::cpu::registers::WhichRegister::Pc;
+// use crate::cpu::state::Registers;
+// use crate::cpu::{Memory, State};
 use crate::execution::executor::ExecutorMode::{Breakpoint, Invalid, Paused, Running};
 use crate::execution::trackers::empty::EmptyTracker;
-use crate::execution::trackers::Tracker;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use crate::cpu::Memory;
+use crate::cpu::error::Result;
+use crate::execution::trackers::tracker::Tracker;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ExecutorMode {
@@ -20,28 +22,39 @@ pub enum ExecutorMode {
 // Addresses
 type Breakpoints = HashSet<u32>;
 
-pub struct ExecutorState<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> {
+pub trait ExecutableState<Reg, Mem: Memory> {
+    fn pc(&self) -> u32;
+    fn set_pc(&mut self, value: u32);
+
+    fn registers(&self) -> Reg;
+
+    fn memory_mut(&mut self) -> &mut Mem;
+
+    fn step(&mut self) -> Result<()>;
+}
+
+pub struct ExecutorState<State, Track: Tracker<State>> {
     mode: ExecutorMode,
 
-    state: State<Mem, Reg>,
+    state: State,
     breakpoints: Breakpoints,
     batch: usize,
 
     tracker: Track,
 }
 
-pub struct Executor<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> {
-    mutex: parking_lot::Mutex<ExecutorState<Mem, Reg, Track>>,
+pub struct Executor<State, Track: Tracker<State>> {
+    mutex: parking_lot::Mutex<ExecutorState<State, Track>>,
 }
 
 #[derive(Debug)]
-pub struct DebugFrame {
+pub struct DebugFrame<Reg> {
     pub mode: ExecutorMode,
-    pub registers: RawRegisters,
+    pub registers: Reg,
 }
 
-impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> ExecutorState<Mem, Reg, Track> {
-    fn new(state: State<Mem, Reg>, tracker: Track) -> ExecutorState<Mem, Reg, Track> {
+impl<State, Track: Tracker<State>> ExecutorState<State, Track> {
+    fn new(state: State, tracker: Track) -> Self {
         ExecutorState {
             mode: Paused,
             state,
@@ -51,17 +64,17 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> ExecutorState<Mem, R
         }
     }
 
-    pub fn frame(&self) -> DebugFrame {
+    pub fn frame<Reg, Mem: Memory>(&self) -> DebugFrame<Reg> where State: ExecutableState<Reg, Mem> {
         DebugFrame {
             mode: self.mode,
-            registers: self.state.registers.raw(),
+            registers: self.state.registers(),
         }
     }
 
     // Returns true if the CPU was interrupted.
     // If true, see self.frame() for details (ex. the mode)
-    pub fn cycle(&mut self, no_breakpoints: bool) -> bool {
-        if !no_breakpoints && self.breakpoints.contains(&self.state.registers.get(Pc)) {
+    pub fn cycle<Reg, Mem: Memory>(&mut self, no_breakpoints: bool) -> bool where State: ExecutableState<Reg, Mem> {
+        if !no_breakpoints && self.breakpoints.contains(&self.state.pc()) {
             self.mode = Breakpoint;
 
             return true;
@@ -89,20 +102,20 @@ pub struct BatchResult {
     pub interrupted: bool,
 }
 
-impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, Track> {
-    pub fn new(state: State<Mem, Reg>, tracker: Track) -> Executor<Mem, Reg, Track> {
+impl<State, Track: Tracker<State>> Executor<State, Track> {
+    pub fn new(state: State, tracker: Track) -> Self {
         Executor {
             mutex: parking_lot::Mutex::new(ExecutorState::new(state, tracker)),
         }
     }
 
-    pub fn from_state(state: State<Mem, Reg>) -> Executor<Mem, Reg, EmptyTracker> {
+    pub fn from_state(state: State) -> Executor<State, EmptyTracker> {
         Executor {
-            mutex: parking_lot::Mutex::new(ExecutorState::new(state, EmptyTracker {})),
+            mutex: parking_lot::Mutex::new(ExecutorState::new(state, EmptyTracker)),
         }
     }
 
-    pub fn frame(&self) -> DebugFrame {
+    pub fn frame<Reg, Mem: Memory>(&self) -> DebugFrame<Reg> where State: ExecutableState<Reg, Mem> {
         self.mutex.lock().frame()
     }
 
@@ -114,16 +127,16 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, T
         self.mutex.lock().mode = mode
     }
 
-    pub fn with_state<T, F: FnOnce(&mut State<Mem, Reg>) -> T>(&self, f: F) -> T {
+    pub fn with_state<T, F: FnOnce(&mut State) -> T>(&self, f: F) -> T {
         let mut lock = self.mutex.lock();
 
         f(&mut lock.state)
     }
 
-    pub fn with_memory<T, F: FnOnce(&mut Mem) -> T>(&self, f: F) -> T {
+    pub fn with_memory<T, Reg, Mem: Memory, F: FnOnce(&mut Mem) -> T>(&self, f: F) -> T where State: ExecutableState<Reg, Mem> {
         let mut lock = self.mutex.lock();
 
-        f(&mut lock.state.memory)
+        f(lock.state.memory_mut())
     }
 
     pub fn with_tracker<T, F: FnOnce(&mut Track) -> T>(&self, f: F) -> T {
@@ -132,15 +145,16 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, T
         f(&mut lock.tracker)
     }
 
-    pub fn syscall_handled(&self) {
+    // Instruction Size - What to add to PC to get the next instruction.
+    pub fn syscall_handled<Reg, Mem: Memory>(&self, instruction_size: u32) where State: ExecutableState<Reg, Mem> {
         let mut lock = self.mutex.lock();
 
         if let Invalid(_) = lock.mode {
             lock.mode = Running
         }
 
-        let new_pc = lock.state.registers.get(Pc) + 4;
-        lock.state.registers.set(Pc, new_pc);
+        let new_pc = lock.state.pc() + instruction_size; // !
+        lock.state.set_pc(new_pc);
     }
 
     pub fn set_breakpoints(&self, breakpoints: Breakpoints) {
@@ -150,7 +164,7 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, T
     }
 
     // Returns true if CPU was interrupted.
-    pub fn cycle(&self, no_breakpoints: bool) -> bool {
+    pub fn cycle<Reg, Mem: Memory>(&self, no_breakpoints: bool) -> bool where State: ExecutableState<Reg, Mem> {
         self.mutex.lock().cycle(no_breakpoints)
     }
 
@@ -159,12 +173,12 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, T
     }
 
     // Returns true if the CPU was interrupted.
-    pub fn run_batched(
+    pub fn run_batched<Reg, Mem: Memory>(
         &self,
         batch: usize,
         mut skip_first_breakpoint: bool,
         allow_interrupt: bool,
-    ) -> BatchResult {
+    ) -> BatchResult where State: ExecutableState<Reg, Mem> {
         let mut value = self.mutex.lock();
 
         let mut instructions_executed = 0;
@@ -195,7 +209,7 @@ impl<Mem: Memory, Reg: Registers, Track: Tracker<Mem, Reg>> Executor<Mem, Reg, T
         }
     }
 
-    pub fn run(&self, mut skip_first_breakpoint: bool) -> DebugFrame {
+    pub fn run<Reg, Mem: Memory>(&self, mut skip_first_breakpoint: bool) -> DebugFrame<Reg> where State: ExecutableState<Reg, Mem> {
         let batch = self.mutex.lock().batch;
 
         while !self
